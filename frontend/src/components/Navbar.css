@@ -1,0 +1,99 @@
+/* Absolute + transparent while at the top, so it floats over the hero image
+   without ever overlapping the hero's vertically-centered heading (their
+   relative document position never changes, so no scroll amount can bring
+   them together). Past SOLID_SCROLL_THRESHOLD, Navbar.jsx adds
+   .navbar--solid, switching it to a pinned, solid-backed bar instead - once
+   scrolled that far there's no hero image left to blend into anyway, and a
+   solid backing keeps it from clashing with page text underneath. */
+.navbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 40px;
+  background: transparent;
+  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.navbar--solid {
+  position: fixed;
+  background: var(--brand-dark);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+.navbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--white);
+  font-family: var(--sans);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.navbar__logo {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.navbar__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 24px;
+  font-size: 15px;
+}
+
+.navbar__links a,
+.navbar__links button {
+  text-decoration: none;
+  color: var(--white);
+  font-family: var(--sans);
+  font-size: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.navbar__links a:hover,
+.navbar__links a.active,
+.navbar__links button:hover {
+  opacity: 0.8;
+}
+
+.navbar__cta.navbar__cta {
+  padding: 8px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+}
+
+.navbar__user {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .navbar {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 14px 20px;
+  }
+  .navbar__links {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 14px 20px;
+  }
+}
