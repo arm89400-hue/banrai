@@ -33,7 +33,9 @@ services:
       # compose network the database is reachable at the service name.
       DATABASE_URL: postgresql://postgres:postgres@db:5432/test_y4
     ports:
-      - "4000:4000"
+      # Host port 4001, not 4000 - avoids clashing with other local
+      # projects already publishing 4000. The container still listens on 4000.
+      - "4001:4000"
     depends_on:
       db:
         condition: service_healthy
@@ -45,7 +47,11 @@ services:
         # The browser (not the container) calls this URL, so it must be
         # reachable from the host - the backend's published port, not the
         # internal service name.
-        VITE_API_URL: http://localhost:4000
+        VITE_API_URL: http://localhost:4001
+        # Google sign-in button. Read from GOOGLE_CLIENT_ID in the .env file
+        # next to this compose file (must match backend/.env's value).
+        # Baked in at build time: after changing it, rebuild the frontend.
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     restart: unless-stopped
     ports:
       - "5173:80"

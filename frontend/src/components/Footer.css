@@ -1,0 +1,139 @@
+/* Two bands, like a classic travel-site footer: light link columns on
+   top, then a dark band with the legal lines and the channel row. */
+.footer {
+  --footer-dark: hsl(150, 18%, 12%);
+  --footer-dark-text: rgba(255, 255, 255, 0.82);
+  --footer-dark-muted: rgba(255, 255, 255, 0.55);
+}
+
+/* ---- Link columns ---- */
+.footer__top {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, 1fr);
+  gap: 32px 40px;
+  padding: 56px max(24px, calc((100% - 1100px) / 2)) 48px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
+.footer__brand {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+.footer__name {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--brand-dark);
+}
+.footer__place {
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+.footer__brand p {
+  max-width: 260px;
+  margin-top: 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.footer__col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.footer__col h2 {
+  margin-bottom: 4px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-h);
+}
+.footer__col a {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color var(--dur-fast);
+}
+.footer__col a:hover {
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---- Dark legal band ---- */
+.footer__bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 36px;
+  padding: 44px 24px 40px;
+  background: var(--footer-dark);
+  color: var(--footer-dark-text);
+  text-align: center;
+}
+
+.footer__legal {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+.footer__legal p + p {
+  color: var(--footer-dark-muted);
+}
+
+.footer__channels {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px 56px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.footer__channels a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--footer-dark-muted);
+  text-decoration: none;
+  transition: color var(--dur-fast);
+}
+.footer__channels a:hover {
+  color: var(--white);
+}
+.footer :focus-visible {
+  outline-offset: 4px;
+}
+.footer__bottom :focus-visible {
+  outline-color: var(--white);
+}
+
+@media (max-width: 800px) {
+  .footer__top {
+    grid-template-columns: 1fr 1fr;
+    padding-top: 40px;
+  }
+  .footer__brand {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 420px) {
+  .footer__top {
+    grid-template-columns: 1fr;
+  }
+}

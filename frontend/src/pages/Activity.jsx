@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { formatBaht } from '../lib/money';
 
 // Public page listing all on-site activities available to book.
 export default function Activity() {
@@ -20,7 +21,7 @@ export default function Activity() {
       <ul>
         {activities.map((activity) => (
           <li key={activity.id}>
-            <strong>{activity.name}</strong> - ${activity.price}
+            <strong>{activity.name}</strong> - {formatBaht(activity.price)}
             {activity.description && <p>{activity.description}</p>}
           </li>
         ))}

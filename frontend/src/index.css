@@ -11,6 +11,16 @@
   --error: hsl(0, 70%, 45%);
   --white: #ffffff;
   --shadow: hsla(0, 0%, 0%, 0.15) 0 10px 30px -10px;
+  --shadow-lg: hsla(150, 30%, 10%, 0.22) 0 22px 44px -14px;
+  --brand-soft: hsl(150, 30%, 93%);
+  --success: hsl(145, 55%, 36%);
+
+  /* Motion: short durations + one shared easing keep every animation on
+     the site feeling like part of the same system. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 0.18s;
+  --dur: 0.35s;
+  --dur-slow: 0.7s;
 
   --sans: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --serif: Georgia, 'Times New Roman', serif;
@@ -27,6 +37,13 @@
   @media (max-width: 1024px) {
     font-size: 16px;
   }
+}
+
+/* Always reserve the scrollbar's space, so pages that grow or shrink past
+   the window height (e.g. while data loads) don't shift sideways when the
+   scrollbar appears or disappears. */
+html {
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -64,4 +81,35 @@ button {
 img {
   max-width: 100%;
   display: block;
+}
+
+/* Visible keyboard focus everywhere, without showing rings on mouse clicks. */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+
+/* Shared entrance animation. Uses `translate` (not `transform`) so it
+   stacks with any positioning transform on the element. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    translate: 0 24px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* Respect the OS "reduce motion" setting: keep state changes, drop movement. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

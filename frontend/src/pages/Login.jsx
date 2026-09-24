@@ -5,6 +5,10 @@ import { useAuth } from '../context/AuthContext';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
+// Where to land after signing in: admins go to their dashboard, everyone
+// else to their bookings.
+const homeFor = (user) => (user?.is_admin ? '/admin' : '/booking');
+
 // Combined login/register page, plus "Login with Google". Redirects away
 // if already signed in.
 export default function Login() {
@@ -33,7 +37,7 @@ export default function Login() {
           body: JSON.stringify({ credential: response.credential }),
         });
         login(data.token, data.user);
-        navigate('/booking');
+        navigate(homeFor(data.user));
       } catch (err) {
         setError(err.message);
       }
@@ -65,7 +69,7 @@ export default function Login() {
   }, [user]);
 
   if (user) {
-    return <Navigate to="/booking" replace />;
+    return <Navigate to={homeFor(user)} replace />;
   }
 
   // Stand-in for the real Google button when no Client ID is configured -
@@ -75,7 +79,7 @@ export default function Login() {
   }
 
   // Handles both modes: in "register" mode it creates the account first,
-  // then either way logs in and redirects to the bookings page.
+  // then either way logs in and redirects (see homeFor above).
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
@@ -86,7 +90,7 @@ export default function Login() {
       }
       const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify(form) });
       login(data.token, data.user);
-      navigate('/booking');
+      navigate(homeFor(data.user));
     } catch (err) {
       setError(err.message);
     } finally {
