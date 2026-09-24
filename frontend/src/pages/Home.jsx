@@ -1,9 +1,30 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import { formatBaht } from '../lib/money';
 import { useAuth } from '../context/AuthContext';
 import DateRangePicker from '../components/DateRangePicker';
 import './Home.css';
+
+// Calendar-with-plus icon for the room card's book button.
+function BookIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18M12 14v5M9.5 16.5h5" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
 
 // Public landing page: full-bleed hero with a quick-search bar (dates +
 // guests) over the property photo, followed by a grid of available rooms
@@ -116,10 +137,21 @@ export default function Home() {
         <h2>Available Rooms</h2>
         {error && <p role="alert">{error}</p>}
         <div className="rooms-grid">
-          {rooms.map((room) => {
+          {rooms.map((room, index) => {
             const state = bookingState[room.id];
+            // The book button is icon-only, so this doubles as its tooltip
+            // and screen-reader label.
+            let bookLabel = user ? 'Book this room' : 'Log in to book';
+            if (!hasRange) bookLabel = 'Pick check-in and check-out dates above first';
+            else if (state?.status === 'booking') bookLabel = 'Booking…';
+            else if (state?.status === 'booked') bookLabel = 'Booked';
             return (
-              <article key={room.id} className="room-card">
+              <article
+                key={room.id}
+                className="room-card"
+                // Purely visual: staggers each card's entrance animation.
+                style={{ '--i': index % 6 }}
+              >
                 <div className="room-card__image">
                   <img
                     src={room.image_url || `/images/rooms/room-${room.id}.jpg`}
@@ -133,27 +165,20 @@ export default function Home() {
                   <h3>{room.name}</h3>
                   {room.description && <p>{room.description}</p>}
                   <div className="room-card__footer">
-                    <span className="room-card__price">${room.price} / night</span>
+                    <span className="room-card__price">{formatBaht(room.price)} / night</span>
                     {room.capacity && <span>Up to {room.capacity} guests</span>}
                   </div>
 
                   <button
                     type="button"
-                    className="room-card__book"
+                    className={`room-card__book${state?.status === 'booking' ? ' room-card__book--busy' : ''}${state?.status === 'booked' ? ' room-card__book--done' : ''}`}
                     disabled={!hasRange || state?.status === 'booking' || state?.status === 'booked'}
-                    title={!hasRange ? 'Pick check-in and check-out dates above first' : undefined}
+                    title={bookLabel}
+                    aria-label={bookLabel}
                     onClick={() => handleBookRoom(room)}
                   >
-                    {state?.status === 'booking' && 'Booking…'}
-                    {state?.status === 'booked' && 'Booked ✓'}
-                    {(!state || state.status === 'error') &&
-                      (user ? 'Book this room' : 'Log in to book')}
+                    {state?.status === 'booked' ? <CheckIcon /> : <BookIcon />}
                   </button>
-                  {!hasRange && (
-                    <p className="room-card__hint">
-                      Select check-in and check-out dates above to book
-                    </p>
-                  )}
                   {state?.status === 'error' && (
                     <p className="room-card__error" role="alert">
                       {state.message}
@@ -164,7 +189,7 @@ export default function Home() {
             );
           })}
           {!error && rooms.length === 0 && (
-            <p>{hasRange ? 'No rooms available for these dates.' : 'No rooms published yet.'}</p>
+            <p className="rooms-empty">{hasRange ? 'No rooms available for these dates.' : 'No rooms published yet.'}</p>
           )}
         </div>
       </section>

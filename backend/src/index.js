@@ -7,6 +7,7 @@ import { bookingRouter } from './routes/booking.js';
 import { activityRouter } from './routes/activity.js';
 import { roomRouter } from './routes/room.js';
 import { contactRouter } from './routes/contact.js';
+import { adminRouter } from './routes/admin.js';
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use('/api/bookings', bookingRouter);
 app.use('/api/activities', activityRouter);
 app.use('/api/rooms', roomRouter);
 app.use('/api/contact', contactRouter);
+app.use('/api/admin', adminRouter);
 
 // Catch-all error handler: logs any error thrown/rejected by a route
 // handler and responds with a generic 500 instead of leaking a stack trace.
