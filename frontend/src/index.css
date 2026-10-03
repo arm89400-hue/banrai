@@ -22,8 +22,8 @@
   --dur: 0.35s;
   --dur-slow: 0.7s;
 
-  --sans: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --serif: Georgia, 'Times New Roman', serif;
+  --sans: -apple-system, 'Segoe UI', Roboto, 'Noto Sans Thai', Helvetica, Arial, sans-serif;
+  --serif: Georgia, 'Noto Serif Thai', 'Times New Roman', serif;
 
   font: 18px/145% var(--sans);
   color-scheme: light;
@@ -81,6 +81,16 @@ button {
 img {
   max-width: 100%;
   display: block;
+}
+
+/* Thai: wide letter-spacing (used on small uppercase labels) splits Thai
+   vowel and tone marks from their consonants, so tighten it. */
+html:lang(th) .info-eyebrow,
+html:lang(th) .know__label,
+html:lang(th) .footer__col h2,
+html:lang(th) .admin__eyebrow,
+html:lang(th) .hero__content h1:first-child:not(:only-of-type) {
+  letter-spacing: 0.02em;
 }
 
 /* Visible keyboard focus everywhere, without showing rings on mouse clicks. */

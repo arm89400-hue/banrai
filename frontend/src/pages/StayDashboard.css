@@ -1,0 +1,225 @@
+/* Room dashboard (/stay), for the temporary account of a confirmed stay.
+   Shared pieces live in BookingBits.css. */
+.stay__head {
+  margin-bottom: 26px;
+  animation: fade-up var(--dur-slow) var(--ease-out) both;
+}
+.stay__eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+html:lang(th) .stay__eyebrow {
+  letter-spacing: 0.02em;
+}
+.stay__head h1 {
+  font-size: 32px;
+  margin-top: 4px;
+}
+/* When the login stops working: the one thing this guest must know. */
+.stay__expiry {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: hsl(44, 92%, 90%);
+  color: hsl(36, 70%, 25%);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.stay__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.stay-card {
+  padding: 24px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  animation: fade-up var(--dur-slow) var(--ease-out) both;
+}
+.stay-card h2 {
+  margin-bottom: 14px;
+  font-size: 20px;
+}
+
+/* The stay itself: full width, photo beside the details. */
+.stay-room {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+  padding: 0;
+  overflow: hidden;
+}
+/* The photo fills whatever height the details need, rather than its own
+   (tall) height stretching the card. */
+.stay-room__photo {
+  position: relative;
+  min-height: 280px;
+  background: linear-gradient(135deg, var(--bg-alt), var(--brand-soft));
+}
+.stay-room__photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.stay-room__body {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding: 26px 28px;
+}
+.stay-room__title {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.stay-room__title h2 {
+  margin: 0;
+  font-size: 28px;
+}
+.stay-room__title p {
+  font-weight: 600;
+  color: var(--brand);
+}
+
+.stay-times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-radius: 14px;
+  background: var(--brand-dark);
+  color: var(--white);
+}
+.stay-times > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.stay-times > div + div {
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+}
+.stay-times strong {
+  font-family: var(--serif);
+  font-size: 20px;
+  color: var(--white);
+}
+
+.stay-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+}
+.stay-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.stay-list dt {
+  flex: none;
+  color: var(--text-muted);
+}
+.stay-list dd {
+  margin: 0;
+  text-align: right;
+}
+
+.stay-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stay-chips li {
+  padding: 6px 13px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 14px;
+}
+
+.stay-rules {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+}
+.stay-rules li {
+  position: relative;
+  padding-left: 20px;
+}
+.stay-rules li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand);
+}
+
+.stay-activities {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stay-activities li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  font-size: 15px;
+}
+.stay-activities span {
+  display: flex;
+  flex-direction: column;
+}
+.stay-activities small {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.stay-activities b {
+  color: var(--brand);
+  white-space: nowrap;
+}
+
+.stay-contact > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 800px) {
+  .stay__grid {
+    grid-template-columns: 1fr;
+  }
+  .stay-room {
+    grid-template-columns: 1fr;
+  }
+  .stay-room__photo {
+    min-height: 220px;
+  }
+  .stay__head h1 {
+    font-size: 26px;
+  }
+}

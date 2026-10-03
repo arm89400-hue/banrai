@@ -1,12 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useLang } from '../i18n/lang';
 import './DateRangePicker.css';
 
-const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
 
 // Formats a Date as a local "YYYY-MM-DD" string (the format checkIn/checkOut
 // are stored/passed around in) - deliberately not toISOString(), which
@@ -51,9 +47,10 @@ function buildMonthGrid(viewMonth) {
   return cells;
 }
 
-// Formats an ISO date string for display in the trigger field, e.g. "Aug 12".
-function formatShort(iso) {
-  return fromISODate(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+// Formats an ISO date string for display in the trigger field, e.g.
+// "Aug 12" / "12 ส.ค.".
+function formatShort(iso, locale) {
+  return fromISODate(iso).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
 
 // Check-in/check-out range picker used in the Home page search bar. Renders
@@ -62,6 +59,7 @@ function formatShort(iso) {
 // range and in-between days highlighted.
 export default function DateRangePicker({ checkIn, checkOut, onChange }) {
   const [open, setOpen] = useState(false);
+  const { t, locale } = useLang();
   const [viewMonth, setViewMonth] = useState(() => {
     const base = checkIn ? fromISODate(checkIn) : new Date();
     return new Date(base.getFullYear(), base.getMonth(), 1);
@@ -112,13 +110,13 @@ export default function DateRangePicker({ checkIn, checkOut, onChange }) {
 
   const cells = buildMonthGrid(viewMonth);
   const label = checkIn
-    ? `${formatShort(checkIn)}${checkOut ? ` – ${formatShort(checkOut)}` : ' – Select check-out'}`
-    : 'Select dates';
+    ? `${formatShort(checkIn, locale)} – ${checkOut ? formatShort(checkOut, locale) : t('date.selectOut')}`
+    : t('date.select');
 
   return (
     <div className="date-range-picker" ref={rootRef}>
       <label>
-        <span>Check-in – Check-out</span>
+        <span>{t('date.label')}</span>
         <button
           type="button"
           className="date-range-picker__trigger"
@@ -133,19 +131,17 @@ export default function DateRangePicker({ checkIn, checkOut, onChange }) {
         <div className="date-range-picker__backdrop" onClick={() => setOpen(false)}>
           <div className="date-range-picker__popup" onClick={(e) => e.stopPropagation()}>
             <div className="date-range-picker__header">
-              <button type="button" onClick={() => shiftMonth(-1)} aria-label="Previous month">
+              <button type="button" onClick={() => shiftMonth(-1)} aria-label={t('date.prev')}>
                 &#8249;
               </button>
-              <span>
-                {MONTH_NAMES[viewMonth.getMonth()]} {viewMonth.getFullYear()}
-              </span>
-              <button type="button" onClick={() => shiftMonth(1)} aria-label="Next month">
+              <span>{viewMonth.toLocaleDateString(locale, { month: 'long', year: 'numeric' })}</span>
+              <button type="button" onClick={() => shiftMonth(1)} aria-label={t('date.next')}>
                 &#8250;
               </button>
             </div>
 
             <div className="date-range-picker__weekdays">
-              {WEEKDAYS.map((d) => (
+              {t('date.weekdays').map((d) => (
                 <span key={d}>{d}</span>
               ))}
             </div>
@@ -189,11 +185,11 @@ export default function DateRangePicker({ checkIn, checkOut, onChange }) {
             <div className="date-range-picker__legend">
               <span>
                 <i className="date-range-picker__swatch date-range-picker__swatch--range" />
-                In range
+                {t('date.inRange')}
               </span>
               <span>
                 <i className="date-range-picker__swatch date-range-picker__swatch--selected" />
-                Selected
+                {t('date.selected')}
               </span>
             </div>
 
@@ -203,7 +199,7 @@ export default function DateRangePicker({ checkIn, checkOut, onChange }) {
               disabled={!checkIn || !checkOut}
               onClick={() => setOpen(false)}
             >
-              Confirm dates
+              {t('date.confirm')}
             </button>
           </div>
         </div>,

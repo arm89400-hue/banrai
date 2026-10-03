@@ -1,0 +1,125 @@
+/* Admin "Chat" section (see AdminChat.jsx): accounts on the left, the open
+   conversation on the right, in one card that fills the window's height. */
+.achat {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  height: calc(100svh - 200px);
+  min-height: 460px;
+  overflow: hidden;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.achat__list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+}
+.achat__list .admin__search {
+  width: auto;
+  margin: 14px;
+}
+.achat__list ul {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.achat__item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 14px 18px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: none;
+  text-align: left;
+  color: var(--text-h);
+  transition: background var(--dur-fast);
+}
+.achat__item:hover {
+  background: var(--bg);
+}
+.achat__item.is-active {
+  background: var(--brand-soft);
+}
+.achat__name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.achat__badge {
+  flex: none;
+  min-width: 24px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--error);
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+.achat__sub,
+.achat__when {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.achat__last {
+  overflow: hidden;
+  font-size: 15px;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.achat__thread {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.achat__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.achat__head strong {
+  display: block;
+  font-size: 19px;
+}
+/* Only needed on small screens, where one pane shows at a time. */
+.achat .achat__back {
+  display: none;
+}
+.achat__pick {
+  margin: auto;
+}
+
+/* Small screens: one pane at a time - the list, or the open conversation. */
+@media (max-width: 900px) {
+  .achat {
+    grid-template-columns: minmax(0, 1fr);
+    height: calc(100svh - 250px);
+  }
+  .achat--open .achat__list,
+  .achat:not(.achat--open) .achat__thread {
+    display: none;
+  }
+  .achat__list {
+    border-right: none;
+  }
+  .achat .achat__back {
+    display: inline-flex;
+  }
+}

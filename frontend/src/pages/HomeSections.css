@@ -1,0 +1,471 @@
+/* Home page info sections. Same vocabulary as the room list above:
+   cream/white bands, serif titles, forest green, one gold accent. */
+
+.info-section {
+  padding: 88px max(24px, calc((100% - 1100px) / 2));
+}
+
+/* Scroll-in, same motion as the room cards. */
+.reveal {
+  animation: fade-up var(--dur-slow) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+@supports (animation-timeline: view()) {
+  .reveal {
+    animation-delay: 0s;
+    animation-timeline: view();
+    animation-range: entry 0% entry 60%;
+  }
+}
+
+.info-header {
+  margin-bottom: 44px;
+  text-align: center;
+}
+.info-eyebrow {
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+.info-title {
+  text-wrap: balance;
+  font-size: 42px;
+  line-height: 1.15;
+}
+.info-lead {
+  max-width: 720px;
+  margin: 18px auto 0;
+  text-wrap: balance;
+  font-size: 19px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+/* Leaf ornament under a centered title (see Sprig in HomeSections.jsx). */
+.sprig {
+  display: block;
+  margin: 14px auto 0;
+  color: var(--brand);
+}
+
+/* ---- Photo tiles (open in the Lightbox) ---- */
+.photo-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--bg-alt);
+  cursor: zoom-in;
+}
+.photo-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+.photo-tile:hover img,
+.photo-tile:focus-visible img {
+  transform: scale(1.06);
+}
+.photo-tile__caption {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 48px 18px 16px;
+  background: linear-gradient(to top, rgba(8, 18, 10, 0.8), transparent);
+  color: var(--white);
+  font-family: var(--sans);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: left;
+}
+/* Caption only on hover/focus, for walls where the photos should lead. */
+.photo-tile--hover .photo-tile__caption {
+  opacity: 0;
+  translate: 0 8px;
+  transition: opacity var(--dur) var(--ease-out), translate var(--dur) var(--ease-out);
+}
+.photo-tile--hover:hover .photo-tile__caption,
+.photo-tile--hover:focus-visible .photo-tile__caption {
+  opacity: 1;
+  translate: 0 0;
+}
+
+/* ---- Life on the farm ---- */
+.farm {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 56px;
+  align-items: center;
+  background: var(--white);
+}
+/* Two photos: the tall one, and a smaller one pinned over its corner like
+   a print. The padding is the room the small one hangs out into. */
+.farm__collage {
+  position: relative;
+  padding: 0 8% 8% 0;
+}
+.farm__photo {
+  aspect-ratio: 4 / 5;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+.farm__inset {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 44%;
+  aspect-ratio: 3 / 4;
+  border: 6px solid var(--white);
+  border-radius: 16px;
+  overflow: hidden;
+  rotate: 3deg;
+  box-shadow: var(--shadow-lg);
+  transition: rotate var(--dur) var(--ease-out);
+}
+.farm__collage:hover .farm__inset {
+  rotate: 0deg;
+}
+.farm__photo img,
+.farm__inset img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.farm__badge {
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: hsl(44, 92%, 58%);
+  color: var(--brand-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+.farm__thai {
+  margin-top: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--brand);
+}
+.farm__lead {
+  margin-top: 18px;
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+.farm__highlights {
+  display: grid;
+  gap: 18px;
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.farm__highlights li {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.farm__highlights li > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+.farm__highlights strong {
+  font-size: 17px;
+  color: var(--text-h);
+}
+.farm__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+/* ---- Life on the farm: fruit / food / grounds as tabs (the dark band) ---- */
+.life {
+  padding-inline: max(24px, calc((100% - 1240px) / 2));
+  background:
+    radial-gradient(circle at 12% 0%, hsla(44, 92%, 58%, 0.12), transparent 40%),
+    var(--brand-dark);
+}
+.life .info-header {
+  margin-bottom: 28px;
+}
+.life .info-title {
+  color: var(--white);
+}
+.life .info-eyebrow,
+.life .sprig {
+  color: hsl(44, 92%, 58%);
+}
+.life :focus-visible {
+  outline-color: hsl(44, 92%, 58%);
+}
+
+.life__tabs {
+  display: flex;
+  gap: 4px;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto 22px;
+  padding: 5px;
+  overflow-x: auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  scrollbar-width: none;
+}
+.life__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: rgba(255, 255, 255, 0.78);
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color var(--dur) var(--ease-out), color var(--dur);
+}
+.life__tab span {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 12px;
+}
+.life__tab:hover {
+  color: var(--white);
+}
+.life__tab.is-active {
+  background: var(--white);
+  color: var(--brand-dark);
+}
+.life__tab.is-active span {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.life__panel {
+  animation: fade-up var(--dur) var(--ease-out) both;
+}
+.life__lead {
+  max-width: 720px;
+  margin: 0 auto 28px;
+  text-align: center;
+  text-wrap: balance;
+  font-size: 17px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Four columns, two rows: a big first photo, four small ones, and the
+   last cell opens the rest. */
+.life__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 230px;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.life__grid li:first-child {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+.life__grid .photo-tile {
+  box-shadow: 0 18px 30px -18px rgba(0, 0, 0, 0.6);
+}
+.life__more {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--brand-dark);
+  cursor: zoom-in;
+}
+.life__more img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.45);
+  transition: filter var(--dur) var(--ease-out);
+}
+.life__more:hover img {
+  filter: brightness(0.6);
+}
+.life__more > span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--white);
+  font-size: 15px;
+  font-weight: 600;
+}
+.life__more strong {
+  font-family: var(--serif);
+  font-size: 38px;
+  line-height: 1;
+}
+
+/* ---- Amenities ---- */
+.amenities {
+  padding-inline: max(24px, calc((100% - 1000px) / 2));
+  background: var(--white);
+}
+.amenities__head {
+  margin-bottom: 28px;
+}
+.amenities .amenity-row:last-child {
+  border-bottom: 1px solid var(--border);
+}
+
+/* One row per amenity group: label on the left, chips on the right. */
+.amenity-row {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 12px 20px;
+  align-items: start;
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+}
+.amenity-row h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+.amenity-row__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.amenity-row ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.amenity-row li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.amenity-tag {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: hsl(44, 92%, 90%);
+  color: hsl(36, 70%, 30%);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .info-section {
+    padding-top: 64px;
+    padding-bottom: 64px;
+  }
+  .farm {
+    grid-template-columns: 1fr;
+  }
+  .amenity-row {
+    grid-template-columns: 1fr;
+  }
+  .farm {
+    gap: 32px;
+  }
+  .farm__collage {
+    padding: 0 0 10%;
+  }
+  .farm__photo {
+    aspect-ratio: 4 / 3;
+  }
+  .farm__inset {
+    right: 14px;
+    width: 32%;
+  }
+  .info-title {
+    font-size: 32px;
+  }
+  .info-eyebrow {
+    font-size: 14px;
+  }
+  .info-lead {
+    font-size: 17px;
+  }
+  .life__grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-auto-rows: 170px;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 560px) {
+  .life__grid {
+    grid-auto-rows: 140px;
+    gap: 10px;
+  }
+  /* Three equal tabs across the full width, so none scrolls out of view. */
+  .life__tabs {
+    width: 100%;
+    gap: 2px;
+  }
+  .life__tab {
+    flex: 1 1 0;
+    justify-content: center;
+    gap: 5px;
+    padding: 9px 6px;
+    font-size: 14px;
+  }
+  .life__tab span {
+    padding: 1px 6px;
+    font-size: 11px;
+  }
+  .photo-tile__caption {
+    padding: 36px 12px 12px;
+    font-size: 16px;
+  }
+}

@@ -1,0 +1,108 @@
+/* Message list + composer (see ChatThread.jsx). Fills whatever box its
+   parent gives it; the list scrolls, the composer stays at the bottom. */
+.chat-thread {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.chat-thread__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  background: var(--bg);
+}
+.chat-thread__empty {
+  margin: auto;
+  max-width: 280px;
+  text-align: center;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+.chat-msg {
+  align-self: flex-start;
+  max-width: 78%;
+  padding: 10px 14px 8px;
+  border: 1px solid var(--border);
+  border-radius: 16px 16px 16px 4px;
+  background: var(--white);
+  color: var(--text-h);
+}
+.chat-msg--mine {
+  align-self: flex-end;
+  border-color: var(--brand);
+  border-radius: 16px 16px 4px 16px;
+  background: var(--brand);
+  color: var(--white);
+}
+.chat-msg p {
+  font-size: 16px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.chat-msg time {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.chat-thread__error {
+  padding: 8px 18px 0;
+  font-size: 14px;
+  color: var(--error);
+}
+.chat-thread__form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 14px;
+  border-top: 1px solid var(--border);
+  background: var(--white);
+}
+.chat-thread__form textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 46px;
+  max-height: 140px;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--text-h);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.4;
+  resize: none;
+  field-sizing: content;
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.chat-thread__form textarea:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+.chat-thread__form button {
+  height: 46px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--white);
+  font-size: 16px;
+  font-weight: 600;
+  transition: background var(--dur-fast);
+}
+.chat-thread__form button:hover {
+  background: var(--brand-hover);
+}
+.chat-thread__form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
