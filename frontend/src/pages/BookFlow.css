@@ -1,0 +1,456 @@
+/* Step-by-step booking (/book). Shared pieces live in BookingBits.css. */
+
+/* ---- Progress ---- */
+.flow-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 0 0 28px;
+  padding: 0;
+  list-style: none;
+}
+.flow-steps__item button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  color: var(--text-muted);
+  font-family: var(--sans);
+}
+.flow-steps__item button:disabled {
+  cursor: default;
+}
+.flow-steps__bar {
+  display: block;
+  height: 5px;
+  border-radius: 5px;
+  background: var(--bg-alt);
+  overflow: hidden;
+}
+.flow-steps__bar::after {
+  content: '';
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--brand);
+  transition: width 0.45s var(--ease-out);
+}
+.flow-steps__item--done .flow-steps__bar::after,
+.flow-steps__item--current .flow-steps__bar::after {
+  width: 100%;
+}
+.flow-steps__item--current .flow-steps__bar::after {
+  background: hsl(44, 92%, 58%);
+}
+.flow-steps__label {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+}
+.flow-steps__item--current .flow-steps__label {
+  font-weight: 700;
+  color: var(--text-h);
+}
+.flow-steps__item--done button:hover .flow-steps__label {
+  color: var(--brand);
+}
+
+/* ---- Layout: step content + summary ---- */
+.flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 24px;
+  align-items: start;
+}
+.flow__main,
+.flow__side {
+  padding: 28px 30px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+}
+.flow__main {
+  animation: fade-up var(--dur) var(--ease-out) both;
+}
+.flow__main h1 {
+  font-size: 26px;
+  margin-bottom: 6px;
+}
+.flow__hint {
+  margin-bottom: 20px;
+  color: var(--text-muted);
+}
+.flow__calendar {
+  max-width: 400px;
+}
+.flow__guests {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 24px;
+}
+.flow__price-note {
+  margin-top: 18px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.flow__nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.flow__side {
+  position: sticky;
+  top: 100px;
+  background: var(--bg);
+  box-shadow: none;
+}
+.flow__side h2 {
+  font-size: 19px;
+  margin-bottom: 16px;
+}
+.flow__side-empty {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.flow-list {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 16px;
+  font-size: 15px;
+}
+.flow-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.flow-list dt {
+  flex: none;
+  color: var(--text-muted);
+}
+.flow-list dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* ---- Step 2: rooms ---- */
+.flow-rooms {
+  display: grid;
+  gap: 12px;
+}
+.flow-room {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  background: var(--white);
+  font-family: var(--sans);
+  text-align: left;
+  color: var(--text);
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.flow-room:hover:not(:disabled) {
+  border-color: var(--brand);
+}
+.flow-room.is-selected {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+.flow-room:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.flow-room__thumb {
+  width: 96px;
+  height: 72px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--bg-alt), var(--brand-soft));
+}
+.flow-room__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.flow-room__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.flow-room__text strong {
+  font-family: var(--serif);
+  font-size: 19px;
+  color: var(--text-h);
+}
+.flow-room__text em {
+  margin-top: 4px;
+  padding: 1px 10px;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+}
+.flow-room__text em.is-free {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.flow-room__text em.is-full {
+  background: hsl(0, 30%, 93%);
+  color: var(--error);
+}
+.flow-room__price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.flow-room__price strong {
+  font-size: 17px;
+  color: var(--brand);
+}
+
+/* ---- Step 3: details ---- */
+.flow__fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 18px;
+}
+.flow__requests {
+  display: grid;
+  gap: 8px;
+  margin: 22px 0 18px;
+  padding: 0;
+  border: none;
+}
+.flow__requests legend {
+  margin-bottom: 8px;
+  padding: 0;
+}
+.flow__requests label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: border-color var(--dur-fast), background-color var(--dur-fast);
+}
+.flow__requests label:has(input:checked) {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.flow__requests input,
+.flow__accept input {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  accent-color: var(--brand);
+}
+/* Pets: a row like the checkboxes, with a counter instead of a tick. */
+.flow__pets {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 15px;
+  transition: border-color var(--dur-fast), background-color var(--dur-fast);
+}
+.flow__pets.is-on {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.flow__pets > span {
+  display: flex;
+  flex-direction: column;
+}
+.flow__pets small {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: normal;
+}
+
+.flow__requests small {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ---- Step 4: review ---- */
+.flow-deposit {
+  margin: 20px 0 18px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: hsl(44, 92%, 93%);
+  color: hsl(36, 60%, 22%);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.flow-deposit__title {
+  font-weight: 700;
+}
+.flow-deposit__amount {
+  font-family: var(--serif);
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+.flow__accept {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 15px;
+  cursor: pointer;
+}
+.flow__accept input {
+  margin-top: 3px;
+}
+
+/* ---- Finished ---- */
+.flow-done {
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 40px 32px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  text-align: center;
+  animation: fade-up var(--dur-slow) var(--ease-out) both;
+}
+.flow-done__icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: var(--success);
+  color: var(--white);
+  font-size: 30px;
+  animation: flow-pop 0.5s var(--ease-out) both;
+}
+.flow-done h1 {
+  font-size: 28px;
+}
+.flow-done__lead {
+  margin-top: 6px;
+  color: var(--text-muted);
+}
+.flow-done__code {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 24px 0 8px;
+  padding: 18px;
+  border: 1.5px dashed var(--brand);
+  border-radius: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.flow-done__code strong {
+  font-size: 30px;
+  letter-spacing: 0.06em;
+  color: var(--brand-dark);
+}
+.flow-done__hint {
+  margin: 14px 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.flow-done .pay-panel {
+  margin-top: 18px;
+}
+/* Room login shown once the deposit is paid. */
+.flow-done__stay {
+  margin-top: 18px;
+  padding: 16px 18px 4px;
+  border-radius: 16px;
+  background: var(--brand-soft);
+  text-align: left;
+}
+.flow-done__stay-title {
+  margin-bottom: 8px;
+  font-weight: 700;
+  color: var(--brand-dark);
+}
+.flow-done__summary {
+  margin-top: 22px;
+  text-align: left;
+}
+.flow-done .price-rows {
+  text-align: left;
+}
+.flow-done__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+@keyframes flow-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .flow {
+    grid-template-columns: 1fr;
+  }
+  .flow__side {
+    position: static;
+  }
+  .flow__main,
+  .flow__side {
+    padding: 22px 18px;
+  }
+  .flow__fields {
+    grid-template-columns: 1fr;
+  }
+  /* Only the current step's name fits on a phone. */
+  .flow-steps__item:not(.flow-steps__item--current) .flow-steps__label {
+    display: none;
+  }
+  .flow-room {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+  .flow-room__thumb {
+    width: 72px;
+    height: 56px;
+  }
+  .flow-room__price {
+    grid-column: 2;
+    align-items: flex-start;
+  }
+  .flow__requests label {
+    flex-wrap: wrap;
+  }
+}

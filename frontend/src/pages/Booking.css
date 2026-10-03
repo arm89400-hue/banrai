@@ -1,0 +1,167 @@
+/* "My bookings" (/booking). Shared pieces live in BookingBits.css. */
+.my-bookings__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.my-bookings__head h1 {
+  font-size: 32px;
+}
+.my-bookings__member {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.my-bookings__member strong {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  letter-spacing: 0.04em;
+}
+
+.my-bookings__results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.my-bookings__empty {
+  color: var(--text-muted);
+}
+
+.my-card {
+  display: grid;
+  gap: 16px;
+  padding: 22px 24px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  animation: fade-up var(--dur) var(--ease-out) both;
+}
+.my-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.my-card h3 {
+  font-size: 22px;
+}
+.my-card__code {
+  margin-top: 2px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--brand);
+}
+.my-card__meta {
+  color: var(--text-muted);
+}
+.my-card__list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+}
+.my-card__list > div,
+.my-card__stay dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.my-card__list dt {
+  flex: none;
+  color: var(--text-muted);
+}
+.my-card__list dd,
+.my-card__stay dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* The generated room-dashboard login, shown once the booking is confirmed. */
+.my-card__stay {
+  padding: 16px 18px;
+  border: 1.5px dashed var(--brand);
+  border-radius: 14px;
+  background: var(--brand-soft);
+  font-size: 14px;
+  color: var(--text);
+}
+.my-card__stay-title {
+  font-weight: 700;
+  color: var(--brand-dark);
+}
+.my-card__stay dl {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+}
+.my-card__stay dt {
+  color: var(--text-muted);
+}
+.my-card__stay dd {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--brand-dark);
+  user-select: all;
+}
+
+.my-card__help {
+  display: grid;
+  gap: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.my-card__help > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* "The property deleted your booking" notice, above the booking cards. */
+.my-notice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding: 20px 24px;
+  background: hsl(0, 70%, 97%);
+  border: 1px solid hsl(0, 60%, 85%);
+  border-left: 5px solid var(--error);
+  border-radius: 16px;
+  color: var(--text);
+  animation: fade-up var(--dur) var(--ease-out) both;
+}
+.my-notice > div {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 280px;
+}
+.my-notice__title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--error);
+}
+.my-notice__what {
+  font-weight: 600;
+  color: var(--text-h);
+}
+.my-notice__meta {
+  font-size: 14px;
+  color: var(--text-muted);
+}

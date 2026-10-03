@@ -1,112 +1,61 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatBaht } from '../lib/money';
-import { useAuth } from '../context/AuthContext';
+import { MAX_GUESTS, promosForRoom, roomMaxGuests, roomNames } from '../lib/booking';
+import { usePromotions } from '../lib/promotions';
+import { PromoTag } from '../components/BookingBits';
+import { useLang } from '../i18n/lang';
 import DateRangePicker from '../components/DateRangePicker';
+import { FARM_PHOTOS, HERO_SLIDES } from '../lib/photos';
+import { Amenities, FarmLife, FarmStory } from './HomeSections';
 import './Home.css';
 
-// Calendar-with-plus icon for the room card's book button.
-function BookIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <path d="M16 2v4M8 2v4M3 10h18M12 14v5M9.5 16.5h5" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12.5l4.5 4.5L19 7.5" />
-    </svg>
-  );
-}
-
 // Public landing page: full-bleed hero with a quick-search bar (dates +
-// guests) over the property photo, followed by a grid of available rooms
-// fetched from the API.
+// guests) over a slideshow of the property, followed by the rooms (a list to
+// compare, with a photo beside it), the farmstay's story, a tabbed gallery
+// of farm life (fruit, food, grounds) and the amenities.
+// Searching starts the booking flow (/book); each room opens its own page
+// (/rooms/:id).
 export default function Home() {
   const [rooms, setRooms] = useState([]);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState({ checkIn: '', checkOut: '', guests: 2 });
-  // Per-room booking status, keyed by room id: 'booking' | 'booked' | 'error'.
-  const [bookingState, setBookingState] = useState({});
-  const { user } = useAuth();
+  const { t } = useLang();
   const navigate = useNavigate();
+  const promotions = usePromotions();
 
-  const hasRange = Boolean(search.checkIn && search.checkOut);
-
-  // Loads the room list on mount, and again whenever the check-in/check-out
-  // range changes - once both are picked, the API excludes any room that's
-  // already booked for an overlapping range, so unavailable rooms simply
-  // don't appear (rather than showing and then rejecting a booking attempt).
+  // Loads the room list once on mount.
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (hasRange) {
-      params.set('checkIn', search.checkIn);
-      params.set('checkOut', search.checkOut);
-    }
-    const qs = params.toString();
-
-    api(`/api/rooms${qs ? `?${qs}` : ''}`)
+    api('/api/rooms')
       .then((data) => setRooms(data.rooms))
       .catch((err) => setError(err.message));
-  }, [search.checkIn, search.checkOut, hasRange]);
+  }, []);
 
-  // Search doesn't need to do anything extra - the effect above already
-  // refetches on date changes - so this just scrolls down to the rooms.
+  // Hands the picked dates and guest count to the booking flow: straight
+  // to the list of available rooms if both dates are set, otherwise to its
+  // first step.
   function handleSearch(e) {
     e.preventDefault();
-    document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth' });
-  }
-
-  // Books the given room for the check-in/check-out range picked in the
-  // search bar (the button is disabled until both are picked - see below).
-  // Sends logged-out visitors to /login instead of booking.
-  async function handleBookRoom(room) {
-    if (!hasRange) return;
-    if (!user) {
-      navigate('/login');
-      return;
+    const query = new URLSearchParams({ guests: String(search.guests) });
+    const hasRange = Boolean(search.checkIn && search.checkOut);
+    if (hasRange) {
+      query.set('in', search.checkIn);
+      query.set('out', search.checkOut);
     }
-
-    setBookingState((s) => ({ ...s, [room.id]: { status: 'booking' } }));
-    try {
-      await api('/api/bookings', {
-        method: 'POST',
-        body: JSON.stringify({
-          room_id: room.id,
-          // Treat the picked calendar dates as UTC midnight directly
-          // (no local Date/toISOString round-trip) so the stay range can't
-          // shift a day depending on the browser's timezone.
-          booked_for: `${search.checkIn}T00:00:00.000Z`,
-          booked_until: `${search.checkOut}T00:00:00.000Z`,
-        }),
-      });
-      setBookingState((s) => ({ ...s, [room.id]: { status: 'booked' } }));
-    } catch (err) {
-      setBookingState((s) => ({ ...s, [room.id]: { status: 'error', message: err.message } }));
-      // Someone else may have just taken this room for these dates (or any
-      // other overlapping range) - refresh so the grid reflects reality
-      // instead of continuing to show a room that just became unavailable.
-      api(`/api/rooms?checkIn=${search.checkIn}&checkOut=${search.checkOut}`)
-        .then((data) => setRooms(data.rooms))
-        .catch(() => {});
-    }
+    query.set('step', hasRange ? '2' : '1');
+    navigate(`/book?${query}`);
   }
 
   return (
     <>
       <section className="hero">
+        <HeroSlides />
         <div className="hero__overlay">
           <div className="hero__content">
-            <h1>Welcome</h1>
-            <h1>Escape to Nature</h1>
-            <p>A quiet homestay retreat in Pak Chong, surrounded by nature.</p>
+            <h1>{t('hero.eyebrow')}</h1>
+            <h1>{t('hero.title')}</h1>
+            <p>{t('hero.lead')}</p>
           </div>
 
           <form className="search-bar" onSubmit={handleSearch}>
@@ -116,83 +65,148 @@ export default function Home() {
               onChange={(dates) => setSearch({ ...search, ...dates })}
             />
             <label>
-              <span>Guests</span>
+              <span>{t('search.guests')}</span>
               <input
                 type="number"
                 min="1"
-                max="4"
+                max={MAX_GUESTS}
                 value={search.guests}
                 onChange={(e) => {
-                  const value = Math.min(4, Math.max(1, Number(e.target.value) || 1));
+                  const value = Math.min(MAX_GUESTS, Math.max(1, Number(e.target.value) || 1));
                   setSearch({ ...search, guests: value });
                 }}
               />
             </label>
-            <button type="submit">Search</button>
+            <button type="submit">{t('search.submit')}</button>
           </form>
         </div>
       </section>
 
-      <section id="rooms" className="rooms-section">
-        <h2>Available Rooms</h2>
-        {error && <p role="alert">{error}</p>}
-        <div className="rooms-grid">
-          {rooms.map((room, index) => {
-            const state = bookingState[room.id];
-            // The book button is icon-only, so this doubles as its tooltip
-            // and screen-reader label.
-            let bookLabel = user ? 'Book this room' : 'Log in to book';
-            if (!hasRange) bookLabel = 'Pick check-in and check-out dates above first';
-            else if (state?.status === 'booking') bookLabel = 'Booking…';
-            else if (state?.status === 'booked') bookLabel = 'Booked';
-            return (
-              <article
-                key={room.id}
-                className="room-card"
-                // Purely visual: staggers each card's entrance animation.
-                style={{ '--i': index % 6 }}
-              >
-                <div className="room-card__image">
-                  <img
-                    src={room.image_url || `/images/rooms/room-${room.id}.jpg`}
-                    alt={room.name}
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                </div>
-                <div className="room-card__body">
-                  <h3>{room.name}</h3>
-                  {room.description && <p>{room.description}</p>}
-                  <div className="room-card__footer">
-                    <span className="room-card__price">{formatBaht(room.price)} / night</span>
-                    {room.capacity && <span>Up to {room.capacity} guests</span>}
-                  </div>
+      <RoomsShowcase rooms={rooms} error={error} promotions={promotions} />
 
-                  <button
-                    type="button"
-                    className={`room-card__book${state?.status === 'booking' ? ' room-card__book--busy' : ''}${state?.status === 'booked' ? ' room-card__book--done' : ''}`}
-                    disabled={!hasRange || state?.status === 'booking' || state?.status === 'booked'}
-                    title={bookLabel}
-                    aria-label={bookLabel}
-                    onClick={() => handleBookRoom(room)}
-                  >
-                    {state?.status === 'booked' ? <CheckIcon /> : <BookIcon />}
-                  </button>
-                  {state?.status === 'error' && (
-                    <p className="room-card__error" role="alert">
-                      {state.message}
-                    </p>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-          {!error && rooms.length === 0 && (
-            <p className="rooms-empty">{hasRange ? 'No rooms available for these dates.' : 'No rooms published yet.'}</p>
-          )}
-        </div>
-      </section>
+      <FarmStory />
+      <FarmLife />
+      <Amenities />
     </>
+  );
+}
+
+// How long each hero photo stays before the next fades in.
+const HERO_SLIDE_MS = 6000;
+
+// Decorative slideshow behind the hero: loops through HERO_SLIDES, one
+// cross-fade every HERO_SLIDE_MS. A photo is only requested just before it
+// is shown, so the page doesn't download all of them up front. With reduced
+// motion it stays on the first photo.
+function HeroSlides() {
+  const [step, setStep] = useState(0); // counts up forever; slide = step % length
+  const active = step % HERO_SLIDES.length;
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = setInterval(() => setStep((s) => s + 1), HERO_SLIDE_MS);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="hero__slides" aria-hidden="true">
+      {HERO_SLIDES.map((src, i) => (
+        <div
+          key={src}
+          className={`hero__slide${i === active ? ' is-active' : ''}`}
+          style={i <= step + 1 ? { backgroundImage: `url(${src})` } : undefined}
+        />
+      ))}
+    </div>
+  );
+}
+
+// The five rooms as one list to compare at a glance (name, who it sleeps,
+// price), with a large photo beside it that follows the room under the
+// cursor or keyboard focus. Rooms without their own photo yet show the
+// house instead, captioned so it isn't mistaken for the room.
+function RoomsShowcase({ rooms, error, promotions }) {
+  const { lang, t } = useLang();
+  // Generation order (Father's room first), which is also price order.
+  const sorted = [...rooms].sort((a, b) => b.price - a.price);
+  const [activeId, setActiveId] = useState(null);
+  const [missing, setMissing] = useState({}); // room id -> has no photo
+  const active = sorted.find((r) => r.id === activeId) ?? sorted[0];
+  const activeNames = active ? roomNames(active.name, lang) : null;
+  const photoSrc = !active || missing[active.id] ? FARM_PHOTOS.main : active.image_url || `/images/rooms/room-${active.id}.jpg`;
+
+  return (
+    <section id="rooms" className="rooms-section">
+      <header className="rooms__head reveal">
+        <div>
+          <p className="info-eyebrow">{t('rooms.eyebrow')}</p>
+          <h2 className="info-title">{t('rooms.title')}</h2>
+        </div>
+        <p className="rooms__lead">{t('rooms.lead')}</p>
+      </header>
+
+      {error && <p role="alert">{error}</p>}
+      {!error && rooms.length === 0 && <p className="rooms-empty">{t('rooms.none')}</p>}
+
+      {active && (
+        <div className="rooms__layout">
+          <figure className="rooms__photo reveal">
+            <img
+              key={photoSrc}
+              src={photoSrc}
+              alt={missing[active.id] ? t('room.housePhoto') : activeNames.title}
+              onError={() => setMissing((m) => ({ ...m, [active.id]: true }))}
+            />
+            <figcaption>
+              <strong>{activeNames.title}</strong>
+              <span>{missing[active.id] ? t('rooms.noPhoto') : activeNames.subtitle}</span>
+            </figcaption>
+          </figure>
+
+          <ol className="rooms__list">
+            {sorted.map((room, index) => {
+              const names = roomNames(room.name, lang);
+              const promos = promosForRoom(promotions, room.id);
+              return (
+                <li key={room.id} className="reveal" style={{ '--i': index }}>
+                  <Link
+                    to={`/rooms/${room.id}`}
+                    className={`room-row${room.id === active.id ? ' is-active' : ''}`}
+                    onMouseEnter={() => setActiveId(room.id)}
+                    onFocus={() => setActiveId(room.id)}
+                  >
+                    <span className="room-row__names">
+                      <strong>{names.title}</strong>
+                      {names.subtitle && <span>{names.subtitle}</span>}
+                    </span>
+                    <span className="room-row__facts">
+                      {room.capacity ? t('price.includes', { n: room.capacity }) : ''}
+                      {room.capacity && room.max_extra_guests > 0 && (
+                        <> · {t('rooms.upTo', { n: roomMaxGuests(room) })}</>
+                      )}
+                    </span>
+                    <span className="room-row__price">
+                      <strong>{formatBaht(room.price)}</strong>
+                      <small>{t('room.perNight')}</small>
+                    </span>
+                    <span className="room-row__go" aria-hidden="true">
+                      →
+                    </span>
+                    {promos.length > 0 && (
+                      <span className="room-row__promos">
+                        {promos.map((p) => (
+                          <PromoTag key={p.id} promo={p} />
+                        ))}
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
+
+    </section>
   );
 }

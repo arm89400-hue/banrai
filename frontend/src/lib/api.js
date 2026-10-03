@@ -18,7 +18,19 @@ export async function api(path, options = {}) {
 
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new Error(data?.error ?? `Request failed with ${res.status}`);
+    const error = new Error(data?.error ?? `Request failed with ${res.status}`);
+    // Machine-readable cause (e.g. 'ROOM_TAKEN') when the server sends one,
+    // so pages can show their own translated message.
+    error.reason = data?.reason;
+    error.status = res.status;
+    // A signed-in account that has expired (a room account after its
+    // check-out): end the session and explain on the login page.
+    if (token && data?.reason === 'ACCOUNT_EXPIRED') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.assign('/login?expired=1');
+    }
+    throw error;
   }
   return data;
 }

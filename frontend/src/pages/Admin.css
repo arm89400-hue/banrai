@@ -1,13 +1,179 @@
-/* Admin dashboard: a light, data-dense workspace under the site's dark
-   navbar. Reuses the global tokens from index.css. */
-.admin {
-  min-height: 100%;
-  padding: 120px 40px 80px;
+/* Admin dashboard: a page of its own - a dark sidebar with the section
+   links beside a light, data-dense workspace. Reuses the global tokens
+   from index.css. */
+.admin-shell {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
   background: var(--bg);
   color: var(--text);
 }
+
+/* ---- Sidebar ---- */
+.admin-side {
+  position: sticky;
+  top: 0;
+  box-sizing: border-box;
+  height: 100svh;
+  /* On a short window the links scroll instead of pushing Log out off-screen. */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 32px 18px 24px;
+  background: var(--brand-dark);
+  color: var(--white);
+}
+.admin-side__brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 16px;
+  text-decoration: none;
+}
+.admin-side__name {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 600;
+}
+.admin-side__tag {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+.admin-side__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.admin-side__nav a,
+.admin-side__foot a,
+.admin-side__foot button {
+  padding: 12px 16px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  font-size: 18px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.75);
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.admin-side__nav a:hover,
+.admin-side__foot a:hover,
+.admin-side__foot button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--white);
+}
+/* Unread count on the Chat link. */
+.admin-side__badge {
+  margin-left: 10px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--error);
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 700;
+}
+.admin-side__nav a.active {
+  background: var(--white);
+  color: var(--brand-dark);
+  font-weight: 600;
+}
+.admin-side__foot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+.admin-side__who {
+  padding: 0 16px 10px;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.6);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Admin login screen ---- */
+.admin-login {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--brand-dark);
+}
+.admin-login__card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: min(100%, 460px);
+  padding: 42px 40px 34px;
+  background: var(--white);
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg);
+  animation: admin-in var(--dur) var(--ease-out) both;
+}
+.admin-login__card h1 {
+  font-size: 34px;
+  margin-bottom: 6px;
+}
+.admin-login__card label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.admin-login__card input {
+  font-family: var(--sans);
+  font-size: 18px;
+  padding: 13px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--text-h);
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.admin-login__card input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+.admin-login__card .admin__btn {
+  margin-top: 6px;
+  padding: 14px 18px;
+  font-size: 18px;
+  font-weight: 600;
+}
+.admin-login__card .admin__error {
+  margin: 0;
+  font-size: 17px;
+}
+.admin-login__card .admin__muted {
+  font-size: 17px;
+}
+.admin-login__back {
+  align-self: center;
+  margin-top: 4px;
+  font-size: 17px;
+  color: var(--text-muted);
+}
+
+/* ---- Workspace ---- */
+.admin {
+  min-width: 0;
+  padding: 48px 36px 80px;
+}
 .admin > * {
-  max-width: 1180px;
+  max-width: 1500px;
   margin-inline: auto;
 }
 
@@ -17,24 +183,19 @@
   align-items: flex-end;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
 }
 .admin__header h1 {
-  font-size: 32px;
+  font-size: 38px;
 }
 .admin__eyebrow {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--brand);
   margin-bottom: 4px;
 }
-.admin__who {
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
 /* Keeps the page tall while a section loads, so switching sections doesn't
    collapse the layout for a moment and jump the scroll position. */
 .admin__panel {
@@ -45,14 +206,14 @@
 /* ---- Overview stat cards ---- */
 .admin__stats {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 20px;
 }
 .admin__stat {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 22px 22px 20px;
+  gap: 8px;
+  padding: 28px 28px 26px;
   text-align: left;
   background: var(--white);
   border: 1px solid var(--border);
@@ -68,13 +229,13 @@
 }
 .admin__stat-value {
   font-family: var(--serif);
-  font-size: 30px;
+  font-size: 36px;
   font-weight: 600;
   color: var(--text-h);
   line-height: 1.1;
 }
 .admin__stat-label {
-  font-size: 14px;
+  font-size: 17px;
   color: var(--text-muted);
 }
 
@@ -83,22 +244,22 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 .admin__segmented {
   display: inline-flex;
-  padding: 3px;
+  padding: 4px;
   background: var(--bg-alt);
   border-radius: 999px;
 }
 .admin__segmented button {
   border: none;
   background: none;
-  padding: 7px 16px;
+  padding: 9px 20px;
   border-radius: 999px;
-  font-size: 14px;
+  font-size: 17px;
   color: var(--text-muted);
   transition: background var(--dur-fast), color var(--dur-fast), box-shadow var(--dur-fast);
 }
@@ -112,16 +273,16 @@
 .admin__form input,
 .admin__form textarea {
   font-family: var(--sans);
-  font-size: 15px;
-  padding: 9px 14px;
+  font-size: 18px;
+  padding: 12px 16px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--white);
   color: var(--text-h);
   transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
 }
 .admin__search {
-  width: min(100%, 300px);
+  width: min(100%, 380px);
 }
 .admin__search:focus,
 .admin__form input:focus,
@@ -136,8 +297,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 7px 14px;
-  font-size: 14px;
+  padding: 10px 18px;
+  font-size: 17px;
   font-weight: 500;
   text-decoration: none;
   white-space: nowrap;
@@ -185,14 +346,14 @@
 .admin__table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 17px;
 }
 .admin__table th {
   position: sticky;
   top: 0;
-  padding: 12px 16px;
+  padding: 16px 16px;
   text-align: left;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -201,7 +362,7 @@
   white-space: nowrap;
 }
 .admin__table td {
-  padding: 12px 16px;
+  padding: 16px 16px;
   border-top: 1px solid var(--border);
   vertical-align: middle;
 }
@@ -217,10 +378,10 @@
   white-space: nowrap;
 }
 .admin__actions .admin__btn + .admin__btn {
-  margin-left: 6px;
+  margin-left: 8px;
 }
 .admin__clip {
-  max-width: 360px;
+  max-width: 440px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -228,9 +389,9 @@
 
 .admin__tag {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -246,8 +407,8 @@
 
 /* ---- Add/edit form ---- */
 .admin__form {
-  margin-bottom: 20px;
-  padding: 22px 24px;
+  margin-bottom: 24px;
+  padding: 28px 30px;
   background: var(--white);
   border: 1px solid var(--border);
   border-left: 4px solid var(--brand);
@@ -256,19 +417,19 @@
   animation: admin-in var(--dur) var(--ease-out) both;
 }
 .admin__form h2 {
-  font-size: 20px;
+  font-size: 24px;
   margin-bottom: 16px;
 }
 .admin__form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px 18px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px 22px;
 }
 .admin__form label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--text-muted);
 }
@@ -291,7 +452,7 @@
   gap: 14px;
 }
 .admin__message {
-  padding: 18px 20px;
+  padding: 24px 26px;
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -305,10 +466,10 @@
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 8px;
-  font-size: 14px;
+  font-size: 17px;
 }
 .admin__message p {
-  font-size: 15px;
+  font-size: 18px;
   white-space: pre-wrap;
 }
 .admin__message footer {
@@ -343,8 +504,256 @@
   }
 }
 
+/* Small screens: the sidebar becomes a bar across the top, with the section
+   links in a row that scrolls sideways. */
 @media (max-width: 900px) {
-  .admin {
-    padding: 150px 16px 60px;
+  .admin-shell {
+    display: block;
   }
+  .admin-side {
+    z-index: 5;
+    height: auto;
+    overflow-y: visible;
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 12px 12px 8px;
+  }
+  .admin-side__brand {
+    padding: 0 8px;
+  }
+  .admin-side__nav {
+    order: 3;
+    flex: 1 0 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .admin-side__foot {
+    flex-direction: row;
+    margin: 0 0 0 auto;
+    padding: 0;
+    border: none;
+  }
+  .admin-side__foot a,
+  .admin-side__foot button {
+    padding: 8px 10px;
+  }
+  .admin-side__who {
+    display: none;
+  }
+  .admin {
+    padding: 28px 16px 60px;
+  }
+}
+
+/* ---- Bookings: guest details + status ---- */
+.admin__toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+/* Filter rows scroll sideways rather than squashing their labels. */
+.admin__segmented {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.admin__segmented button {
+  white-space: nowrap;
+}
+/* Bookings: the action buttons sit one above the other, so the table fits
+   without scrolling sideways on a laptop screen. */
+.admin__actions--stacked {
+  text-align: left;
+}
+.admin__actions--stacked .admin__btn {
+  display: flex;
+  width: 100%;
+}
+.admin__actions--stacked .admin__btn + .admin__btn {
+  margin: 8px 0 0;
+}
+.admin__sub {
+  margin-top: 2px;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+.admin__sub a {
+  color: var(--brand);
+}
+.admin__sub--flag {
+  color: hsl(36, 70%, 30%);
+  font-weight: 600;
+}
+.admin__status {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.admin__status--pending {
+  background: hsl(44, 92%, 90%);
+  color: hsl(36, 70%, 25%);
+}
+.admin__status--confirmed {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.admin__status--cancelled {
+  background: hsl(0, 30%, 93%);
+  color: var(--error);
+}
+.admin__table tr.is-cancelled td:not(:last-child):not(:nth-last-child(2)) {
+  opacity: 0.55;
+}
+.admin__table td {
+  vertical-align: top;
+}
+.admin__table td > strong {
+  white-space: nowrap;
+}
+
+/* Room dashboard login shown on a confirmed booking. */
+.admin__login {
+  display: grid;
+  gap: 2px;
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.admin__login code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--brand-dark);
+  user-select: all;
+}
+.admin__status--neutral {
+  background: var(--bg-alt);
+  color: var(--text-muted);
+}
+.admin__nowrap {
+  white-space: nowrap;
+}
+
+/* ---- Confirmation dialog (deleting a booking) ---- */
+.admin__dialog {
+  width: min(100% - 32px, 560px);
+  padding: 0;
+  border: none;
+  border-radius: 18px;
+  background: var(--white);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+}
+.admin__dialog::backdrop {
+  background: hsla(150, 35%, 10%, 0.55);
+}
+.admin__dialog form {
+  display: grid;
+  gap: 16px;
+  padding: 30px 32px 26px;
+  border-top: 6px solid var(--error);
+}
+.admin__dialog h2 {
+  font-size: 28px;
+}
+.admin__dialog p,
+.admin__dialog li {
+  font-size: 17px;
+}
+.admin__dialog ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 22px;
+  color: var(--text-muted);
+}
+.admin__dialog label {
+  display: grid;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+.admin__dialog textarea {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-family: var(--sans);
+  font-size: 17px;
+  color: var(--text-h);
+  resize: vertical;
+}
+.admin__dialog textarea:focus {
+  outline: none;
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px hsl(0, 70%, 94%);
+}
+.admin__dialog .admin__form-actions {
+  margin-top: 4px;
+}
+.admin__btn--delete {
+  background: var(--error);
+  border-color: var(--error);
+  color: var(--white);
+}
+.admin__btn--delete:hover:not(:disabled) {
+  background: hsl(0, 70%, 38%);
+  border-color: hsl(0, 70%, 38%);
+}
+
+/* ---- Edit-price dialog, and form controls the dialogs/forms share ---- */
+.admin__dialog--edit form {
+  border-top-color: var(--brand);
+}
+.admin__dialog-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.admin__dialog input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-family: var(--sans);
+  font-size: 18px;
+  color: var(--text-h);
+}
+.admin__dialog--edit input:focus,
+.admin__dialog--edit textarea:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+.admin__form select {
+  font-family: var(--sans);
+  font-size: 18px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--text-h);
+}
+.admin__form label.admin__check {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  align-self: end;
+  padding-bottom: 12px;
+  font-size: 17px;
+  color: var(--text-h);
+}
+.admin__check input {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  accent-color: var(--brand);
 }

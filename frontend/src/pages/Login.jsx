@@ -1,24 +1,48 @@
 import { useEffect, useRef, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../i18n/lang';
+import PasswordInput from '../components/PasswordInput';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-// Where to land after signing in: admins go to their dashboard, everyone
-// else to their bookings.
-const homeFor = (user) => (user?.is_admin ? '/admin' : '/booking');
+// Where to land after signing in: admins go to their dashboard, room
+// accounts to their room dashboard, and everyone else back to where they
+// were heading (`next`, e.g. the booking they were in the middle of) or to
+// their bookings.
+function homeFor(user, next) {
+  if (user?.is_admin) return '/admin';
+  if (user?.is_stay) return '/stay';
+  return next || '/booking';
+}
 
-// Combined login/register page, plus "Login with Google". Redirects away
-// if already signed in.
+// Server `reason` codes -> translated messages.
+const ERROR_KEYS = {
+  BAD_CREDENTIALS: 'login.errBad',
+  ACCOUNT_EXPIRED: 'login.errExpired',
+  EMAIL_TAKEN: 'login.errEmailTaken',
+  BAD_EMAIL: 'login.errBadEmail',
+};
+
+// Combined login/register page, plus "Login with Google". Members sign in
+// with their email; a room account signs in with the username generated
+// for its booking. Redirects away if already signed in.
 export default function Login() {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const { user, login } = useAuth();
+  const { lang, t } = useLang();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const googleButtonRef = useRef(null);
+
+  // Only same-site paths are accepted as a return target.
+  const rawNext = params.get('next');
+  const next = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
+  const expired = params.get('expired') === '1';
 
   // Renders Google's real "Sign in with Google" button once the GIS script
   // and a Client ID are both available, and wires its callback to our
@@ -37,9 +61,9 @@ export default function Login() {
           body: JSON.stringify({ credential: response.credential }),
         });
         login(data.token, data.user);
-        navigate(homeFor(data.user));
+        navigate(homeFor(data.user, next));
       } catch (err) {
-        setError(err.message);
+        setError(t(ERROR_KEYS[err.reason] ?? 'login.errGeneric'));
       }
     }
 
@@ -58,6 +82,7 @@ export default function Login() {
         theme: 'outline',
         size: 'large',
         width: 320,
+        locale: lang,
       });
     }, 100);
 
@@ -69,13 +94,13 @@ export default function Login() {
   }, [user]);
 
   if (user) {
-    return <Navigate to={homeFor(user)} replace />;
+    return <Navigate to={homeFor(user, next)} replace />;
   }
 
   // Stand-in for the real Google button when no Client ID is configured -
   // looks the same but just explains it isn't wired up yet.
   function handleGoogleClickPlaceholder() {
-    setError('Google sign-in is coming soon.');
+    setError(t('login.googleSoon'));
   }
 
   // Handles both modes: in "register" mode it creates the account first,
@@ -90,9 +115,9 @@ export default function Login() {
       }
       const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify(form) });
       login(data.token, data.user);
-      navigate(homeFor(data.user));
+      navigate(homeFor(data.user, next));
     } catch (err) {
-      setError(err.message);
+      setError(t(ERROR_KEYS[err.reason] ?? 'login.errGeneric'));
     } finally {
       setSubmitting(false);
     }
@@ -100,7 +125,9 @@ export default function Login() {
 
   return (
     <section className="page auth-page">
-      <h1>{mode === 'login' ? 'Log in' : 'Create account'}</h1>
+      <h1>{mode === 'login' ? t('login.title') : t('login.createTitle')}</h1>
+      {next?.startsWith('/book') && <p className="auth-page__lead">{t('login.toBook')}</p>}
+      {expired && !error && <p role="alert">{t('login.errExpired')}</p>}
 
       {GOOGLE_CLIENT_ID ? (
         <div ref={googleButtonRef} className="google-button" />
@@ -128,31 +155,34 @@ export default function Login() {
               d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
             />
           </svg>
-          Login with Google
+          {t('login.google')}
         </button>
       )}
 
       <div className="auth-divider">
-        <span>OR</span>
+        <span>{t('login.or')}</span>
       </div>
 
       <form onSubmit={handleSubmit}>
         <input
-          type="email"
-          placeholder="Email"
+          // Text, not email: a room account's username isn't an email address.
+          type={mode === 'register' ? 'email' : 'text'}
+          autoComplete="username"
+          placeholder={mode === 'register' ? t('login.email') : t('login.idPlaceholder')}
           value={form.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
           required
         />
-        <input
-          type="password"
-          placeholder="Password"
+        <PasswordInput
+          label={t('login.holdToShow')}
+          autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+          placeholder={t('login.password')}
           value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
           required
         />
         <button type="submit" disabled={submitting}>
-          {mode === 'login' ? 'Log in' : 'Sign up'}
+          {mode === 'login' ? t('login.submit') : t('login.signup')}
         </button>
         {error && <p role="alert">{error}</p>}
       </form>
@@ -161,7 +191,7 @@ export default function Login() {
         className="link-button"
         onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
       >
-        {mode === 'login' ? 'Need an account? Sign up' : 'Have an account? Log in'}
+        {mode === 'login' ? t('login.needAccount') : t('login.haveAccount')}
       </button>
     </section>
   );

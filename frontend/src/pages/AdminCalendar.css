@@ -1,0 +1,202 @@
+/* Admin "Calendar" section (see AdminCalendar.jsx): a month grid with a row
+   per room and a column per night. */
+.cal__nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cal__month {
+  min-width: 220px;
+  font-size: 26px;
+  text-align: center;
+}
+.cal__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+.cal__legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cal__swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.cal__swatch--free {
+  background: var(--white);
+}
+.cal__swatch--pending,
+.cal__bar--pending {
+  background: hsl(44, 92%, 78%);
+  border-color: hsl(40, 80%, 60%);
+  color: hsl(36, 70%, 20%);
+}
+.cal__swatch--confirmed,
+.cal__bar--confirmed {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--white);
+}
+.cal__summary {
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+.cal {
+  width: 100%;
+  min-width: 1040px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 16px;
+}
+.cal th,
+.cal td {
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+.cal thead th {
+  border-top: none;
+}
+/* The room names stay in view while the days scroll sideways. */
+.cal__room {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 190px;
+  padding: 12px 14px;
+  border-left: none;
+  background: var(--white);
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--text-h);
+}
+.cal thead .cal__room,
+.cal tfoot .cal__room {
+  background: var(--bg-alt);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.cal__day {
+  padding: 8px 0;
+  background: var(--bg-alt);
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-h);
+}
+.cal__day span {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.cal__day.is-weekend span {
+  color: var(--error);
+}
+.cal__day.is-today {
+  background: var(--brand);
+  color: var(--white);
+}
+.cal__day.is-today span {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.cal__cell {
+  height: 54px;
+  padding: 0;
+}
+.cal__cell--free.is-past {
+  background: var(--bg);
+}
+.cal__cell--free.is-today,
+.cal__count.is-today {
+  background: var(--brand-soft);
+}
+.cal__cell--booked {
+  padding: 6px 3px;
+}
+.cal__bar {
+  display: block;
+  width: 100%;
+  height: 42px;
+  padding: 0 10px;
+  overflow: hidden;
+  border: 1px solid;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: filter var(--dur-fast), box-shadow var(--dur-fast);
+}
+.cal__bar:hover {
+  filter: brightness(1.06);
+}
+.cal__bar.is-selected {
+  box-shadow: 0 0 0 3px var(--text-h);
+}
+/* A stay that continues from the previous month / into the next one has a
+   square edge on that side. */
+.cal__bar.is-cut-start {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.cal__bar.is-cut-end {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.cal__count {
+  padding: 10px 0;
+  background: var(--bg-alt);
+  font-weight: 600;
+  text-align: center;
+  color: var(--brand);
+}
+.cal__count.is-full {
+  color: var(--error);
+}
+
+/* The booking picked by clicking a bar. */
+.cal__detail {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-top: 20px;
+  padding: 20px 24px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--brand);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  font-size: 17px;
+  animation: admin-in var(--dur) var(--ease-out) both;
+}
+.cal__detail > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cal__detail a:not(.admin__btn) {
+  color: var(--brand);
+}
+.cal__detail .admin__btn {
+  margin-left: auto;
+}

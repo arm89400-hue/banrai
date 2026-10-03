@@ -1,0 +1,112 @@
+/* Full-screen photo viewer (see Lightbox.jsx). Sits above the navbar. */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 64px;
+  align-items: center;
+  padding: 24px 12px;
+  background: hsla(150, 30%, 6%, 0.94);
+  animation: lightbox-in var(--dur) var(--ease-out) both;
+}
+
+.lightbox__figure {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  min-width: 0;
+}
+/* The photo is fitted into the whole area between the buttons and above the
+   caption, scaling small photos up. The shadow is a filter so it follows
+   the photo itself, not the (larger) box it is fitted into. */
+.lightbox__figure img {
+  width: 100%;
+  height: calc(100svh - 110px);
+  object-fit: contain;
+  filter: drop-shadow(0 24px 40px rgba(0, 0, 0, 0.6));
+  animation: lightbox-in var(--dur) var(--ease-out) both;
+}
+.lightbox__figure figcaption {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--white);
+}
+.lightbox__count {
+  font-size: 15px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lightbox__close,
+.lightbox__nav {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--white);
+  transition: background-color var(--dur-fast);
+}
+.lightbox__close:hover,
+.lightbox__nav:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+.lightbox :focus-visible {
+  outline-color: hsl(44, 92%, 58%);
+}
+.lightbox__close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+}
+.lightbox__nav--prev {
+  grid-column: 1;
+  justify-self: center;
+}
+.lightbox__nav--next {
+  grid-column: 3;
+  justify-self: center;
+}
+
+@keyframes lightbox-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .lightbox {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr auto;
+    row-gap: 16px;
+    padding: 70px 12px 24px;
+  }
+  .lightbox__figure {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .lightbox__nav--prev {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: end;
+    margin-right: 8px;
+  }
+  .lightbox__nav--next {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+    margin-left: 8px;
+  }
+  .lightbox__figure img {
+    height: calc(100svh - 220px);
+  }
+}

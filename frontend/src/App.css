@@ -16,6 +16,101 @@ main {
   color: var(--white);
 }
 
+/* Photo header for simple pages (About, Activities): the title sits over
+   one of the property's photos, darkened so white text stays readable. */
+.page-banner {
+  position: relative;
+  display: grid;
+  place-items: end center;
+  min-height: 380px;
+  padding: 130px 24px 48px;
+  background: var(--brand-dark) center / cover no-repeat;
+  text-align: center;
+}
+.page-banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, hsla(150, 35%, 10%, 0.55), hsla(150, 35%, 12%, 0.75));
+}
+.page-banner__inner {
+  position: relative;
+  animation: fade-up var(--dur-slow) var(--ease-out) both;
+}
+.page-banner__eyebrow {
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: hsl(44, 92%, 58%);
+}
+html:lang(th) .page-banner__eyebrow {
+  letter-spacing: 0.02em;
+}
+.page-banner h1 {
+  text-wrap: balance;
+  font-size: 42px;
+  line-height: 1.15;
+  color: var(--white);
+}
+.page--below-banner {
+  padding-top: 48px;
+}
+
+.about {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 36px;
+  max-width: 1000px;
+  text-align: center;
+}
+.about__text {
+  max-width: 680px;
+  font-size: 18px;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.88);
+}
+.about__photos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+.about__photos img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 16px;
+  box-shadow: 0 18px 30px -18px rgba(0, 0, 0, 0.6);
+}
+.page-cta {
+  padding: 13px 30px;
+  border-radius: 999px;
+  background: hsl(44, 92%, 58%);
+  color: var(--brand-dark);
+  font-weight: 700;
+  text-decoration: none;
+  transition: background-color var(--dur-fast), transform var(--dur-fast) var(--ease-out);
+}
+.page-cta:hover {
+  background: hsl(44, 92%, 64%);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 640px) {
+  .page-banner {
+    min-height: 300px;
+  }
+  .page-banner h1 {
+    font-size: 30px;
+  }
+  .about__photos {
+    grid-template-columns: 1fr;
+  }
+}
+
 .auth-page {
   display: flex;
   flex-direction: column;
@@ -151,4 +246,10 @@ main {
 
 .page [role='alert'] {
   color: var(--error);
+}
+
+.auth-page__lead {
+  max-width: 360px;
+  margin-bottom: 20px;
+  color: rgba(255, 255, 255, 0.85);
 }

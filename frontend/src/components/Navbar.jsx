@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../i18n/lang';
 import { FACEBOOK_URL } from '../lib/site';
 import FacebookIcon from './FacebookIcon';
-import { ADMIN_SECTIONS, adminPath } from '../lib/adminSections';
 import './Navbar.css';
 
 // Past this scroll offset (and on every page other than Home, where there's
@@ -14,27 +14,50 @@ const FLOAT_SCROLL_THRESHOLD = 24;
 // Below this width the links move into the full-screen menu sheet.
 const MOBILE_QUERY = '(max-width: 900px)';
 
+// `label` is a translation key (see i18n/strings.js).
 const PRIMARY_LINKS = [
-  { to: '/home', label: 'Home' },
-  { to: '/activities', label: 'Activities' },
-  { to: '/about', label: 'About' },
+  { to: '/home', label: 'nav.home' },
+  { to: '/activities', label: 'nav.activities' },
+  { to: '/about', label: 'nav.about' },
 ];
 
-// Admins get the dashboard sections as their links instead of the public ones.
-const ADMIN_LINKS = ADMIN_SECTIONS.map((s) => ({ to: adminPath(s.id), label: s.label }));
+// TH / EN toggle. Two buttons rather than a dropdown: both options are
+// always visible and one tap switches.
+function LangSwitch({ lang, setLang, label, className = '' }) {
+  return (
+    <div className={`navbar__lang ${className}`} role="group" aria-label={label}>
+      {[
+        ['th', 'TH', 'ภาษาไทย'],
+        ['en', 'EN', 'English'],
+      ].map(([code, short, full]) => (
+        <button
+          key={code}
+          type="button"
+          lang={code}
+          aria-pressed={lang === code}
+          aria-label={full}
+          onClick={() => setLang(code)}
+        >
+          {short}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 // Site-wide navigation (see App.jsx): brand, page links with a sliding
 // "you are here" pill, and actions - account and the primary
-// "Book a stay" call to action. Signed in as an admin, the links become the
-// admin dashboard's sections and the guest-only items (Book a stay, My
-// bookings) are hidden. On small screens everything except the brand and
-// the CTA moves into a full-screen menu.
+// "Book a stay" call to action. An admin browsing the public site gets a
+// link back to the admin dashboard (a separate page, see Admin.jsx) in place
+// of the guest-only items (Book a stay, My bookings). On small screens
+// everything except the brand and the CTA moves into a full-screen menu.
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(window.scrollY > FLOAT_SCROLL_THRESHOLD);
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [indicator, setIndicator] = useState(null);
   const { user, logout } = useAuth();
+  const { lang, setLang, t } = useLang();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const linksRef = useRef(null);
@@ -44,7 +67,11 @@ export default function Navbar() {
 
   const floating = scrolled || pathname !== '/home';
   const isAdmin = Boolean(user?.is_admin);
-  const links = isAdmin ? ADMIN_LINKS : PRIMARY_LINKS;
+  // A room account (the temporary login of a confirmed stay) only has its
+  // room dashboard: no booking button, no "My bookings".
+  const isStay = Boolean(user?.is_stay);
+  const memberLinks = isStay ? [{ to: '/stay', label: 'nav.myRoom' }, ...PRIMARY_LINKS.slice(1)] : PRIMARY_LINKS;
+  const links = memberLinks.map((l) => ({ ...l, label: t(l.label) }));
 
   // Tracks scroll position to switch between the over-hero and floating styles.
   useEffect(() => {
@@ -73,7 +100,7 @@ export default function Navbar() {
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [pathname]);
+  }, [pathname, lang]);
 
   // Account dropdown: closes on outside click or Escape.
   useEffect(() => {
@@ -126,16 +153,6 @@ export default function Navbar() {
     navigate('/home');
   }
 
-  // "Book a stay" goes to the room list. Already on Home, it scrolls there
-  // smoothly instead of reloading the page.
-  function handleBook(e) {
-    closeMenus();
-    if (pathname === '/home') {
-      e.preventDefault();
-      document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }
-
   const initial = user?.email?.[0]?.toUpperCase() ?? '?';
 
   return (
@@ -158,7 +175,7 @@ export default function Navbar() {
           </span>
         </Link>
 
-        <nav className="navbar__links" ref={linksRef} aria-label={isAdmin ? 'Admin sections' : 'Main'}>
+        <nav className="navbar__links" ref={linksRef} aria-label="Main">
           <span
             ref={indicatorRef}
             className="navbar__indicator"
@@ -181,7 +198,7 @@ export default function Navbar() {
                 className="navbar__account-btn"
                 aria-expanded={accountOpen}
                 aria-controls="navbar-account-menu"
-                aria-label={`Account: ${user.email}`}
+                aria-label={t('nav.account', { email: user.email })}
                 onClick={() => setAccountOpen((open) => !open)}
               >
                 <span className="navbar__avatar" aria-hidden="true">
@@ -193,28 +210,43 @@ export default function Navbar() {
               </button>
               {accountOpen && (
                 <div className="navbar__dropdown" id="navbar-account-menu">
-                  <p className="navbar__dropdown-email">{user.email}</p>
-                  {!isAdmin && (
+                  <p className="navbar__dropdown-email">
+                    {user.email}
+                    {!isStay && user.member_code && (
+                      <span>
+                        {t('member.code')} {user.member_code}
+                      </span>
+                    )}
+                  </p>
+                  {/* The admin dashboard is English-only, like this link to it. */}
+                  {isAdmin && (
+                    <Link to="/admin" onClick={closeMenus}>
+                      Admin dashboard
+                    </Link>
+                  )}
+                  {!isAdmin && !isStay && (
                     <Link to="/booking" onClick={closeMenus}>
-                      My bookings
+                      {t('nav.myBookings')}
                     </Link>
                   )}
                   <button type="button" className="navbar__dropdown-logout" onClick={handleLogout}>
-                    Log out
+                    {t('nav.logout')}
                   </button>
                 </div>
               )}
             </div>
           ) : (
             <NavLink to="/login" className="navbar__login navbar__desktop-only">
-              Log in
+              {t('nav.login')}
             </NavLink>
           )}
 
-          {!isAdmin && (
-            <a href="/home#rooms" className="navbar__cta" onClick={handleBook}>
-              Book a stay
-            </a>
+          <LangSwitch lang={lang} setLang={setLang} label={t('nav.language')} className="navbar__desktop-only" />
+
+          {!isAdmin && !isStay && (
+            <Link to="/book" className="navbar__cta" onClick={closeMenus}>
+              {t('nav.book')}
+            </Link>
           )}
 
           <button
@@ -222,7 +254,7 @@ export default function Navbar() {
             className="navbar__burger"
             aria-expanded={menuOpen}
             aria-controls="navbar-sheet"
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-label={menuOpen ? t('nav.closeMenu') : t('nav.openMenu')}
             onClick={() => setMenuOpen((open) => !open)}
           >
             <span />
@@ -234,7 +266,7 @@ export default function Navbar() {
 
       {/* Mobile menu. `inert` keeps it out of the tab order while closed. */}
       <div id="navbar-sheet" className="navbar__sheet" inert={!menuOpen}>
-        <nav className="navbar__sheet-links" aria-label={isAdmin ? 'Admin sections' : 'Main'}>
+        <nav className="navbar__sheet-links" aria-label="Main">
           {links.map((link, i) => (
             <NavLink key={link.to} to={link.to} end onClick={closeMenus} style={{ '--i': i }}>
               {link.label}
@@ -245,28 +277,37 @@ export default function Navbar() {
         <div className="navbar__sheet-footer" style={{ '--i': links.length }}>
           {user ? (
             <>
-              <p className="navbar__sheet-email">Signed in as {user.email}</p>
+              <p className="navbar__sheet-email">
+                {t('nav.signedInAs', { email: user.email })}
+                {!isStay && user.member_code && ` · ${t('member.code')} ${user.member_code}`}
+              </p>
               <div className="navbar__sheet-row">
-                {!isAdmin && (
+                {isAdmin && (
+                  <Link to="/admin" onClick={closeMenus}>
+                    Admin dashboard
+                  </Link>
+                )}
+                {!isAdmin && !isStay && (
                   <Link to="/booking" onClick={closeMenus}>
-                    My bookings
+                    {t('nav.myBookings')}
                   </Link>
                 )}
                 <button type="button" onClick={handleLogout}>
-                  Log out
+                  {t('nav.logout')}
                 </button>
               </div>
             </>
           ) : (
             <div className="navbar__sheet-row">
               <Link to="/login" onClick={closeMenus}>
-                Log in
+                {t('nav.login')}
               </Link>
             </div>
           )}
           <a href={FACEBOOK_URL} target="_blank" rel="noopener noreferrer" className="navbar__sheet-social">
-            <FacebookIcon size={18} /> Message us on Facebook
+            <FacebookIcon size={18} /> {t('nav.messageFb')}
           </a>
+          <LangSwitch lang={lang} setLang={setLang} label={t('nav.language')} className="navbar__sheet-lang" />
         </div>
       </div>
     </header>

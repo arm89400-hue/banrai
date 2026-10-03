@@ -1,31 +1,62 @@
-/* Two bands, like a classic travel-site footer: light link columns on
-   top, then a dark band with the legal lines and the channel row. */
+/* Forest-green footer in columns: brand (logo, tagline, phone tiles) on
+   the left, three link columns on the right, then a darker
+   legal strip. */
 .footer {
-  --footer-dark: hsl(150, 18%, 12%);
-  --footer-dark-text: rgba(255, 255, 255, 0.82);
-  --footer-dark-muted: rgba(255, 255, 255, 0.55);
+  --sun: hsl(44, 92%, 58%);
+  --on-dark: rgba(255, 255, 255, 0.8);
+  --on-dark-muted: rgba(255, 255, 255, 0.55);
+  color: var(--white);
 }
 
-/* ---- Link columns ---- */
-.footer__top {
+.footer__main {
   display: grid;
-  grid-template-columns: 1.4fr repeat(3, 1fr);
-  gap: 32px 40px;
-  padding: 56px max(24px, calc((100% - 1100px) / 2)) 48px;
-  background: var(--bg);
-  border-top: 1px solid var(--border);
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 40px 48px;
+  padding: 64px max(24px, calc((100% - 1160px) / 2)) 56px;
+  background: var(--brand-dark);
 }
 
+.footer__heading {
+  margin: 0 0 6px;
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--white);
+}
+
+/* ---- Brand column ---- */
 .footer__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.footer__logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+/* Same treatment as the navbar logo (.navbar__logo), so the two match. */
+.footer__logo img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 50%;
+  transition: transform var(--dur) var(--ease-out);
+}
+.footer__logo:hover img {
+  transform: rotate(-10deg);
+}
+.footer__logo > span {
   display: flex;
   flex-direction: column;
   line-height: 1;
 }
 .footer__name {
   font-family: var(--serif);
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 600;
-  color: var(--brand-dark);
 }
 .footer__place {
   margin-top: 6px;
@@ -33,107 +64,159 @@
   font-weight: 600;
   letter-spacing: 0.34em;
   text-transform: uppercase;
+  color: var(--sun);
+}
+.footer__tagline {
+  max-width: 300px;
+  margin: 18px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--on-dark);
+}
+
+/* Phone lines as light tiles, stacked in the contact column. */
+.footer__col .footer__phone {
+  width: 100%;
+  max-width: 250px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--brand-dark);
+  text-decoration: none;
+  transition: translate var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast);
+}
+.footer__col .footer__phone:hover {
+  color: var(--brand-dark);
+  text-decoration: none;
+  translate: 0 -2px;
+  box-shadow: 0 10px 20px -12px rgba(0, 0, 0, 0.6);
+}
+.footer__phone-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--brand-soft);
   color: var(--brand);
 }
-.footer__brand p {
-  max-width: 260px;
-  margin-top: 16px;
-  font-size: 14px;
-  line-height: 1.55;
+.footer__phone > span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+.footer__phone > span:last-child > span {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
   color: var(--text-muted);
 }
 
+/* ---- Link columns ---- */
 .footer__col {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
-}
-.footer__col h2 {
-  margin-bottom: 4px;
-  font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-h);
+  gap: 14px;
 }
 .footer__col a {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-muted);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--on-dark);
   text-decoration: none;
   transition: color var(--dur-fast);
 }
 .footer__col a:hover {
-  color: var(--brand);
+  color: var(--white);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-/* ---- Dark legal band ---- */
-.footer__bottom {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 36px;
-  padding: 44px 24px 40px;
-  background: var(--footer-dark);
-  color: var(--footer-dark-text);
-  text-align: center;
-}
-
-.footer__legal {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 14px;
-}
-.footer__legal p + p {
-  color: var(--footer-dark-muted);
-}
-
-.footer__channels {
+/* Facebook / Maps as small outlined pills under the tagline. */
+.footer__social {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px 56px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  gap: 10px;
+  margin-top: 22px;
 }
-.footer__channels a {
+.footer__social a {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  padding: 6px 14px 6px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  color: var(--white);
   font-size: 14px;
   font-weight: 600;
-  color: var(--footer-dark-muted);
   text-decoration: none;
-  transition: color var(--dur-fast);
+  transition: background-color var(--dur-fast), border-color var(--dur-fast);
 }
-.footer__channels a:hover {
+.footer__social a:hover {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.08);
+}
+.footer__social-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
   color: var(--white);
 }
-.footer :focus-visible {
-  outline-offset: 4px;
+.footer__social-icon--fb {
+  background: #1877f2;
 }
-.footer__bottom :focus-visible {
-  outline-color: var(--white);
+.footer__social-icon--map {
+  background: #ea4335;
 }
 
-@media (max-width: 800px) {
-  .footer__top {
-    grid-template-columns: 1fr 1fr;
-    padding-top: 40px;
+/* ---- Legal strip ---- */
+.footer__legal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 22px 24px;
+  background: hsl(150, 30%, 13%);
+  font-size: 13px;
+  text-align: center;
+  color: var(--on-dark);
+}
+.footer__legal p {
+  margin: 0;
+}
+.footer__legal p + p {
+  color: var(--on-dark-muted);
+}
+
+.footer :focus-visible {
+  outline-color: var(--sun);
+  outline-offset: 4px;
+}
+
+/* Below this the four columns get cramped: the brand takes its own row
+   above the other three. */
+@media (max-width: 1080px) {
+  .footer__main {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .footer__brand {
     grid-column: 1 / -1;
   }
 }
-
-@media (max-width: 420px) {
-  .footer__top {
-    grid-template-columns: 1fr;
+@media (max-width: 560px) {
+  .footer__main {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-top: 48px;
+    gap: 36px 24px;
+  }
+  .footer__contact {
+    grid-column: 1 / -1;
   }
 }

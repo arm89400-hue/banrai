@@ -1,0 +1,133 @@
+/* Floating chat button + window for signed-in guests (see ChatWidget.jsx).
+   Sits above page content but below the navbar's mobile menu and the
+   photo lightbox. */
+.chat-widget {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.chat-widget__toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 22px 0 18px;
+  border: none;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--white);
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+  transition: background var(--dur-fast), transform var(--dur-fast);
+}
+.chat-widget__toggle:hover {
+  background: var(--brand-hover);
+}
+.chat-widget__toggle:active {
+  transform: scale(0.96);
+}
+.chat-widget__badge {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  min-width: 24px;
+  padding: 2px 7px;
+  border: 2px solid var(--white);
+  border-radius: 999px;
+  background: var(--error);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.chat-widget__panel {
+  display: flex;
+  flex-direction: column;
+  width: min(380px, calc(100vw - 40px));
+  height: min(540px, calc(100svh - 190px));
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--white);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+  animation: fade-up var(--dur) var(--ease-out) both;
+}
+.chat-widget__panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px 14px 18px;
+  background: var(--brand-dark);
+  color: var(--white);
+}
+.chat-widget__panel > header strong {
+  display: block;
+  font-size: 17px;
+}
+.chat-widget__panel > header span {
+  font-size: 13px;
+  opacity: 0.75;
+}
+.chat-widget__panel > header button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+}
+.chat-widget__panel > header button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 600px) {
+  .chat-widget {
+    right: 12px;
+    bottom: 12px;
+  }
+  /* Icon only, so the button doesn't cover the page on a phone. */
+  .chat-widget__toggle {
+    width: 56px;
+    padding: 0;
+    justify-content: center;
+  }
+  .chat-widget__toggle > span:not(.chat-widget__badge) {
+    display: none;
+  }
+  .chat-widget__panel {
+    width: calc(100vw - 24px);
+  }
+}
+
+/* Shown in place of the conversation to visitors who aren't signed in. */
+.chat-widget__gate {
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+  padding: 36px 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+.chat-widget__login {
+  padding: 11px 24px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--white);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color var(--dur-fast);
+}
+.chat-widget__login:hover {
+  background: var(--brand-hover);
+}

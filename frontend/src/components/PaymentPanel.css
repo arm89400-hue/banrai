@@ -1,0 +1,95 @@
+/* Deposit payment box: QR on the left, amount and actions on the right;
+   stacks on phones with the QR first. */
+.pay-panel {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--white);
+  text-align: left;
+}
+
+/* Placeholder until the real PromptPay QR is generated. */
+.pay-panel__qr {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  background: var(--bg-alt);
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+.pay-panel__qr svg {
+  color: var(--brand);
+}
+
+.pay-panel__info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.pay-panel__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.pay-panel__amount {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+}
+.pay-panel__ref {
+  font-size: 14px;
+  font-weight: 600;
+}
+.pay-panel__hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.pay-panel__test {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 8px;
+}
+.pay-panel__tag {
+  padding: 3px 10px;
+  border: 1px dashed hsl(36, 70%, 45%);
+  border-radius: 999px;
+  color: hsl(36, 70%, 30%);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .pay-panel {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    text-align: center;
+  }
+  .pay-panel__qr {
+    width: 180px;
+  }
+  .pay-panel__info {
+    align-items: center;
+  }
+  .pay-panel__test {
+    justify-content: center;
+  }
+}
