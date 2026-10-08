@@ -5,13 +5,22 @@ import { dayOf, formatDay, nightsBetween, roomNames } from '../lib/booking';
 import { CHECK_IN_TIME, CHECK_OUT_TIME, PHONES } from '../lib/site';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
-import { PriceRows, StatusBadge } from '../components/BookingBits';
+import { PriceRows, StatusBadge, StayLogin } from '../components/BookingBits';
 import PaymentPanel from '../components/PaymentPanel';
+import Announcements from '../components/Announcements';
 import './Booking.css';
+
+// The server's payment options -> PaymentPanel props.
+const payOptions = (data) => ({
+  testPay: Boolean(data?.test_pay),
+  slipPay: Boolean(data?.slip_pay),
+  slipCheck: data?.slip_check ?? 'manual',
+  promptpay: data?.promptpay ?? null,
+});
 
 // One booking, as the guest sees it. A pending room booking shows its
 // deposit payment; `onPaid` receives the booking once it's paid.
-function BookingCard({ booking, testPay, onPaid }) {
+function BookingCard({ booking, pay, onPaid }) {
   const { t, lang, locale } = useLang();
 
   // Activity bookings (single point in time, no stay range).
@@ -90,23 +99,13 @@ function BookingCard({ booking, testPay, onPaid }) {
 
       {/* Confirmed: the generated login for this room's dashboard. */}
       {booking.status === 'confirmed' && booking.stay_username && (
-        <div className="my-card__stay">
-          <p className="my-card__stay-title">{t('my.stayTitle')}</p>
-          <dl>
-            <div>
-              <dt>{t('my.stayUser')}</dt>
-              <dd>{booking.stay_username}</dd>
-            </div>
-            <div>
-              <dt>{t('my.stayPass')}</dt>
-              <dd>{booking.stay_password}</dd>
-            </div>
-          </dl>
-          <p>{t('my.stayHint', { date: formatDay(checkOut, locale), time: CHECK_OUT_TIME })}</p>
-        </div>
+        <StayLogin
+          booking={booking}
+          hint={t('my.stayHint', { date: formatDay(checkOut, locale), time: CHECK_OUT_TIME })}
+        />
       )}
 
-      {booking.status === 'pending' && <PaymentPanel booking={booking} testPay={testPay} onPaid={onPaid} />}
+      {booking.status === 'pending' && <PaymentPanel booking={booking} {...pay} onPaid={onPaid} />}
 
       {booking.status === 'pending' && (
         <div className="my-card__help">
@@ -163,7 +162,7 @@ export default function Booking() {
   const { t } = useLang();
   const [bookings, setBookings] = useState(null);
   const [notices, setNotices] = useState([]);
-  const [testPay, setTestPay] = useState(false);
+  const [pay, setPay] = useState(payOptions(null));
   const [error, setError] = useState(null);
 
   const isMember = Boolean(user && !user.is_stay);
@@ -174,7 +173,7 @@ export default function Booking() {
       .then((data) => {
         setBookings(data.bookings);
         setNotices(data.notices ?? []);
-        setTestPay(Boolean(data.test_pay));
+        setPay(payOptions(data));
       })
       .catch((err) => setError(err.message));
   }, [isMember]);
@@ -218,6 +217,9 @@ export default function Booking() {
         <DeletedNotice key={n.id} notice={n} onDismiss={() => dismissNotice(n.id)} />
       ))}
 
+      {/* Announcements for guests with a booking (none: nothing shown). */}
+      <Announcements source="/api/announcements/mine" className="page-news" />
+
       <div className="my-bookings__results">
         {/* Newest stay first. */}
         {[...(bookings ?? [])]
@@ -226,7 +228,7 @@ export default function Booking() {
             <BookingCard
               key={b.id}
               booking={b}
-              testPay={testPay}
+              pay={pay}
               onPaid={(paid) => setBookings((list) => list.map((x) => (x.id === paid.id ? paid : x)))}
             />
           ))}

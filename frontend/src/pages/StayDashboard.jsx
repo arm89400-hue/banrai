@@ -4,9 +4,11 @@ import { api } from '../lib/api';
 import { formatBaht } from '../lib/money';
 import { dayOf, formatDay, nightsBetween, roomNames } from '../lib/booking';
 import { CHECK_IN_TIME, CHECK_OUT_TIME, FACEBOOK_URL, MAPS_URL, PHONES } from '../lib/site';
+import { roomCover } from '../lib/photos';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import { StatusBadge } from '../components/BookingBits';
+import Announcements from '../components/Announcements';
 import './StayDashboard.css';
 
 // The room dashboard: what a room account sees after logging in with the
@@ -62,11 +64,13 @@ export default function StayDashboard() {
         </p>
       </header>
 
+      <Announcements source="/api/announcements/mine" className="page-news" />
+
       <div className="stay__grid">
         <article className="stay-card stay-room">
           <div className="stay-room__photo">
             <img
-              src={stay.room_image_url || `/images/rooms/room-${stay.room_id}.jpg`}
+              src={roomCover({ id: stay.room_id, image_url: stay.room_image_url, photos: stay.room_photos })}
               alt=""
               onError={(e) => {
                 e.currentTarget.style.display = 'none';

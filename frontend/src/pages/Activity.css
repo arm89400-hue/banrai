@@ -1,0 +1,832 @@
+/* Activities page: a scrapbook of the four farm activities, then the
+   fruit seasons as a year line. */
+
+.acts-banner__lead {
+  margin-top: 10px;
+  font-size: 17px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ---- Scrapbook: taped polaroids on dotted paper ---- */
+.acts-board {
+  padding: 72px max(24px, calc((100% - 1160px) / 2)) 80px;
+  background:
+    radial-gradient(hsl(40, 30%, 84%) 1px, transparent 1px) 0 0 / 18px 18px,
+    hsl(40, 45%, 93%);
+}
+.acts-board__title {
+  text-align: center;
+  text-wrap: balance;
+  font-size: 40px;
+}
+.acts-board__title em {
+  font-style: normal;
+  color: var(--brand);
+}
+/* Up to five per row (--cols, set from the number of activities so the last
+   row is never a lone card); fewer on narrower screens. */
+.acts-board__list {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr));
+  gap: 24px;
+  margin: 44px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A slight, varied tilt makes the cards feel pinned by hand; hovering
+   straightens and lifts one. */
+.polaroid {
+  position: relative;
+  padding: 10px 10px 16px;
+  background: var(--white);
+  box-shadow: 0 16px 26px -16px rgba(0, 0, 0, 0.45);
+  rotate: var(--tilt, -2deg);
+  transition: rotate var(--dur) var(--ease-out), translate var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+}
+.polaroid:nth-child(2) {
+  --tilt: 2deg;
+  margin-top: 22px;
+}
+.polaroid:nth-child(3) {
+  --tilt: -1.5deg;
+}
+.polaroid:nth-child(4) {
+  --tilt: 2.5deg;
+  margin-top: 14px;
+}
+.polaroid:hover {
+  rotate: 0deg;
+  translate: 0 -6px;
+  box-shadow: 0 24px 34px -18px rgba(0, 0, 0, 0.5);
+}
+/* Tape strip. */
+.polaroid::before {
+  content: '';
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  width: 84px;
+  height: 22px;
+  translate: -50% 0;
+  rotate: -4deg;
+  background: hsla(44, 92%, 70%, 0.7);
+}
+.polaroid img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+/* The whole card is a link down to the activity's zone. */
+.polaroid__link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.polaroid__link:focus-visible {
+  outline-offset: 6px;
+}
+.polaroid__empty {
+  display: block;
+  aspect-ratio: 1 / 1;
+  background: var(--bg-alt);
+}
+
+/* ---- One zone per activity: text beside its photos, sides alternating ---- */
+.act-zones {
+  display: grid;
+  gap: 72px;
+  padding: 80px max(24px, calc((100% - 1160px) / 2));
+  background: var(--bg);
+}
+.act-zone {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 48px;
+  align-items: center;
+  /* Clear of the floating navbar when a card scrolls here. */
+  scroll-margin-top: 110px;
+}
+.act-zone--flip .act-zone__text {
+  order: 2;
+}
+.act-zone__text {
+  display: grid;
+  gap: 12px;
+  align-content: center;
+}
+.act-zone__text h2 {
+  font-size: 38px;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.act-zone__lead {
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-width: 46ch;
+}
+.act-zone__price {
+  justify-self: start;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: hsl(44, 92%, 90%);
+  color: hsl(36, 70%, 25%);
+  font-size: 14px;
+  font-weight: 700;
+}
+.act-zone__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  margin-top: 6px;
+}
+.act-zone__back {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.act-zone__back:hover {
+  color: var(--brand);
+}
+
+/* Photos: the cover large, the rest beside it (up to 6). The block has a
+   fixed shape and every photo fills its cells, so rows always line up. */
+.act-zone__photos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  aspect-ratio: 2 / 1;
+}
+.act-zone__photo {
+  position: relative;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 14px;
+  background: var(--bg-alt);
+  cursor: zoom-in;
+}
+.act-zone__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: scale var(--dur-slow) var(--ease-out);
+}
+.act-zone__photo:hover img {
+  scale: 1.05;
+}
+/* The cover takes 2 x 2 cells; the layout per photo count leaves no holes:
+   1: cover across the width   2: two big squares   3: cover + 2 wide
+   4: cover + 2 small + 1 wide   5: cover + 4 small (4 x 2)
+   6: cover + 5 small on a 3-column grid (3 x 3). */
+.act-zone__photo:first-child {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+.act-zone__photos[data-count='1'] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  aspect-ratio: 16 / 10;
+}
+.act-zone__photos[data-count='1'] .act-zone__photo:first-child {
+  grid-column: auto;
+  grid-row: auto;
+}
+.act-zone__photos[data-count='2'] .act-zone__photo {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+.act-zone__photos[data-count='3'] .act-zone__photo:not(:first-child),
+.act-zone__photos[data-count='4'] .act-zone__photo:last-child {
+  grid-column: span 2;
+}
+.act-zone__photos[data-count='6'] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  aspect-ratio: 1 / 1;
+}
+
+@media (max-width: 860px) {
+  .act-zones {
+    gap: 56px;
+    padding-block: 56px;
+  }
+  .act-zone {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    scroll-margin-top: 90px;
+  }
+  .act-zone--flip .act-zone__text {
+    order: 0;
+  }
+  .act-zone__text h2 {
+    font-size: 30px;
+  }
+}
+.polaroid h3 {
+  margin-top: 12px;
+  font-size: 21px;
+}
+.polaroid p {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.polaroid__tag {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ---- Fruit seasons: the year as a line ---- */
+.season {
+  --hot: hsl(44, 85%, 62%);
+  --rain: hsl(150, 32%, 52%);
+  --cool: hsl(205, 50%, 62%);
+  display: grid;
+  gap: 28px;
+  /* Little bottom padding: the fruit cards' heading follows right under the line. */
+  padding: 80px max(24px, calc((100% - 1160px) / 2)) 8px;
+  background: var(--bg);
+}
+.season__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 32px;
+  flex-wrap: wrap;
+}
+.season__title {
+  margin: 4px 0 8px;
+  font-size: 36px;
+  text-wrap: balance;
+}
+.season__lead {
+  max-width: 560px;
+  color: var(--text-muted);
+}
+.season__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+.season__legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.season__legend li::before {
+  content: '';
+  width: 24px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--c);
+}
+.season__legend .is-hot { --c: var(--hot); }
+.season__legend .is-rain { --c: var(--rain); }
+.season__legend .is-cool { --c: var(--cool); }
+.season__legend span {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* Two halves around the line: fruit above, fruit below. */
+.season-line__half {
+  position: relative;
+  height: 250px;
+}
+.season-line__fruit {
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  width: 96px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--sans);
+  text-align: center;
+  color: var(--text);
+  translate: -50% 0;
+  opacity: 0.4;
+  cursor: pointer;
+  transition: opacity var(--dur) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.season-line__fruit:hover,
+.season-line__fruit:focus-visible {
+  opacity: 1;
+  transform: translateY(-3px);
+}
+.season-line__fruit.is-ripe {
+  opacity: 1;
+}
+.season-line__fruit img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.16));
+}
+.season-line__fruit strong {
+  font-size: 14px;
+}
+.season-line__fruit.is-ripe strong {
+  color: var(--brand-dark);
+}
+.season-line__fruit small {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+/* The stem from the fruit to its months on the line, ending in a dot. */
+.season-line__stem {
+  position: relative;
+  width: 2px;
+  height: 14px;
+  background: hsl(0, 0%, 78%);
+}
+.season-line__fruit.is-far .season-line__stem {
+  height: 122px;
+}
+.season-line__stem::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border: 2px solid hsl(0, 0%, 75%);
+  border-radius: 50%;
+  background: var(--white);
+}
+.season-line__fruit.is-ripe .season-line__stem,
+.season-line__fruit.is-ripe .season-line__stem::after {
+  border-color: var(--brand);
+  background: var(--brand);
+}
+/* A far fruit moved sideways keeps its stem's space, but the stem itself is
+   drawn bent in the SVG below (BentStems in Activity.jsx). */
+.season-line__fruit.is-bent .season-line__stem {
+  visibility: hidden;
+}
+.season-line__bent {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.season-line__bent g {
+  opacity: 0.4;
+  transition: opacity var(--dur) var(--ease-out);
+}
+.season-line__bent g.is-ripe {
+  opacity: 1;
+}
+.season-line__bent line {
+  stroke: hsl(0, 0%, 78%);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.season-line__bent circle {
+  fill: var(--white);
+  stroke: hsl(0, 0%, 75%);
+  stroke-width: 2;
+}
+.season-line__bent .is-ripe line,
+.season-line__bent .is-ripe circle {
+  stroke: var(--brand);
+}
+.season-line__bent .is-ripe circle {
+  fill: var(--brand);
+}
+.season-line__half--up .season-line__fruit {
+  bottom: 22px;
+}
+.season-line__half--up .season-line__stem::after {
+  bottom: -10px;
+}
+/* Below the line the stem comes first, then the picture. */
+.season-line__half--down .season-line__fruit {
+  top: 4px;
+}
+.season-line__half--down .season-line__stem {
+  order: -1;
+}
+.season-line__half--down .season-line__stem::after {
+  top: -10px;
+}
+
+/* The line itself: thin, coloured by season; the picked month dark green. */
+.season-line__track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+}
+.season-line__track .is-hot { background: var(--hot); }
+.season-line__track .is-rain { background: var(--rain); }
+.season-line__track .is-cool { background: var(--cool); }
+.season-line__track .is-picked { background: var(--brand-dark); }
+.season-line__months {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  margin-top: 4px;
+}
+.season-line__months button {
+  position: relative;
+  padding: 4px 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.season-line__months button:hover {
+  color: var(--brand-dark);
+  background: var(--bg-alt);
+}
+.season-line__months button.is-picked,
+.season-line__months button.is-picked:hover {
+  color: var(--brand-dark);
+}
+/* This month: a small dot under its name. */
+.season-line__months button.is-now::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: hsl(44, 92%, 58%);
+}
+.season-line__half--down {
+  margin-top: 30px;
+}
+
+/* Phones: the vertical list (hidden on wider screens). */
+.season-list {
+  display: none;
+}
+
+#seasons {
+  scroll-margin-top: 90px;
+}
+
+/* ---- One card per fruit ---- */
+.fruit-list {
+  padding: 36px max(24px, calc((100% - 1100px) / 2)) 96px;
+  background:
+    radial-gradient(hsl(40, 30%, 84%) 1px, transparent 1px) 0 0 / 18px 18px,
+    hsl(40, 45%, 93%);
+}
+.fruit-list__head {
+  max-width: 640px;
+  margin: 0 auto 36px;
+  text-align: center;
+}
+.fruit-list__head h2 {
+  margin-top: 6px;
+  font-size: 34px;
+}
+.fruit-list__head p:last-child {
+  margin-top: 10px;
+  color: var(--text-muted);
+}
+.fruit-list__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 34px 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A fruit as a taped polaroid; the whole card opens the large view. */
+.fruit-snap {
+  --tilt: -1.5deg;
+}
+.fruit-snap:nth-child(3n + 2) {
+  --tilt: 1.2deg;
+}
+.fruit-snap:nth-child(3n) {
+  --tilt: -0.8deg;
+}
+.fruit-snap:nth-child(4n) {
+  --tilt: 1.8deg;
+}
+.fruit-snap button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  padding: 12px 12px 18px;
+  border: none;
+  background: var(--white);
+  color: inherit;
+  font-family: var(--sans);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 14px 22px -14px rgba(0, 0, 0, 0.42);
+  rotate: var(--tilt);
+  transition: rotate var(--dur) var(--ease-out), translate var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+}
+.fruit-snap button:hover {
+  rotate: 0deg;
+  translate: 0 -6px;
+  box-shadow: 0 24px 34px -18px rgba(0, 0, 0, 0.5);
+}
+/* Tape strip. */
+.fruit-snap button::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  top: -10px;
+  left: 50%;
+  width: 74px;
+  height: 20px;
+  translate: -50% 0;
+  rotate: -3deg;
+  background: hsla(44, 92%, 70%, 0.7);
+}
+.fruit-snap__photo {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+}
+.fruit-snap__photo > img:first-child {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+.fruit-snap__sticker {
+  position: absolute;
+  right: -16px;
+  bottom: -22px;
+  height: 84px;
+  width: auto;
+  max-width: 100px;
+  object-fit: contain;
+  rotate: 8deg;
+  filter: drop-shadow(2px 2px 0 #fff) drop-shadow(-2px -2px 0 #fff) drop-shadow(2px -2px 0 #fff)
+    drop-shadow(-2px 2px 0 #fff) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.3));
+  transition: scale var(--dur) var(--ease-out);
+}
+.fruit-snap button:hover .fruit-snap__sticker {
+  scale: 1.12;
+}
+.fruit-snap h3 {
+  font-size: 22px;
+}
+.fruit-snap__season {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand);
+}
+.fruit-snap__now {
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: hsl(44, 92%, 58%);
+  color: var(--brand-dark);
+  font-size: 11px;
+  font-weight: 700;
+}
+.fruit-snap__text {
+  margin-top: 2px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+@media (max-width: 960px) {
+  .acts-board__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .fruit-list__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .acts-board {
+    padding-top: 52px;
+  }
+  .acts-board__title {
+    font-size: 30px;
+  }
+  .acts-board__list {
+    gap: 22px 16px;
+  }
+  .polaroid h3 {
+    font-size: 17px;
+  }
+  .polaroid p {
+    font-size: 13px;
+  }
+  .season__title {
+    font-size: 28px;
+  }
+  .fruit-list__head h2 {
+    font-size: 28px;
+  }
+  .fruit-list__grid {
+    gap: 26px 16px;
+  }
+  .fruit-snap h3 {
+    font-size: 18px;
+  }
+  .fruit-snap__season,
+  .fruit-snap__text {
+    font-size: 12px;
+  }
+  .fruit-snap__sticker {
+    height: 60px;
+    right: -8px;
+  }
+}
+
+/* Fruit seasons on phones and narrow tablets: the horizontal line gets too
+   cramped for eleven fruits, so the year runs top to bottom instead. */
+@media (max-width: 860px) {
+  .season-line {
+    display: none;
+  }
+  .season-list {
+    position: relative;
+    display: grid;
+    margin: 0;
+    padding: 0 0 0 28px;
+    list-style: none;
+  }
+  /* The vertical line, coloured by season like the horizontal one. */
+  .season-list::before {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 14px;
+    bottom: 14px;
+    width: 4px;
+    border-radius: 999px;
+    background: linear-gradient(
+      var(--cool) 0 16.66%,
+      var(--hot) 16.66% 41.66%,
+      var(--rain) 41.66% 83.33%,
+      var(--cool) 83.33%
+    );
+  }
+  .season-list li {
+    position: relative;
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0;
+  }
+  .season-list li::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    margin-top: -6px;
+    border: 3px solid hsl(0, 0%, 75%);
+    border-radius: 50%;
+    background: var(--white);
+  }
+  .season-list li.is-picked::before {
+    left: -27px;
+    width: 18px;
+    height: 18px;
+    margin-top: -9px;
+    border-color: var(--brand-dark);
+    background: var(--brand-dark);
+    box-shadow: 0 0 0 4px var(--bg);
+  }
+  .season-list__month {
+    justify-self: start;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-h);
+    cursor: pointer;
+  }
+  .season-list li.is-picked .season-list__month {
+    color: var(--brand-dark);
+  }
+  .season-list__fruits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .season-list__fruits button {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px 3px 3px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--white);
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .season-list__fruits img {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+  }
+  .season-list li.is-picked .season-list__fruits button {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    font-weight: 600;
+  }
+  .season-list__none {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .season__title {
+    font-size: 28px;
+  }
+}
+
+/* Pictures and names sit above other fruits' long stems that pass behind them. */
+.season-line__fruit img,
+.season-line__fruit strong,
+.season-line__fruit small {
+  position: relative;
+  z-index: 1;
+}
+
+@media (min-width: 961px) and (max-width: 1180px) {
+  .acts-board__list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Closing call to action: book a stay to do the activities. */
+.act-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px 72px;
+  text-align: center;
+}
+.act-cta h2 {
+  font-size: 28px;
+  text-wrap: balance;
+}
+.act-cta p {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  text-wrap: balance;
+}

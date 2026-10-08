@@ -83,8 +83,22 @@
   margin-bottom: 20px;
   color: var(--text-muted);
 }
+/* The month sits in its own framed panel in the middle of the card; the
+   guest counter below it stays left-aligned with the heading. */
 .flow__calendar {
-  max-width: 400px;
+  box-sizing: border-box;
+  max-width: 440px;
+  margin: 8px auto 0;
+  padding: 18px 20px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 18px;
+  background: var(--white);
+  box-shadow: 0 6px 18px -10px hsla(150, 30%, 15%, 0.25);
+}
+@media (max-width: 480px) {
+  .flow__calendar {
+    padding: 12px 10px;
+  }
 }
 .flow__guests {
   display: flex;
@@ -330,88 +344,161 @@
   margin-top: 3px;
 }
 
-/* ---- Finished ---- */
+/* ---- Finished ----
+   Green header with the booking code(s), then the three steps after a
+   request (sent -> deposit -> room login) so the guest sees where they
+   are, then payment / login, the stay summary and the way out. */
 .flow-done {
   max-width: 540px;
   margin: 0 auto;
-  padding: 40px 32px;
+  overflow: hidden;
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: 22px;
   box-shadow: var(--shadow);
-  text-align: center;
   animation: fade-up var(--dur-slow) var(--ease-out) both;
 }
-.flow-done__icon {
-  display: grid;
-  place-items: center;
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 16px;
-  border-radius: 50%;
-  background: var(--success);
+.flow-done__head {
+  padding: 28px 28px 24px;
+  background: var(--brand-dark);
   color: var(--white);
-  font-size: 30px;
-  animation: flow-pop 0.5s var(--ease-out) both;
+}
+.flow-done__badge {
+  font-size: 14px;
+  font-weight: 600;
+  color: hsl(44, 92%, 70%);
 }
 .flow-done h1 {
-  font-size: 28px;
+  margin: 4px 0 16px;
+  font-size: 26px;
+  color: var(--white);
+  text-wrap: balance;
 }
-.flow-done__lead {
-  margin-top: 6px;
-  color: var(--text-muted);
+.flow-done__rooms {
+  margin: -8px 0 12px;
+  font-size: 14px;
+  opacity: 0.85;
+}
+.flow-done__codes {
+  display: grid;
+  gap: 8px;
 }
 .flow-done__code {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  margin: 24px 0 8px;
-  padding: 18px;
-  border: 1.5px dashed var(--brand);
-  border-radius: 16px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: hsla(0, 0%, 100%, 0.12);
+}
+.flow-done__code span {
+  min-width: 0;
   font-size: 13px;
-  color: var(--text-muted);
+  line-height: 1.45;
+  opacity: 0.85;
 }
 .flow-done__code strong {
-  font-size: 30px;
-  letter-spacing: 0.06em;
+  font-size: 24px;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.flow-done__body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px 28px 28px;
+}
+
+/* Next-steps timeline: a line joins the dots, green up to the last done step. */
+.flow-done__steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.flow-done__steps li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 14px;
+  padding-bottom: 16px;
+}
+.flow-done__steps li:last-child {
+  padding-bottom: 0;
+}
+.flow-done__steps li:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  top: 30px;
+  bottom: 0;
+  left: 14px;
+  width: 2px;
+  background: var(--border);
+}
+.flow-done__steps li.is-done:not(:last-child)::before {
+  background: var(--success);
+}
+.flow-done__dot {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+.is-done .flow-done__dot {
+  border-color: var(--success);
+  background: var(--success);
+  color: var(--white);
+  animation: flow-pop 0.5s var(--ease-out) both;
+}
+.is-now .flow-done__dot {
+  border-color: hsl(44, 92%, 58%);
+  background: hsl(44, 92%, 58%);
   color: var(--brand-dark);
 }
-.flow-done__hint {
-  margin: 14px 0;
+.flow-done__steps b {
+  display: block;
+  padding-top: 3px;
+  font-size: 16px;
+}
+.flow-done__steps p {
+  margin-top: 2px;
   font-size: 14px;
   color: var(--text-muted);
 }
-.flow-done .pay-panel {
-  margin-top: 18px;
+.is-todo b {
+  color: var(--text-muted);
 }
-/* Room login shown once the deposit is paid. */
-.flow-done__stay {
-  margin-top: 18px;
-  padding: 16px 18px 4px;
-  border-radius: 16px;
-  background: var(--brand-soft);
-  text-align: left;
-}
-.flow-done__stay-title {
-  margin-bottom: 8px;
-  font-weight: 700;
-  color: var(--brand-dark);
+
+.flow-done__hint {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-align: center;
 }
 .flow-done__summary {
-  margin-top: 22px;
-  text-align: left;
-}
-.flow-done .price-rows {
-  text-align: left;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
 }
 .flow-done__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-top: 22px;
+}
+@media (max-width: 420px) {
+  .flow-done__head {
+    padding: 24px 20px 20px;
+  }
+  .flow-done__body {
+    padding: 20px 20px 24px;
+  }
+  .flow-done__actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 @keyframes flow-pop {
@@ -453,4 +540,205 @@
   .flow__requests label {
     flex-wrap: wrap;
   }
+}
+
+/* ---- Several rooms: pick as many as the party needs ---- */
+.flow-room {
+  position: relative;
+}
+/* Tick in the photo's corner: empty circle = not chosen, green = chosen. */
+.flow-room__check {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--white);
+  border-radius: 50%;
+  background: hsla(0, 0%, 100%, 0.85);
+  color: var(--white);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+.flow-room.is-selected .flow-room__check {
+  background: var(--brand);
+}
+
+/* "Chosen rooms sleep 4 of 6 guests - choose more" */
+.flow-capacity {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: hsl(44, 92%, 94%);
+  color: hsl(36, 70%, 25%);
+  font-size: 15px;
+  font-weight: 600;
+}
+.flow-capacity.is-enough {
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+}
+.flow-capacity__bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: hsla(0, 0%, 100%, 0.8);
+}
+.flow-capacity__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: hsl(40, 85%, 52%);
+  transition: width var(--dur) var(--ease-out);
+}
+.flow-capacity.is-enough .flow-capacity__bar span {
+  background: var(--brand);
+}
+.flow-capacity .bk-error {
+  font-size: 14px;
+}
+.flow-rooms__none {
+  padding: 28px 16px;
+  border: 1.5px dashed var(--border);
+  border-radius: 16px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* Summary sidebar with several rooms: a line per room. */
+.flow-side-rooms {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 0 0 14px;
+  border-bottom: 1px dashed var(--border);
+  list-style: none;
+  font-size: 15px;
+}
+.flow-side-rooms li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.flow-side-rooms li > span:last-child {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.flow-side-rooms small {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ---- Step 1: farm photo beside the calendar ---- */
+.flow--intro {
+  grid-template-columns: minmax(0, 1fr);
+}
+.flow--intro .flow__main {
+  padding: 0;
+  overflow: hidden;
+}
+.flow-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+}
+/* Keeps the month compact, so the button stays in view on a laptop. */
+.flow-intro__side .inline-cal {
+  width: 100%;
+  max-width: 400px;
+  justify-self: center;
+}
+.flow-intro__photo {
+  position: relative;
+  min-height: 520px;
+}
+.flow-intro__photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Title and note at the bottom of the photo, over a dark fade. */
+.flow-intro__caption {
+  position: absolute;
+  inset: auto 0 0;
+  display: grid;
+  gap: 6px;
+  padding: 80px 30px 28px;
+  background: linear-gradient(transparent, hsla(150, 35%, 8%, 0.78));
+  color: var(--white);
+}
+.flow-intro__title {
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.flow-intro__caption p:last-child {
+  font-size: 15px;
+  opacity: 0.9;
+}
+.flow-intro__side {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 22px 30px 20px;
+}
+.flow-intro__side h1 {
+  margin-bottom: 0;
+}
+.flow-intro__side .flow__hint {
+  margin-bottom: 4px;
+}
+.flow-intro__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.flow-intro__stay {
+  color: var(--text-muted);
+}
+.flow-intro__stay strong {
+  color: var(--text-h);
+}
+
+@media (max-width: 900px) {
+  .flow-intro {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Phones: the photo becomes a band across the top. */
+  .flow-intro__photo {
+    min-height: 180px;
+  }
+  .flow-intro__caption {
+    padding: 50px 18px 16px;
+  }
+  .flow-intro__title {
+    font-size: 22px;
+  }
+  .flow-intro__side {
+    padding: 18px;
+  }
+}
+/* The last row: dates and nights, then the button across the full width
+   (so the floating chat button can't cover it). */
+.flow-intro__row:last-child .bk-btn {
+  flex: 1 0 100%;
+}
+/* Slideshow behind the caption; dark green shows while the first photo loads. */
+.flow-intro__photo {
+  background: var(--brand-dark);
+}
+.flow-intro__caption {
+  z-index: 1;
 }

@@ -1,8 +1,13 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { PRICING } from '../lib/pricing.js';
+import { photosJson } from '../lib/photos.js';
 
 export const roomRouter = Router();
+
+// Columns every room response carries, including its photos (cover first).
+const ROOM_COLUMNS = `id, name, description, price, capacity, max_extra_guests, image_url,
+  ${photosJson('room_id', 'rooms.id')} AS photos`;
 
 // Lists rooms, alphabetically - feeds the Home page's "Available Rooms"
 // section. Public - no auth required. With ?checkIn=&checkOut= (ISO
@@ -14,7 +19,7 @@ roomRouter.get('/', async (req, res) => {
 
   if (!checkIn || !checkOut) {
     const { rows } = await pool.query(
-      'SELECT id, name, description, price, capacity, max_extra_guests, image_url FROM rooms ORDER BY name'
+      `SELECT ${ROOM_COLUMNS} FROM rooms ORDER BY name`
     );
     return res.json({ rooms: rows, ...PRICING });
   }
@@ -34,7 +39,7 @@ roomRouter.get('/', async (req, res) => {
   }
 
   const { rows } = await pool.query(
-    `SELECT id, name, description, price, capacity, max_extra_guests, image_url
+    `SELECT ${ROOM_COLUMNS}
      FROM rooms
      WHERE NOT EXISTS (
        SELECT 1 FROM bookings b
@@ -76,7 +81,7 @@ roomRouter.get('/:id', async (req, res) => {
     return res.status(404).json({ error: 'Room not found' });
   }
   const { rows } = await pool.query(
-    'SELECT id, name, description, price, capacity, max_extra_guests, image_url FROM rooms WHERE id = $1',
+    `SELECT ${ROOM_COLUMNS} FROM rooms WHERE id = $1`,
     [req.params.id]
   );
   if (!rows[0]) {

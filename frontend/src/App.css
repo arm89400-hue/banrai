@@ -124,6 +124,57 @@ html:lang(th) .page-banner__eyebrow {
   text-align: left;
 }
 
+/* Login: a white card over a looping slideshow of the property, darkened
+   so the card stands out whichever photo is showing. */
+.auth-screen {
+  position: relative;
+  display: flex;
+  min-height: 100svh;
+  background: var(--brand-dark);
+}
+.auth-screen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, hsla(150, 35%, 8%, 0.55), hsla(150, 35%, 8%, 0.7));
+}
+.auth-screen .auth-page {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+}
+.auth-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 420px;
+  padding: 36px 32px 28px;
+  border-radius: 20px;
+  background: var(--white);
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  animation: fade-up var(--dur-slow) var(--ease-out) both;
+}
+.auth-card h1 {
+  color: var(--text-h);
+}
+.auth-card .auth-page__lead {
+  color: var(--text-muted);
+}
+.auth-card .auth-divider {
+  color: var(--text-muted);
+}
+.auth-card .auth-divider::before,
+.auth-card .auth-divider::after {
+  background: var(--border);
+}
+.auth-page .auth-card .link-button {
+  color: var(--brand);
+}
+
 .page ul {
   list-style: none;
   padding: 0;
@@ -151,6 +202,13 @@ html:lang(th) .page-banner__eyebrow {
 
 .auth-page form {
   max-width: 320px;
+}
+/* The log-in button spans the form, the same width as the Google button
+   above it, so the two choices line up. */
+.auth-page form button[type='submit'] {
+  align-self: stretch;
+  padding: 12px 26px;
+  font-size: 15px;
 }
 
 .google-button {
@@ -252,4 +310,10 @@ html:lang(th) .page-banner__eyebrow {
   max-width: 360px;
   margin-bottom: 20px;
   color: rgba(255, 255, 255, 0.85);
+}
+
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 28px 20px 22px;
+  }
 }

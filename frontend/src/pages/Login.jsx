@@ -4,6 +4,8 @@ import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import PasswordInput from '../components/PasswordInput';
+import PhotoSlides from '../components/PhotoSlides';
+import { LOGIN_SLIDES } from '../lib/photos';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -81,7 +83,8 @@ export default function Login() {
       window.google.accounts.id.renderButton(googleButtonRef.current, {
         theme: 'outline',
         size: 'large',
-        width: 320,
+        // Google wants a pixel width; fit narrow phone cards.
+        width: Math.min(320, googleButtonRef.current.offsetWidth || 320),
         locale: lang,
       });
     }, 100);
@@ -124,75 +127,80 @@ export default function Login() {
   }
 
   return (
-    <section className="page auth-page">
-      <h1>{mode === 'login' ? t('login.title') : t('login.createTitle')}</h1>
-      {next?.startsWith('/book') && <p className="auth-page__lead">{t('login.toBook')}</p>}
-      {expired && !error && <p role="alert">{t('login.errExpired')}</p>}
+    <section className="auth-screen">
+      <PhotoSlides photos={LOGIN_SLIDES} />
+      <div className="page auth-page">
+        <div className="auth-card">
+          <h1>{mode === 'login' ? t('login.title') : t('login.createTitle')}</h1>
+          {next?.startsWith('/book') && <p className="auth-page__lead">{t('login.toBook')}</p>}
+          {expired && !error && <p role="alert">{t('login.errExpired')}</p>}
 
-      {GOOGLE_CLIENT_ID ? (
-        <div ref={googleButtonRef} className="google-button" />
-      ) : (
-        <button
-          type="button"
-          className="google-button google-button--placeholder"
-          onClick={handleGoogleClickPlaceholder}
-        >
-          <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
-            <path
-              fill="#4285F4"
-              d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"
-            />
-            <path
-              fill="#34A853"
-              d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.348 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z"
-            />
-            <path
-              fill="#EA4335"
-              d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
-            />
-          </svg>
-          {t('login.google')}
-        </button>
-      )}
+          {GOOGLE_CLIENT_ID ? (
+            <div ref={googleButtonRef} className="google-button" />
+          ) : (
+            <button
+              type="button"
+              className="google-button google-button--placeholder"
+              onClick={handleGoogleClickPlaceholder}
+            >
+              <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+                <path
+                  fill="#4285F4"
+                  d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.348 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
+                />
+              </svg>
+              {t('login.google')}
+            </button>
+          )}
 
-      <div className="auth-divider">
-        <span>{t('login.or')}</span>
+          <div className="auth-divider">
+            <span>{t('login.or')}</span>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <input
+              // Text, not email: a room account's username isn't an email address.
+              type={mode === 'register' ? 'email' : 'text'}
+              autoComplete="username"
+              placeholder={mode === 'register' ? t('login.email') : t('login.idPlaceholder')}
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              required
+            />
+            <PasswordInput
+              label={t('login.holdToShow')}
+              autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+              placeholder={t('login.password')}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              required
+            />
+            <button type="submit" disabled={submitting}>
+              {mode === 'login' ? t('login.submit') : t('login.signup')}
+            </button>
+            {error && <p role="alert">{error}</p>}
+          </form>
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+          >
+            {mode === 'login' ? t('login.needAccount') : t('login.haveAccount')}
+          </button>
+        </div>
       </div>
-
-      <form onSubmit={handleSubmit}>
-        <input
-          // Text, not email: a room account's username isn't an email address.
-          type={mode === 'register' ? 'email' : 'text'}
-          autoComplete="username"
-          placeholder={mode === 'register' ? t('login.email') : t('login.idPlaceholder')}
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-          required
-        />
-        <PasswordInput
-          label={t('login.holdToShow')}
-          autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-          placeholder={t('login.password')}
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-          required
-        />
-        <button type="submit" disabled={submitting}>
-          {mode === 'login' ? t('login.submit') : t('login.signup')}
-        </button>
-        {error && <p role="alert">{error}</p>}
-      </form>
-      <button
-        type="button"
-        className="link-button"
-        onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-      >
-        {mode === 'login' ? t('login.needAccount') : t('login.haveAccount')}
-      </button>
     </section>
   );
 }

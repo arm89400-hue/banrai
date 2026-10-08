@@ -6,7 +6,8 @@
 // instead (they're charged per pet), and saved as the 'pets' request.
 export const REQUEST_OPTIONS = ['bbq', 'extra_bed'];
 export const MAX_PETS = 99;
-export const MAX_GUESTS = 10;
+// Most guests one booking may bring - spread over several rooms if needed.
+export const MAX_GUESTS = 14;
 
 // Local calendar date -> "YYYY-MM-DD" (not toISOString(), which converts
 // to UTC and could shift the day).
@@ -77,6 +78,28 @@ export function roomNames(name, lang) {
 export function roomMaxGuests(room) {
   if (!room?.capacity) return MAX_GUESTS;
   return room.capacity + (room.max_extra_guests ?? 0);
+}
+
+// Spreads `guests` over `rooms` (in the order given): first up to each
+// room's included guests, then into the extra places rooms allow, every room
+// getting at least one guest. Returns the per-room counts, or null if the
+// rooms can't sleep that many. Mirrors splitGuests in
+// backend/src/lib/pricing.js, which decides the real split.
+export function splitGuests(rooms, guests) {
+  if (rooms.length === 0 || rooms.length > guests) return null;
+  const counts = rooms.map(() => 1);
+  let left = guests - rooms.length;
+  rooms.forEach((room, i) => {
+    const take = Math.min(left, (room.capacity ?? MAX_GUESTS) - counts[i]);
+    counts[i] += take;
+    left -= take;
+  });
+  rooms.forEach((room, i) => {
+    const take = Math.min(left, room.capacity ? room.max_extra_guests ?? 0 : 0);
+    counts[i] += take;
+    left -= take;
+  });
+  return left === 0 ? counts : null;
 }
 
 // Price breakdown for a stay, as shown to the guest. The backend computes

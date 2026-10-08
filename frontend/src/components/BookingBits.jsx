@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useLang } from '../i18n/lang';
 import { formatBaht } from '../lib/money';
 import './BookingBits.css';
@@ -98,4 +99,48 @@ export function PromoTag({ promo }) {
 export function StatusBadge({ status }) {
   const { t } = useLang();
   return <span className={`status-badge status-badge--${status}`}>{t(`status.${status}`)}</span>;
+}
+
+// One login row with a copy button; the button says "Copied" for a moment.
+function CopyRow({ label, value }) {
+  const { t } = useLang();
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard blocked: the value is still selectable by hand.
+    }
+  }
+  return (
+    <div className="stay-login__row">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+      <button type="button" className="stay-login__copy" onClick={copy} aria-label={`${t('my.copy')} ${label}`}>
+        {copied ? t('my.copied') : t('my.copy')}
+      </button>
+    </div>
+  );
+}
+
+// The room-dashboard login a guest gets once the deposit is paid, in the
+// same dark-green look as the booking-done header.
+export function StayLogin({ booking, room, hint }) {
+  const { t } = useLang();
+  return (
+    <section className="stay-login">
+      <p className="stay-login__badge">✓ {t('status.confirmed')}</p>
+      <p className="stay-login__title">
+        {t('my.stayTitle')}
+        {room && ` · ${room}`}
+      </p>
+      <dl>
+        <CopyRow label={t('my.stayUser')} value={booking.stay_username} />
+        <CopyRow label={t('my.stayPass')} value={booking.stay_password} />
+      </dl>
+      {hint && <p className="stay-login__hint">{hint}</p>}
+    </section>
+  );
 }

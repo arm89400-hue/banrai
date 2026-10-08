@@ -243,7 +243,8 @@ export default function Navbar() {
 
           <LangSwitch lang={lang} setLang={setLang} label={t('nav.language')} className="navbar__desktop-only" />
 
-          {!isAdmin && !isStay && (
+          {/* On Home the booking button lives in the hero's search bar instead. */}
+          {!isAdmin && !isStay && pathname !== '/home' && (
             <Link to="/book" className="navbar__cta" onClick={closeMenus}>
               {t('nav.book')}
             </Link>

@@ -88,14 +88,47 @@
   border-radius: 20px;
   overflow: hidden;
 }
-.room-gallery > div {
+/* Three or more photos: cover spans both rows, two stacked on the right. */
+.room-gallery--stack {
+  grid-template-rows: 1fr 1fr;
+}
+.room-gallery--stack .room-gallery__tile--main {
+  grid-row: span 2;
+}
+.room-gallery__tile {
+  position: relative;
+  min-height: 0;
+  padding: 0;
+  border: 0;
   background: linear-gradient(135deg, var(--bg-alt), var(--brand-soft));
   overflow: hidden;
 }
+button.room-gallery__tile {
+  cursor: zoom-in;
+}
+.room-gallery__tile:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: -3px;
+}
 .room-gallery img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: scale var(--dur) var(--ease-out);
+}
+button.room-gallery__tile:hover img {
+  scale: 1.04;
+}
+.room-gallery__more {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 0.45);
+  color: var(--white);
+  font-size: 24px;
+  font-weight: 700;
 }
 
 .room-chips {

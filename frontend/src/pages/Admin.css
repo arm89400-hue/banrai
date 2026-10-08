@@ -4,167 +4,165 @@
 .admin-shell {
   flex: 1;
   display: grid;
-  grid-template-columns: 290px minmax(0, 1fr);
+  grid-template-columns: 76px minmax(0, 1fr);
   background: var(--bg);
   color: var(--text);
 }
 
-/* ---- Sidebar ---- */
-.admin-side {
+/* ---- Icon rail (laptop) ---- */
+.admin-rail {
   position: sticky;
   top: 0;
+  z-index: 10;
   box-sizing: border-box;
   height: 100svh;
-  /* On a short window the links scroll instead of pushing Log out off-screen. */
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  padding: 32px 18px 24px;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 0;
   background: var(--brand-dark);
-  color: var(--white);
 }
-.admin-side__brand {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 0 16px;
-  text-decoration: none;
+/* The round Baanrai mark on a white disc, so its green lines stay visible. */
+.admin-rail__logo {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  margin-bottom: 14px;
+  border-radius: 50%;
+  background: var(--white);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: transform var(--dur-fast);
 }
-.admin-side__name {
-  font-family: var(--serif);
-  font-size: 26px;
-  font-weight: 600;
+.admin-rail__logo:hover {
+  transform: scale(1.05);
 }
-.admin-side__tag {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
+.admin-rail__logo img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
 }
-.admin-side__nav {
+.admin-rail__nav,
+.admin-rail__foot {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
 }
-.admin-side__nav a,
-.admin-side__foot a,
-.admin-side__foot button {
-  padding: 12px 16px;
+.admin-rail__foot {
+  margin-top: auto;
+}
+.admin-rail__sep {
+  width: 28px;
+  height: 1px;
+  margin: 8px 0;
+  background: rgba(255, 255, 255, 0.15);
+}
+.admin-rail__item {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
   border: none;
   border-radius: 12px;
   background: none;
-  font-size: 18px;
-  font-weight: 500;
-  text-align: left;
-  text-decoration: none;
-  white-space: nowrap;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
   transition: background var(--dur-fast), color var(--dur-fast);
 }
-.admin-side__nav a:hover,
-.admin-side__foot a:hover,
-.admin-side__foot button:hover {
-  background: rgba(255, 255, 255, 0.08);
+.admin-rail__item:hover,
+.admin-rail__item:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
   color: var(--white);
 }
-/* Unread count on the Chat link. */
-.admin-side__badge {
-  margin-left: 10px;
-  padding: 1px 8px;
+/* The page you're on: white tile, plus a gold bar on the rail's edge. */
+.admin-rail__item.active,
+.admin-rail__item.active:hover {
+  background: var(--white);
+  color: var(--brand-dark);
+}
+.admin-rail__item.active::before {
+  content: '';
+  position: absolute;
+  left: -15px;
+  top: 11px;
+  bottom: 11px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: hsl(44, 92%, 58%);
+}
+.admin-rail__badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
   border-radius: 999px;
   background: var(--error);
   color: var(--white);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
+  box-shadow: 0 0 0 2px var(--brand-dark);
 }
-.admin-side__nav a.active {
-  background: var(--white);
-  color: var(--brand-dark);
-  font-weight: 600;
+.admin-rail__item.active .admin-rail__badge {
+  box-shadow: 0 0 0 2px var(--white);
 }
-.admin-side__foot {
+/* The section's name, sliding out to the right on hover / keyboard focus. */
+.admin-rail__tip {
+  position: absolute;
+  left: calc(100% + 14px);
+  top: 50%;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: auto;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-}
-.admin-side__who {
-  padding: 0 16px 10px;
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.6);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  background: hsl(150, 35%, 14%);
+  color: var(--white);
+  font-size: 14px;
+  font-weight: 600;
   white-space: nowrap;
+  box-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  translate: -4px -50%;
+  pointer-events: none;
+  transition: opacity var(--dur-fast), translate var(--dur-fast);
+}
+.admin-rail__tip::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: inherit;
+  translate: 0 -50%;
+  rotate: 45deg;
+}
+.admin-rail__tip small {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.15);
+  font-size: 12px;
+  font-weight: 500;
+}
+.admin-rail__item:hover .admin-rail__tip,
+.admin-rail__item:focus-visible .admin-rail__tip {
+  opacity: 1;
+  translate: 0 -50%;
 }
 
-/* ---- Admin login screen ---- */
-.admin-login {
-  flex: 1;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: var(--brand-dark);
-}
-.admin-login__card {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  width: min(100%, 460px);
-  padding: 42px 40px 34px;
-  background: var(--white);
-  border-radius: 18px;
-  box-shadow: var(--shadow-lg);
-  animation: admin-in var(--dur) var(--ease-out) both;
-}
-.admin-login__card h1 {
-  font-size: 34px;
-  margin-bottom: 6px;
-}
-.admin-login__card label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-.admin-login__card input {
-  font-family: var(--sans);
-  font-size: 18px;
-  padding: 13px 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--white);
-  color: var(--text-h);
-  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
-}
-.admin-login__card input:focus {
-  outline: none;
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--brand-soft);
-}
-.admin-login__card .admin__btn {
-  margin-top: 6px;
-  padding: 14px 18px;
-  font-size: 18px;
-  font-weight: 600;
-}
-.admin-login__card .admin__error {
-  margin: 0;
-  font-size: 17px;
-}
-.admin-login__card .admin__muted {
-  font-size: 17px;
-}
-.admin-login__back {
-  align-self: center;
-  margin-top: 4px;
-  font-size: 17px;
-  color: var(--text-muted);
+/* ---- Bottom tab bar + "More" sheet (phone only) ---- */
+.admin-tabs,
+.admin-more {
+  display: none;
 }
 
 /* ---- Workspace ---- */
@@ -436,6 +434,15 @@
 .admin__form-wide {
   grid-column: 1 / -1;
 }
+/* A toolbar with only its action button: keep it on the right. */
+.admin__toolbar--end {
+  justify-content: flex-end;
+}
+/* Boxes in a row line up even when one label wraps to two lines: each
+   field's box sits at the bottom of its (equal-height) grid cell. */
+.admin__form-grid > label > :last-child {
+  margin-top: auto;
+}
 .admin__form textarea {
   resize: vertical;
 }
@@ -444,39 +451,6 @@
   justify-content: flex-end;
   gap: 8px;
   margin-top: 16px;
-}
-
-/* ---- Messages ---- */
-.admin__messages {
-  display: grid;
-  gap: 14px;
-}
-.admin__message {
-  padding: 24px 26px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: var(--shadow);
-  animation: admin-in var(--dur-slow) var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 50ms);
-}
-.admin__message header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
-  font-size: 17px;
-}
-.admin__message p {
-  font-size: 18px;
-  white-space: pre-wrap;
-}
-.admin__message footer {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 14px;
 }
 
 /* ---- Feedback ---- */
@@ -510,40 +484,94 @@
   .admin-shell {
     display: block;
   }
-  .admin-side {
-    z-index: 5;
-    height: auto;
-    overflow-y: visible;
-    flex-flow: row wrap;
-    align-items: center;
-    gap: 8px 12px;
-    padding: 12px 12px 8px;
-  }
-  .admin-side__brand {
-    padding: 0 8px;
-  }
-  .admin-side__nav {
-    order: 3;
-    flex: 1 0 100%;
-    flex-direction: row;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .admin-side__foot {
-    flex-direction: row;
-    margin: 0 0 0 auto;
-    padding: 0;
-    border: none;
-  }
-  .admin-side__foot a,
-  .admin-side__foot button {
-    padding: 8px 10px;
-  }
-  .admin-side__who {
+  .admin-rail {
     display: none;
   }
   .admin {
-    padding: 28px 16px 60px;
+    padding: 24px 16px 100px;
+  }
+  .admin-tabs {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    padding: 6px 4px calc(8px + env(safe-area-inset-bottom));
+    background: var(--brand-dark);
+  }
+  .admin-tabs__item {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 3px;
+    padding: 6px 0;
+    border: none;
+    background: none;
+    color: rgba(255, 255, 255, 0.65);
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .admin-tabs__item.active {
+    color: var(--white);
+  }
+  .admin-tabs__item.active::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    width: 28px;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: hsl(44, 92%, 58%);
+  }
+  .admin-tabs__item .admin-rail__badge {
+    top: 0;
+    right: calc(50% - 22px);
+  }
+  .admin-more {
+    position: fixed;
+    inset: 0;
+    z-index: 19;
+    display: block;
+    background: rgba(0, 0, 0, 0.35);
+  }
+  .admin-more__sheet {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 8px;
+    border-radius: 18px;
+    background: var(--white);
+    box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.4);
+    animation: admin-in var(--dur) var(--ease-out) both;
+  }
+  .admin-more__sheet a,
+  .admin-more__sheet button {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 14px 4px;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: var(--text-h);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .admin-more__sheet .admin-icon {
+    color: var(--brand);
+  }
+  .admin-more__sheet a.active {
+    background: var(--brand-soft);
   }
 }
 
@@ -586,6 +614,24 @@
 .admin__sub--flag {
   color: hsl(36, 70%, 30%);
   font-weight: 600;
+}
+/* Deposit slip result: green when SlipOK verified it, red when rejected. */
+.admin__slip {
+  font-weight: 600;
+}
+.admin__slip--verified {
+  color: hsl(145, 55%, 30%);
+}
+.admin__slip--rejected {
+  color: hsl(0, 65%, 42%);
+}
+.admin__slip--review {
+  color: hsl(36, 70%, 30%);
+}
+.admin__slip-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
 }
 .admin__status {
   display: inline-block;
@@ -756,4 +802,205 @@
   height: 22px;
   padding: 0;
   accent-color: var(--brand);
+}
+
+/* ---- Photos of rooms & activities (AdminPhotos.jsx) ---- */
+.admin__notice {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-weight: 600;
+}
+
+/* Cover thumbnail + count in the list; opens the editor. */
+.admin-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-alt);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.admin-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.admin-thumb em {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: hsla(0, 0%, 0%, 0.62);
+  color: var(--white);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+}
+.admin-thumb:hover {
+  border-color: var(--brand);
+}
+
+.admin-photos {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.admin-photos__head {
+  margin-bottom: 14px;
+}
+.admin-photos__head h3 {
+  font-size: 20px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.admin-photos__count {
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--brand);
+}
+.admin-photos__grid {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 1100px) {
+  .admin-photos__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .admin-photos__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.admin-photos__grid > li {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.admin-photos__tile {
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+}
+.admin-photos__tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.admin-photos__cover {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 700;
+}
+.admin-photos__tools {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: flex;
+  gap: 4px;
+}
+.admin-photos__tools button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: hsla(0, 0%, 100%, 0.92);
+  color: var(--text-h);
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: 0 1px 4px hsla(0, 0%, 0%, 0.25);
+}
+.admin-photos__tools button:hover:not(:disabled) {
+  background: var(--white);
+  color: var(--brand);
+}
+.admin-photos__tools button.is-danger:hover:not(:disabled) {
+  color: var(--error);
+}
+.admin-photos__tools button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+/* The add tile is a label wrapping a hidden file input. Prefixed with
+   .admin__form so it beats that form's general label/input styles. */
+.admin__form .admin-photos__add label {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+  border: 2px dashed var(--brand);
+  border-radius: 12px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+.admin__form .admin-photos__add label:hover {
+  background: hsl(150, 30%, 88%);
+}
+.admin__form .admin-photos__add label.is-busy {
+  cursor: progress;
+  opacity: 0.75;
+}
+.admin__form .admin-photos__add label:focus-within {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+.admin__form .admin-photos__add label > span {
+  font-size: 28px;
+  line-height: 1;
+}
+.admin__form .admin-photos__add input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+}
+.admin-photos__empty {
+  border: 2px dashed var(--border);
+}
+
+/* ---- Announcements (AdminAnnouncements.jsx) ---- */
+.admin-ann__who {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.admin-ann__label {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.admin-ann__hint {
+  font-size: 15px;
 }

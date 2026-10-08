@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
+import { photosJson } from '../lib/photos.js';
 
 export const stayRouter = Router();
 
@@ -16,7 +17,8 @@ stayRouter.get('/', requireAuth, async (req, res, next) => {
       `SELECT b.code, b.status, b.booked_for, b.booked_until, b.guests, b.extra_guests, b.pets, b.guest_name,
               b.requests, b.note, b.total, b.deposit,
               r.id AS room_id, r.name AS room_name, r.description AS room_description,
-              r.capacity AS room_capacity, r.image_url AS room_image_url
+              r.capacity AS room_capacity, r.image_url AS room_image_url,
+              ${photosJson('room_id', 'r.id')} AS room_photos
        FROM bookings b
        JOIN rooms r ON r.id = b.room_id
        WHERE b.id = $1`,

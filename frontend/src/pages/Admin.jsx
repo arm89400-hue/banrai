@@ -1,14 +1,32 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, useNavigate, useParams } from 'react-router-dom';
-import { api } from '../lib/api';
+import { api, mediaUrl } from '../lib/api';
 import { formatBaht } from '../lib/money';
 import { useAuth } from '../context/AuthContext';
 import { ADMIN_SECTIONS, adminPath } from '../lib/adminSections';
-import PasswordInput from '../components/PasswordInput';
+import AdminIcon from '../components/AdminIcons';
 import AdminCalendar from './AdminCalendar';
 import AdminChat from './AdminChat';
 import AdminPromotions from './AdminPromotions';
+import AdminAnnouncements from './AdminAnnouncements';
+import AdminPhotos, { MAX_PHOTOS } from './AdminPhotos';
+import { uploadPending } from '../lib/uploadPending';
 import './Admin.css';
+
+// Why a deposit slip was turned down (reason codes from POST /api/bookings/:id/slip).
+const SLIP_REASONS = {
+  SLIP_UNREADABLE: 'no QR',
+  SLIP_NOT_FOUND: 'not found at bank',
+  SLIP_PENDING: 'bank not ready',
+  SLIP_DUPLICATE: 'used before',
+  SLIP_AMOUNT: 'wrong amount',
+  SLIP_RECEIVER: 'wrong account',
+  SLIP_OLD: 'older than booking',
+  SLIP_SERVICE: 'check failed',
+  NOT_PENDING: 'booking not pending',
+  MANUAL_REJECT: 'rejected by you',
+  BOOKING_CANCELLED: 'booking cancelled',
+};
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
@@ -30,11 +48,11 @@ function useAdminData(path) {
   return { ...state, reload };
 }
 
-// How many chat messages from accounts are still unread, for the badge on
-// the sidebar's Chat link. Re-checked every 8 seconds and whenever the
-// section changes (opening a conversation in Chat marks it read).
-function useUnreadChats(enabled, tab) {
-  const [unread, setUnread] = useState(0);
+// The red numbers on the menu: bookings awaiting their deposit and unread
+// chat messages. Re-checked every 8 seconds and whenever the section
+// changes (opening a conversation in Chat marks it read).
+function useAdminBadges(enabled, tab) {
+  const [badges, setBadges] = useState({});
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -42,7 +60,8 @@ function useUnreadChats(enabled, tab) {
     const load = () =>
       api('/api/admin/stats')
         .then((data) => {
-          if (!cancelled) setUnread(data.stats.unread_chats ?? 0);
+          if (cancelled) return;
+          setBadges({ bookings: data.stats.pending_bookings ?? 0, chat: data.stats.unread_chats ?? 0 });
         })
         .catch(() => {});
     load();
@@ -53,13 +72,18 @@ function useUnreadChats(enabled, tab) {
     };
   }, [enabled, tab]);
 
-  return unread;
+  return badges;
 }
+
+// What a menu badge's number means, shown in the icon's hover label.
+const badgeText = (id, n) => (id === 'chat' ? `${n} unread` : `${n} waiting`);
 
 // Admin dashboard: a page of its own, outside the public site's navbar and
 // footer (see App.jsx). Only reachable for accounts listed in the backend's
-// ADMIN_EMAILS: anyone else gets the admin login screen. The server enforces
-// this on every /api/admin call - the check here just picks which screen to show.
+// ADMIN_EMAILS. There is no separate admin login: signed-out visitors go to
+// the site's normal /login (which sends admins back here), and signed-in
+// non-admins go to the Home page. The server enforces this on every
+// /api/admin call - the check here just picks where to send people.
 // The current section comes from the URL (/admin/:section).
 export default function Admin() {
   const { user, logout } = useAuth();
@@ -68,10 +92,20 @@ export default function Admin() {
   const tab = section ?? 'overview';
   const current = ADMIN_SECTIONS.find((s) => s.id === tab);
   const isAdmin = Boolean(user?.is_admin);
-  const unreadChats = useUnreadChats(isAdmin, tab);
+  const badges = useAdminBadges(isAdmin, tab);
+  // Phone only: the "More" sheet of sections that are not on the tab bar.
+  const [moreOpen, setMoreOpen] = useState(false);
 
+  if (!user) {
+    return <Navigate to="/login?next=/admin" replace />;
+  }
   if (!isAdmin) {
-    return <AdminLogin />;
+    return <Navigate to="/home" replace />;
+  }
+
+  // The calendar is now part of Bookings; keep old links working.
+  if (tab === 'calendar') {
+    return <Navigate to="/admin/bookings" replace />;
   }
 
   // Unknown section in the URL - go back to the Overview.
@@ -81,32 +115,83 @@ export default function Admin() {
 
   return (
     <div className="admin-shell">
-      <aside className="admin-side">
-        <Link to="/admin" className="admin-side__brand">
-          <span className="admin-side__name">Baanrai</span>
-          <span className="admin-side__tag">Admin</span>
+      {/* Laptop: a slim icon rail; each icon's name slides out on hover or
+          keyboard focus. Red numbers show what is waiting. */}
+      <aside className="admin-rail">
+        <Link to="/admin" className="admin-rail__logo" aria-label="Baanrai admin - Overview">
+          <img src="/images/logo-mark.png" alt="" />
         </Link>
 
-        <nav className="admin-side__nav" aria-label="Admin sections">
-          {ADMIN_SECTIONS.map((s) => (
-            <NavLink key={s.id} to={adminPath(s.id)} end>
-              {s.label}
-              {s.id === 'chat' && unreadChats > 0 && <span className="admin-side__badge">{unreadChats}</span>}
-            </NavLink>
+        <nav className="admin-rail__nav" aria-label="Admin sections">
+          {ADMIN_SECTIONS.map((s, i) => (
+            <Fragment key={s.id}>
+              {i > 0 && ADMIN_SECTIONS[i - 1].group !== s.group && <span className="admin-rail__sep" aria-hidden="true" />}
+              <NavLink to={adminPath(s.id)} end className="admin-rail__item" aria-label={s.label}>
+                <AdminIcon name={s.icon} />
+                {badges[s.id] > 0 && <span className="admin-rail__badge">{badges[s.id]}</span>}
+                <span className="admin-rail__tip" aria-hidden="true">
+                  {s.label}
+                  {badges[s.id] > 0 && <small>{badgeText(s.id, badges[s.id])}</small>}
+                </span>
+              </NavLink>
+            </Fragment>
           ))}
         </nav>
 
-        <div className="admin-side__foot">
-          <span className="admin-side__who" title={user.email}>
-            {user.email}
-          </span>
-          <Link to="/home">View site</Link>
+        <div className="admin-rail__foot">
+          <Link to="/home" className="admin-rail__item" aria-label="View site">
+            <AdminIcon name="site" />
+            <span className="admin-rail__tip" aria-hidden="true">View site</span>
+          </Link>
           {/* Logging out leaves you on /admin, which then shows the admin login. */}
-          <button type="button" onClick={logout}>
-            Log out
+          <button type="button" className="admin-rail__item" onClick={logout} aria-label="Log out">
+            <AdminIcon name="logout" />
+            <span className="admin-rail__tip" aria-hidden="true">
+              Log out<small>{user.email}</small>
+            </span>
           </button>
         </div>
       </aside>
+
+      {/* Phone: the main sections as a bottom tab bar; the rest under "More". */}
+      <nav className="admin-tabs" aria-label="Admin sections">
+        {ADMIN_SECTIONS.filter((s) => s.tab).map((s) => (
+          <NavLink key={s.id} to={adminPath(s.id)} end className="admin-tabs__item" onClick={() => setMoreOpen(false)}>
+            <AdminIcon name={s.icon} size={23} />
+            {badges[s.id] > 0 && <span className="admin-rail__badge">{badges[s.id]}</span>}
+            {s.label}
+          </NavLink>
+        ))}
+        <button
+          type="button"
+          className={`admin-tabs__item${moreOpen || !current.tab ? ' active' : ''}`}
+          aria-expanded={moreOpen}
+          onClick={() => setMoreOpen((o) => !o)}
+        >
+          <AdminIcon name="more" size={23} />
+          More
+        </button>
+      </nav>
+      {moreOpen && (
+        <div className="admin-more" onClick={() => setMoreOpen(false)}>
+          <div className="admin-more__sheet" onClick={(e) => e.stopPropagation()}>
+            {ADMIN_SECTIONS.filter((s) => !s.tab).map((s) => (
+              <NavLink key={s.id} to={adminPath(s.id)} end onClick={() => setMoreOpen(false)}>
+                <AdminIcon name={s.icon} />
+                {s.label}
+              </NavLink>
+            ))}
+            <Link to="/home">
+              <AdminIcon name="site" />
+              View site
+            </Link>
+            <button type="button" onClick={logout}>
+              <AdminIcon name="logout" />
+              Log out
+            </button>
+          </div>
+        </div>
+      )}
 
       <section className="admin">
         <header className="admin__header">
@@ -121,77 +206,15 @@ export default function Admin() {
         <div className="admin__panel" key={tab}>
           {tab === 'overview' && <Overview onJump={(id) => navigate(adminPath(id))} />}
           {tab === 'bookings' && <Bookings />}
-          {tab === 'calendar' && <AdminCalendar />}
           {tab === 'rooms' && <Listings kind="rooms" />}
           {tab === 'activities' && <Listings kind="activities" />}
           {tab === 'users' && <Users />}
           {tab === 'promotions' && <AdminPromotions />}
+          {tab === 'announcements' && <AdminAnnouncements />}
           {tab === 'chat' && <AdminChat />}
-          {tab === 'messages' && <Messages />}
           {tab === 'log' && <ActivityLog />}
         </div>
       </section>
-    </div>
-  );
-}
-
-// The admin's own sign-in screen, shown at /admin to anyone who isn't signed
-// in as an admin. A non-admin account is refused without being signed in.
-function AdminLogin() {
-  const { user, login } = useAuth();
-  const [form, setForm] = useState({ email: '', password: '' });
-  const [error, setError] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError(null);
-    setSubmitting(true);
-    try {
-      const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify(form) });
-      if (!data.user.is_admin) {
-        setError('This account is not an administrator.');
-        return;
-      }
-      login(data.token, data.user);
-    } catch (err) {
-      setError(err.reason === 'BAD_CREDENTIALS' ? 'Wrong email/username or password.' : err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  const field = (key) => ({
-    value: form[key],
-    onChange: (e) => setForm({ ...form, [key]: e.target.value }),
-  });
-
-  return (
-    <div className="admin-login">
-      <form className="admin-login__card" onSubmit={handleSubmit}>
-        <p className="admin__eyebrow">Baanrai</p>
-        <h1>Admin login</h1>
-        {user && (
-          <p className="admin__muted">
-            You are signed in as {user.email}, which is not an admin account.
-          </p>
-        )}
-        <label>
-          <span>Email or username</span>
-          <input type="text" autoComplete="username" autoFocus required {...field('email')} />
-        </label>
-        <label>
-          <span>Password</span>
-          <PasswordInput autoComplete="current-password" required {...field('password')} />
-        </label>
-        {error && <p className="admin__error" role="alert">{error}</p>}
-        <button type="submit" className="admin__btn admin__btn--primary" disabled={submitting}>
-          {submitting ? 'Logging in…' : 'Log in'}
-        </button>
-        <Link to="/home" className="admin-login__back">
-          ← Back to the site
-        </Link>
-      </form>
     </div>
   );
 }
@@ -207,6 +230,7 @@ function Overview({ onJump }) {
   const s = data?.stats;
 
   const cards = s && [
+    { label: 'Slips to check', value: s.slips_to_review, tab: 'bookings' },
     { label: 'Awaiting deposit', value: s.pending_bookings, tab: 'bookings' },
     { label: 'Upcoming bookings', value: s.upcoming_bookings, tab: 'bookings' },
     { label: 'Rooms occupied today', value: `${s.rooms_occupied_now} / ${s.rooms}`, tab: 'bookings' },
@@ -216,7 +240,6 @@ function Overview({ onJump }) {
     { label: 'Rooms', value: s.rooms, tab: 'rooms' },
     { label: 'Activities', value: s.activities, tab: 'activities' },
     { label: 'Unread chat messages', value: s.unread_chats, tab: 'chat' },
-    { label: 'Contact messages', value: s.messages, tab: 'messages' },
   ];
 
   return (
@@ -282,10 +305,25 @@ function Bookings() {
     }
   }
 
+  // Turns down a slip waiting for a manual check; the guest can send another.
+  async function rejectSlip(b) {
+    if (!window.confirm(`Reject the slip for ${b.code || `#${b.id}`}? The booking stays pending and the guest is asked for a new slip.`)) return;
+    setActionError(null);
+    try {
+      await api(`/api/admin/slips/${b.slip_id}/reject`, { method: 'PATCH' });
+      reload();
+    } catch (err) {
+      setActionError(err.message);
+    }
+  }
+
   const who = (b) => b.guest_name || b.user_email || 'guest';
 
   return (
     <>
+      {/* Which rooms are booked or free, night by night. */}
+      {data && <AdminCalendar bookings={data.bookings} />}
+
       <div className="admin__toolbar">
         <div className="admin__toolbar-group">
           <div className="admin__segmented">
@@ -344,6 +382,12 @@ function Bookings() {
                   <td>
                     <strong>{b.code || `#${b.id}`}</strong>
                     <div className="admin__sub">{fmtDate(b.created_at)}</div>
+                    {/* Rooms booked together share the first room's code. */}
+                    {b.group_code && (
+                      <div className="admin__sub admin__sub--flag">
+                        Group {b.group_code} · {data.bookings.filter((x) => x.group_code === b.group_code).length} rooms
+                      </div>
+                    )}
                   </td>
                   <td>
                     <strong>{who(b)}</strong>
@@ -393,6 +437,36 @@ function Bookings() {
                       <>
                         {formatBaht(b.total)}
                         <div className="admin__sub">Deposit {formatBaht(b.deposit)}</div>
+                        {/* The transfer slip checked with SlipOK, if the guest sent one. */}
+                        {b.slip_status && (
+                          <div className={`admin__sub admin__slip admin__slip--${b.slip_status}`}>
+                            {b.slip_status === 'verified'
+                              ? `Slip ✓ ${b.slip_amount != null ? formatBaht(b.slip_amount) : 'checked by hand'}`
+                              : b.slip_status === 'review'
+                                ? 'Slip sent · check it'
+                                : `Slip ✗ ${SLIP_REASONS[b.slip_reason] ?? b.slip_reason}${b.slip_amount != null ? ` (${formatBaht(b.slip_amount)})` : ''}`}
+                            {b.slip_count > 1 && ` · ${b.slip_count} tries`}
+                            {b.slip_file && (
+                              <>
+                                {' · '}
+                                <a href={mediaUrl(b.slip_file)} target="_blank" rel="noreferrer">
+                                  view
+                                </a>
+                              </>
+                            )}
+                            {/* Manual check: approve = confirm the booking. */}
+                            {b.slip_status === 'review' && b.status === 'pending' && (
+                              <span className="admin__slip-actions">
+                                <button type="button" className="admin__btn admin__btn--primary" onClick={() => setStatus(b, 'confirmed', `Approve the slip and confirm ${b.code || `#${b.id}`}? Check the amount is ${formatBaht(b.deposit)} and it reached your account.`)}>
+                                  Approve
+                                </button>
+                                <button type="button" className="admin__btn" onClick={() => rejectSlip(b)}>
+                                  Reject
+                                </button>
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {Number(b.discount) > 0 && (
                           <div className="admin__sub admin__sub--flag">
                             {b.promo_name || 'Promotion'}: −{formatBaht(b.discount)}
@@ -671,32 +745,44 @@ const LISTING_CONFIG = {
   activities: { singular: 'activity', listPath: '/api/activities', listKey: 'activities', roomFields: false },
 };
 
-const EMPTY_FORM = { name: '', description: '', price: '', capacity: '', max_extra_guests: '0', image_url: '' };
+const EMPTY_FORM = {
+  name: '',
+  name_th: '',
+  description: '',
+  description_th: '',
+  tag: '',
+  tag_th: '',
+  price: '',
+  position: '',
+  capacity: '',
+  max_extra_guests: '0',
+  image_url: '',
+};
 
-// Shared create/edit/delete manager for rooms and activities.
+// The form's values for an existing room or activity.
+const formFor = (item) =>
+  Object.fromEntries(Object.keys(EMPTY_FORM).map((key) => [key, item[key] ?? EMPTY_FORM[key]]));
+
+// Shared create/edit/delete manager for rooms and activities, with each
+// one's photos (up to 6, see AdminPhotos).
 function Listings({ kind }) {
   const cfg = LISTING_CONFIG[kind];
   const { data, error, loading, reload } = useAdminData(cfg.listPath);
   const [editing, setEditing] = useState(null); // null | 'new' | item id
   const [form, setForm] = useState(EMPTY_FORM);
+  const [photos, setPhotos] = useState([]); // the edited item's photos
+  const [pending, setPending] = useState([]); // photos picked for a new item, uploaded on Save
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [savedNote, setSavedNote] = useState(null);
 
   function startEdit(item) {
     setEditing(item ? item.id : 'new');
     setFormError(null);
-    setForm(
-      item
-        ? {
-            name: item.name ?? '',
-            description: item.description ?? '',
-            price: item.price ?? '',
-            capacity: item.capacity ?? '',
-            max_extra_guests: item.max_extra_guests ?? 0,
-            image_url: item.image_url ?? '',
-          }
-        : EMPTY_FORM
-    );
+    setSavedNote(null);
+    setForm(item ? formFor(item) : EMPTY_FORM);
+    setPhotos(item?.photos ?? []);
+    setPending([]);
   }
 
   async function save(e) {
@@ -705,17 +791,37 @@ function Listings({ kind }) {
     setFormError(null);
     try {
       const isNew = editing === 'new';
-      await api(`/api/admin/${kind}${isNew ? '' : `/${editing}`}`, {
+      const data = await api(`/api/admin/${kind}${isNew ? '' : `/${editing}`}`, {
         method: isNew ? 'POST' : 'PUT',
         body: JSON.stringify(form),
       });
-      setEditing(null);
+      if (isNew) {
+        // Upload the photos picked on the new form, then stay on the item.
+        const created = data.room ?? data.activity;
+        setEditing(created.id);
+        setForm(formFor(created));
+        setPending([]);
+        try {
+          setPhotos(await uploadPending(kind, created.id, pending));
+          setSavedNote(`Saved${pending.length ? ` with ${pending.length} photo${pending.length > 1 ? 's' : ''}` : ''}.`);
+        } catch (err) {
+          setPhotos(err.photos);
+          setFormError(`Saved, but not every photo uploaded: ${err.message} Add the rest below.`);
+        }
+      } else {
+        setEditing(null);
+      }
       reload();
     } catch (err) {
       setFormError(err.message);
     } finally {
       setSaving(false);
     }
+  }
+
+  function photosChanged(next) {
+    setPhotos(next);
+    reload();
   }
 
   async function remove(item) {
@@ -741,10 +847,7 @@ function Listings({ kind }) {
 
   return (
     <>
-      <div className="admin__toolbar">
-        <p className="admin__muted">
-          Changes appear on the public site straight away.
-        </p>
+      <div className="admin__toolbar admin__toolbar--end">
         <button type="button" className="admin__btn admin__btn--primary" onClick={() => startEdit(null)}>
           + Add {cfg.singular}
         </button>
@@ -753,45 +856,84 @@ function Listings({ kind }) {
       {editing !== null && (
         <form className="admin__form" onSubmit={save}>
           <h2>{editing === 'new' ? `New ${cfg.singular}` : `Edit ${cfg.singular}`}</h2>
-          <div className="admin__form-grid">
-            <label>
-              <span>Name</span>
-              <input required {...field('name')} />
-            </label>
-            <label>
-              <span>Price (฿){cfg.roomFields && ' per night'}</span>
-              <input required type="number" min="0" step="0.01" {...field('price')} />
-            </label>
-            {cfg.roomFields && (
-              <>
-                <label>
-                  <span>Guests included in the price</span>
-                  <input type="number" min="1" {...field('capacity')} />
-                </label>
-                <label>
-                  <span>Extra guests allowed (charged per night)</span>
-                  <input type="number" min="0" max="10" {...field('max_extra_guests')} />
-                </label>
-                <label>
-                  <span>Image URL (optional)</span>
-                  <input placeholder="/images/rooms/room-1.jpg" {...field('image_url')} />
-                </label>
-              </>
-            )}
-            <label className="admin__form-wide">
-              <span>Description</span>
-              <textarea rows={3} {...field('description')} />
-            </label>
-          </div>
+          {savedNote && <p className="admin__notice">{savedNote}</p>}
+          {cfg.roomFields ? (
+            <div className="admin__form-grid">
+              <label>
+                <span>Name (English · Thai)</span>
+                <input required placeholder="Father's Room · ห้องพ่อ" {...field('name')} />
+              </label>
+              <label>
+                <span>Price (฿) per night</span>
+                <input required type="number" min="0" step="0.01" {...field('price')} />
+              </label>
+              <label>
+                <span>Guests included in the price</span>
+                <input type="number" min="1" {...field('capacity')} />
+              </label>
+              <label>
+                <span>Extra guests allowed (fee per night)</span>
+                <input type="number" min="0" max="10" {...field('max_extra_guests')} />
+              </label>
+              <label className="admin__form-wide">
+                <span>Description</span>
+                <textarea rows={3} {...field('description')} />
+              </label>
+            </div>
+          ) : (
+            <div className="admin__form-grid">
+              <label>
+                <span>Name (English)</span>
+                <input placeholder="Fruit picking" {...field('name')} />
+              </label>
+              <label>
+                <span>Name (Thai)</span>
+                <input lang="th" placeholder="เก็บผลไม้" {...field('name_th')} />
+              </label>
+              <label>
+                <span>Tag (English, optional)</span>
+                <input placeholder="Every morning" maxLength={60} {...field('tag')} />
+              </label>
+              <label>
+                <span>Tag (Thai, optional)</span>
+                <input lang="th" placeholder="ทุกเช้า" maxLength={60} {...field('tag_th')} />
+              </label>
+              <label>
+                <span>Price (฿), 0 if free</span>
+                <input type="number" min="0" step="0.01" {...field('price')} />
+              </label>
+              <label>
+                <span>Order on the page (1 = first)</span>
+                <input type="number" min="0" placeholder="Last" {...field('position')} />
+              </label>
+              <label className="admin__form-wide">
+                <span>Description (English)</span>
+                <textarea rows={2} {...field('description')} />
+              </label>
+              <label className="admin__form-wide">
+                <span>Description (Thai)</span>
+                <textarea lang="th" rows={2} {...field('description_th')} />
+              </label>
+            </div>
+          )}
+          <AdminPhotos
+            kind={kind}
+            itemId={editing === 'new' ? null : editing}
+            photos={photos}
+            onChange={photosChanged}
+            pending={pending}
+            onPendingChange={setPending}
+          />
           {formError && <p className="admin__error" role="alert">{formError}</p>}
           <div className="admin__form-actions">
             <button type="button" className="admin__btn" onClick={() => setEditing(null)}>
-              Cancel
+              {editing === 'new' ? 'Cancel' : 'Close'}
             </button>
             <button type="submit" className="admin__btn admin__btn--primary" disabled={saving}>
               {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
+
         </form>
       )}
 
@@ -801,7 +943,9 @@ function Listings({ kind }) {
           <table className="admin__table">
             <thead>
               <tr>
+                <th>Photos</th>
                 <th>Name</th>
+                {!cfg.roomFields && <th>Tag</th>}
                 <th>Price</th>
                 {cfg.roomFields && <th>Guests</th>}
                 <th>Description</th>
@@ -811,8 +955,25 @@ function Listings({ kind }) {
             <tbody>
               {data[cfg.listKey].map((item) => (
                 <tr key={item.id} className={editing === item.id ? 'is-editing' : ''}>
-                  <td><strong>{item.name}</strong></td>
-                  <td>{formatBaht(item.price)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="admin-thumb"
+                      onClick={() => startEdit(item)}
+                      aria-label={`Photos of ${item.name}: ${item.photos?.length ?? 0} of ${MAX_PHOTOS}`}
+                    >
+                      {item.photos?.[0] ? <img src={mediaUrl(item.photos[0].file)} alt="" loading="lazy" /> : <span>No photo</span>}
+                      <em>
+                        {item.photos?.length ?? 0}/{MAX_PHOTOS}
+                      </em>
+                    </button>
+                  </td>
+                  <td>
+                    <strong>{item.name}</strong>
+                    {item.name_th && item.name_th !== item.name && <div className="admin__muted">{item.name_th}</div>}
+                  </td>
+                  {!cfg.roomFields && <td className="admin__muted">{item.tag || item.tag_th || '-'}</td>}
+                  <td>{Number(item.price) > 0 || cfg.roomFields ? formatBaht(item.price) : 'Free'}</td>
                   {cfg.roomFields && (
                     <td>
                       {item.capacity ?? '-'}
@@ -881,50 +1042,6 @@ function Users() {
   );
 }
 
-function Messages() {
-  const { data, error, loading, reload } = useAdminData('/api/admin/messages');
-  const [actionError, setActionError] = useState(null);
-
-  async function remove(m) {
-    if (!window.confirm(`Delete the message from ${m.name}?`)) return;
-    setActionError(null);
-    try {
-      await api(`/api/admin/messages/${m.id}`, { method: 'DELETE' });
-      reload();
-    } catch (err) {
-      setActionError(err.message);
-    }
-  }
-
-  return (
-    <>
-      <Status loading={loading && !data} error={error || actionError} />
-      {data && (
-        <div className="admin__messages">
-          {data.messages.map((m, i) => (
-            <article key={m.id} className="admin__message" style={{ '--i': Math.min(i, 8) }}>
-              <header>
-                <strong>{m.name}</strong>
-                <span className="admin__muted">{fmtDateTime(m.created_at)}</span>
-              </header>
-              <p>{m.message}</p>
-              <footer>
-                <a className="admin__btn admin__btn--primary" href={`mailto:${m.email}`}>
-                  Reply to {m.email}
-                </a>
-                <button type="button" className="admin__btn admin__btn--danger" onClick={() => remove(m)}>
-                  Delete
-                </button>
-              </footer>
-            </article>
-          ))}
-          {data.messages.length === 0 && <p className="admin__empty">No messages yet.</p>}
-        </div>
-      )}
-    </>
-  );
-}
-
 // What each activity_log `type` is called, and which filter group and tag
 // colour it belongs to.
 const LOG_TYPES = {
@@ -934,6 +1051,8 @@ const LOG_TYPES = {
   'booking.reopened': { label: 'Booking re-opened', group: 'bookings', tone: 'pending' },
   'booking.deleted': { label: 'Booking deleted', group: 'bookings', tone: 'cancelled' },
   'booking.repriced': { label: 'Price edited', group: 'bookings', tone: 'pending' },
+  'booking.slip_sent': { label: 'Deposit slip sent', group: 'bookings', tone: 'pending' },
+  'booking.slip_rejected': { label: 'Slip rejected', group: 'bookings', tone: 'cancelled' },
   'promotion.created': { label: 'Promotion created', group: 'bookings', tone: 'confirmed' },
   'promotion.deleted': { label: 'Promotion deleted', group: 'bookings', tone: 'cancelled' },
   'member.registered': { label: 'New member', group: 'accounts', tone: 'confirmed' },

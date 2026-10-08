@@ -2,15 +2,15 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { authRouter } from './routes/auth.js';
-import { paymentRouter } from './routes/payment.js';
 import { bookingRouter } from './routes/booking.js';
 import { activityRouter } from './routes/activity.js';
 import { roomRouter } from './routes/room.js';
-import { contactRouter } from './routes/contact.js';
 import { adminRouter } from './routes/admin.js';
 import { stayRouter } from './routes/stay.js';
 import { chatRouter } from './routes/chat.js';
 import { promotionRouter } from './routes/promotion.js';
+import { UPLOAD_DIR } from './lib/photos.js';
+import { adminAnnouncementRouter, announcementRouter } from './routes/announcement.js';
 
 const app = express();
 
@@ -21,13 +21,18 @@ app.use(express.json());
 // server is up and accepting requests.
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
+// Room and activity photos uploaded in admin. Every upload gets a new random
+// name, so browsers may cache them for good.
+app.use('/uploads', express.static(UPLOAD_DIR, { immutable: true, maxAge: '365d', index: false }));
+
 app.use('/api/auth', authRouter);
-app.use('/api/payment', paymentRouter);
 app.use('/api/bookings', bookingRouter);
 app.use('/api/activities', activityRouter);
 app.use('/api/rooms', roomRouter);
-app.use('/api/contact', contactRouter);
+// Before /api/admin, whose catch-all routes would otherwise see these first.
+app.use('/api/admin/announcements', adminAnnouncementRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/announcements', announcementRouter);
 app.use('/api/stay', stayRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/promotions', promotionRouter);

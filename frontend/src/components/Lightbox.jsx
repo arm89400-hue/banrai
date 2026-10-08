@@ -1,10 +1,13 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useLang } from '../i18n/lang';
 import './Lightbox.css';
 
-// Full-screen photo viewer. `photos` is a list of { id, src }; captions come
-// from the `photos` table in i18n/strings.js. Closes on Escape, on the close
-// button or on a click outside the photo; arrow keys step through the list.
+// Full-screen photo viewer. `photos` is a list of { id, src, caption? };
+// without its own caption a photo is captioned from the `photos` table in
+// i18n/strings.js. Closes on Escape, on the close button or on a click
+// outside the photo; arrow keys step through the list. Rendered into <body>
+// so an animated (transformed) parent can't shrink it to its own box.
 export default function Lightbox({ photos, index, onChange, onClose }) {
   const { t } = useLang();
   const closeRef = useRef(null);
@@ -32,9 +35,9 @@ export default function Lightbox({ photos, index, onChange, onClose }) {
   }, [index, count, onChange, onClose]);
 
   const photo = photos[index];
-  const caption = t('photos')[photo.id];
+  const caption = photo.caption ?? t('photos')[photo.id];
 
-  return (
+  return createPortal(
     <div className="lightbox" role="dialog" aria-modal="true" aria-label={caption} onClick={onClose}>
       <button ref={closeRef} type="button" className="lightbox__close" aria-label={t('gallery.close')} onClick={onClose}>
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
@@ -84,6 +87,7 @@ export default function Lightbox({ photos, index, onChange, onClose }) {
           </svg>
         </button>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }

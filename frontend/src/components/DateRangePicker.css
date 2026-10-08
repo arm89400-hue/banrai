@@ -41,109 +41,19 @@
   padding: 20px;
 }
 
+/* Small card around the compact booking calendar (InlineCalendar). */
 .date-range-picker__popup {
-  width: 320px;
+  width: 290px;
   max-width: 100%;
   max-height: 90vh;
   overflow-y: auto;
   background: var(--white);
   border-radius: 16px;
   box-shadow: var(--shadow);
-  padding: 20px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.date-range-picker__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 600;
-  color: var(--text-h);
-}
-.date-range-picker__header button {
-  border: none;
-  background: var(--bg-alt);
-  color: var(--text-h);
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-}
-.date-range-picker__header button:hover {
-  background: var(--border);
-}
-
-.date-range-picker__weekdays,
-.date-range-picker__grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-}
-
-.date-range-picker__weekdays span {
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.date-range-picker__cell {
-  border: none;
-  background: none;
-  aspect-ratio: 1;
-  border-radius: 8px;
-  font-size: 13px;
-  font-family: var(--sans);
-  color: var(--text-h);
-  cursor: pointer;
-}
-.date-range-picker__cell:hover:not(:disabled) {
-  background: var(--bg-alt);
-}
-.date-range-picker__cell--empty {
-  cursor: default;
-}
-.date-range-picker__cell--disabled {
-  color: var(--border);
-  cursor: not-allowed;
-}
-.date-range-picker__cell--in-range {
-  background: var(--bg-alt);
-  border-radius: 0;
-}
-.date-range-picker__cell--selected {
-  background: var(--brand);
-  color: var(--white);
-  font-weight: 600;
-}
-
-.date-range-picker__legend {
-  display: flex;
-  gap: 16px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.date-range-picker__legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.date-range-picker__swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  display: inline-block;
-  font-style: normal;
-}
-.date-range-picker__swatch--range {
-  background: var(--bg-alt);
-  border: 1px solid var(--border);
-}
-.date-range-picker__swatch--selected {
-  background: var(--brand);
+  gap: 12px;
 }
 
 .date-range-picker__confirm {
@@ -163,8 +73,3 @@
   cursor: not-allowed;
 }
 
-@media (max-width: 420px) {
-  .date-range-picker__popup {
-    width: 280px;
-  }
-}

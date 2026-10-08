@@ -69,8 +69,7 @@
   margin: 0;
   font-size: 15px;
 }
-.my-card__list > div,
-.my-card__stay dl > div {
+.my-card__list > div {
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -79,41 +78,10 @@
   flex: none;
   color: var(--text-muted);
 }
-.my-card__list dd,
-.my-card__stay dd {
+.my-card__list dd {
   margin: 0;
   text-align: right;
   overflow-wrap: anywhere;
-}
-
-/* The generated room-dashboard login, shown once the booking is confirmed. */
-.my-card__stay {
-  padding: 16px 18px;
-  border: 1.5px dashed var(--brand);
-  border-radius: 14px;
-  background: var(--brand-soft);
-  font-size: 14px;
-  color: var(--text);
-}
-.my-card__stay-title {
-  font-weight: 700;
-  color: var(--brand-dark);
-}
-.my-card__stay dl {
-  display: grid;
-  gap: 6px;
-  margin: 10px 0;
-}
-.my-card__stay dt {
-  color: var(--text-muted);
-}
-.my-card__stay dd {
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--brand-dark);
-  user-select: all;
 }
 
 .my-card__help {

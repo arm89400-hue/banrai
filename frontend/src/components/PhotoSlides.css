@@ -1,0 +1,19 @@
+.photo-slides {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.photo-slides__slide {
+  position: absolute;
+  inset: 0;
+  background: center / cover no-repeat;
+  opacity: 0;
+  /* Fading out: keep the zoom until hidden, then reset it for next time. */
+  transition: opacity 1.4s ease, scale 0s 1.4s;
+}
+/* The shown photo: fades in and slowly zooms while it stays. */
+.photo-slides__slide.is-active {
+  opacity: 1;
+  scale: 1.08;
+  transition: opacity 1.4s ease, scale 7.4s linear;
+}

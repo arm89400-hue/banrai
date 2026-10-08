@@ -17,6 +17,8 @@ import { CHECK_IN_TIME, CHECK_OUT_TIME } from '../lib/site';
 import { useLang } from '../i18n/lang';
 import InlineCalendar from '../components/InlineCalendar';
 import { PriceRows, PromoTag } from '../components/BookingBits';
+import Lightbox from '../components/Lightbox';
+import { roomPhotos } from '../lib/photos';
 import './RoomPage.css';
 
 // One room's own page: photos, what's in the room, and a booking card
@@ -35,6 +37,7 @@ export default function RoomPage() {
   const [missing, setMissing] = useState(false);
   const [dates, setDates] = useState({ checkIn: '', checkOut: '' });
   const [guests, setGuests] = useState(2);
+  const [viewing, setViewing] = useState(null); // index of the photo open in the viewer
 
   // Loads this room, its taken dates and the other rooms. Resets the
   // selection when moving from one room's page to another.
@@ -43,6 +46,7 @@ export default function RoomPage() {
     setRoom(null);
     setMissing(false);
     setDates({ checkIn: '', checkOut: '' });
+    setViewing(null);
 
     api(`/api/rooms/${id}`)
       .then((data) => {
@@ -85,6 +89,7 @@ export default function RoomPage() {
   if (!room) return <section className="bk-page room-page" aria-busy="true" />;
 
   const names = roomNames(room.name, lang);
+  const gallery = roomPhotos(room).map((p) => ({ ...p, caption: names.title }));
   const maxGuests = roomMaxGuests(room);
   // The promotion for the chosen check-in day, and every one this room has.
   const promo = promoFor(promotions, room.id, dates.checkIn);
@@ -106,20 +111,40 @@ export default function RoomPage() {
   return (
     <section className="bk-page room-page">
       <div className="room-page__main">
-        <div className="room-gallery">
-          <div className="room-gallery__main">
-            <img
-              src={room.image_url || `/images/rooms/room-${room.id}.jpg`}
-              alt={names.title}
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-          </div>
-          <div className="room-gallery__side">
-            <img src="/images/hero.jpg" alt={t('room.housePhoto')} />
-          </div>
+        {/* Cover big on the left, the next two stacked on the right; the
+            last tile says how many more there are. Any tile opens the viewer. */}
+        <div className={`room-gallery${gallery.length > 2 ? ' room-gallery--stack' : ''}`}>
+          {gallery.slice(0, 3).map((photo, i) => {
+            const more = i === 2 ? gallery.length - 3 : 0;
+            return (
+              <button
+                key={photo.id}
+                type="button"
+                className={`room-gallery__tile${i === 0 ? ' room-gallery__tile--main' : ''}`}
+                onClick={() => setViewing(i)}
+                aria-label={t('room.photoOf', { n: i + 1, total: gallery.length })}
+              >
+                <img
+                  src={photo.src}
+                  alt=""
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                {more > 0 && <span className="room-gallery__more">+{more}</span>}
+              </button>
+            );
+          })}
+          {gallery.length <= 1 && (
+            // No photos yet (all removed in admin) or just one: the house fills in.
+            <div className={`room-gallery__tile${gallery.length === 0 ? ' room-gallery__tile--main' : ''}`}>
+              <img src="/images/hero.jpg" alt={t('room.housePhoto')} />
+            </div>
+          )}
         </div>
+        {viewing !== null && (
+          <Lightbox photos={gallery} index={viewing} onChange={setViewing} onClose={() => setViewing(null)} />
+        )}
 
         <h1>{names.title}</h1>
         {names.subtitle && <p className="room-page__subtitle">{names.subtitle}</p>}

@@ -9,8 +9,9 @@ const NO_NIGHTS = new Set();
 // check-in, the next (later) click sets check-out. `bookedNights` (a Set of
 // "YYYY-MM-DD") crosses out nights that are already taken; a range can't
 // span a taken night, though it may end on one (you check out that
-// morning, the next guest arrives that afternoon).
-export default function InlineCalendar({ checkIn, checkOut, onChange, bookedNights = NO_NIGHTS }) {
+// morning, the next guest arrives that afternoon). `compact` gives the same
+// calendar in a smaller size (the Home search bar's date popup).
+export default function InlineCalendar({ checkIn, checkOut, onChange, bookedNights = NO_NIGHTS, compact = false }) {
   const { t, locale } = useLang();
   const [viewMonth, setViewMonth] = useState(() => {
     const base = checkIn ? new Date(`${checkIn}T00:00:00`) : new Date();
@@ -49,7 +50,7 @@ export default function InlineCalendar({ checkIn, checkOut, onChange, bookedNigh
   const isCurrentMonth = year === new Date().getFullYear() && month === new Date().getMonth();
 
   return (
-    <div className="inline-cal">
+    <div className={`inline-cal${compact ? ' inline-cal--compact' : ''}`}>
       <div className="inline-cal__head">
         <button type="button" onClick={() => shiftMonth(-1)} disabled={isCurrentMonth} aria-label={t('date.prev')}>
           &#8249;

@@ -74,47 +74,22 @@
   color: var(--on-dark);
 }
 
-/* Phone lines as light tiles, stacked in the contact column. */
+/* Phone lines: plain links like the other columns, with a small phone
+   icon and whose line it is. */
 .footer__col .footer__phone {
-  width: 100%;
-  max-width: 250px;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--white);
-  color: var(--brand-dark);
-  text-decoration: none;
-  transition: translate var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast);
-}
-.footer__col .footer__phone:hover {
-  color: var(--brand-dark);
-  text-decoration: none;
-  translate: 0 -2px;
-  box-shadow: 0 10px 20px -12px rgba(0, 0, 0, 0.6);
-}
-.footer__phone-icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: var(--brand-soft);
-  color: var(--brand);
-}
-.footer__phone > span:last-child {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.25;
-}
-.footer__phone > span:last-child > span {
-  font-size: 13px;
-  font-weight: 600;
   white-space: nowrap;
-  color: var(--text-muted);
+}
+.footer__phone svg {
+  flex: none;
+  color: var(--sun);
+}
+.footer__phone small {
+  margin-left: 4px;
+  font-size: 13px;
+  color: var(--on-dark);
 }
 
 /* ---- Link columns ---- */

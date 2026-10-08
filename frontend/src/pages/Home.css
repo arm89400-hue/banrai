@@ -4,30 +4,6 @@
   background: var(--brand-dark);
 }
 
-/* Slideshow behind the hero text. Four photos share one 28s loop, each
-   starting 7s after the one before (--i is its position): fade in, hold
-   while drifting slightly larger, fade out as the next one fades in. */
-.hero__slides {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-.hero__slide {
-  position: absolute;
-  inset: 0;
-  background: center / cover no-repeat;
-  opacity: 0;
-  /* Fading out: keep the zoom until hidden, then reset it for next time. */
-  transition: opacity 1.4s ease, scale 0s 1.4s;
-}
-/* The shown photo (HeroSlides in Home.jsx moves this class): fades in and
-   slowly zooms while it stays. */
-.hero__slide.is-active {
-  opacity: 1;
-  scale: 1.08;
-  transition: opacity 1.4s ease, scale 7.4s linear;
-}
-
 .hero__overlay {
   position: relative;
   min-height: 640px;
@@ -67,21 +43,15 @@
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.25);
 }
 
-/* The first heading ("Welcome") reads as a small eyebrow label, so the main
-   headline below it is clearly the most important line in the hero. */
-.hero__content h1:first-child:not(:only-of-type) {
-  font-family: var(--sans);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.85);
-  text-shadow: none;
-}
-
 .hero__content p {
+  max-width: 34em;
+  margin-inline: auto;
+  text-wrap: balance;
   font-size: 17px;
   color: rgba(255, 255, 255, 0.9);
+}
+.hero__phrase {
+  white-space: nowrap;
 }
 
 /* Anchored to the hero's bottom edge (not centered with the heading) so its
@@ -92,63 +62,129 @@
   bottom: 0;
   transform: translate(-50%, 50%);
   z-index: 2;
-  width: min(90vw, 720px);
+  box-sizing: border-box;
+  width: min(92vw, 780px);
+  text-align: left;
+  /* One capsule: dates | guests | search + book. */
   display: flex;
-  align-items: flex-end;
-  gap: 24px;
+  align-items: center;
+  padding: 8px 8px 8px 12px;
   background: var(--white);
-  border-radius: 16px;
-  padding: 20px 28px;
+  border-radius: 999px;
   box-shadow: var(--shadow-lg);
-  flex-wrap: wrap;
-  justify-content: center;
   /* Uses the separate `translate` property, so it stacks with the
      positioning transform above instead of overriding it. */
   animation: fade-up var(--dur-slow) var(--ease-out) 0.36s both;
 }
 
-.search-bar label {
+/* A segment: icon + label + value, divided from the next by a thin line. */
+.search-bar__seg {
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 6px 18px;
+  border-radius: 999px;
+  transition: background var(--dur-fast);
+}
+.search-bar__seg:hover {
+  background: var(--bg-alt);
+}
+.search-bar__seg + .search-bar__seg {
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+}
+.search-bar__seg > svg {
+  flex: none;
+  color: var(--brand);
+}
+.search-bar__label,
+.search-bar .date-range-picker label > span {
   font-size: 13px;
-  color: var(--text);
-  text-align: left;
+  color: var(--text-muted);
 }
-
-.search-bar input {
+.search-bar .date-range-picker {
+  flex: 1;
+}
+/* The date button reads as the segment's value, not a separate field. */
+.search-bar .date-range-picker__trigger,
+.search-bar .date-range-picker__trigger:hover {
+  padding: 2px 0 0;
   border: none;
-  border-bottom: 1px solid var(--border);
-  font-family: var(--sans);
-  font-size: 15px;
-  padding: 4px 0;
-  color: var(--text-h);
-  background: transparent;
-  transition: border-color var(--dur-fast);
-}
-.search-bar input:focus {
-  outline: none;
-  border-bottom-color: var(--brand);
+  font-size: 16px;
 }
 
-.search-bar > button {
-  background: var(--brand);
-  color: var(--white);
+/* Guests: - 2 + */
+.search-bar__guests {
+  justify-items: start;
+  display: grid;
+  gap: 2px;
+}
+.search-bar__stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.search-bar__stepper button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--text-h);
+  font-size: 16px;
+  line-height: 1;
+  transition: border-color var(--dur-fast), color var(--dur-fast);
+}
+.search-bar__stepper button:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.search-bar__stepper button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.search-bar__stepper output {
+  min-width: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text-h);
+}
+
+.search-bar__actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+/* Book: the gold main action (same look as the navbar's booking button on
+   the other pages); submits the picked dates and guests. */
+.search-bar__book {
+  display: grid;
+  place-items: center;
+  height: 52px;
+  padding: 0 28px;
   border: none;
   border-radius: 999px;
-  padding: 12px 28px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  background: hsl(44, 92%, 58%);
+  color: var(--brand-dark);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
   transition: background var(--dur-fast), transform var(--dur-fast) var(--ease-out),
     box-shadow var(--dur-fast);
 }
-.search-bar > button:hover {
-  background: var(--brand-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px -4px hsla(150, 35%, 20%, 0.35);
+.search-bar__book:hover {
+  background: hsl(44, 92%, 64%);
+  box-shadow: 0 4px 10px -4px hsla(44, 60%, 30%, 0.35);
 }
-.search-bar > button:active {
-  transform: translateY(0) scale(0.97);
+.search-bar__book:active {
+  transform: scale(0.97);
 }
 
 /* ---- Rooms: a list to compare, with the active room's photo beside it ---- */
@@ -157,23 +193,10 @@
   background: var(--bg);
 }
 
-/* Title left, lead right: breaks up the run of centered section headers. */
+/* Section title, left-aligned. */
 .rooms__head {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: end;
-  gap: 16px 56px;
   margin-bottom: 40px;
 }
-.rooms__lead {
-  justify-self: end;
-  max-width: 480px;
-  text-wrap: balance;
-  font-size: 18px;
-  line-height: 1.6;
-  color: var(--text-muted);
-}
-
 .rooms__layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
@@ -255,10 +278,10 @@
   transition: background-color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out),
     translate var(--dur) var(--ease-out);
 }
+/* The room shown in the photo: a plain white card, no side bar. */
 .room-row.is-active {
   background: var(--white);
-  box-shadow: inset 4px 0 0 var(--brand), var(--shadow);
-  translate: 6px 0;
+  box-shadow: var(--shadow);
 }
 .room-row__names {
   grid-area: names;
@@ -286,8 +309,8 @@
 .room-row__price {
   grid-area: price;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  align-items: baseline;
+  gap: 4px;
   white-space: nowrap;
 }
 .room-row__price strong {
@@ -298,21 +321,17 @@
   font-size: 13px;
   color: var(--text-muted);
 }
+/* A plain arrow, the same on every row; it steps right on the active one. */
 .room-row__go {
   grid-area: go;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  color: var(--brand);
-  transition: background-color var(--dur) var(--ease-out), color var(--dur), border-color var(--dur);
+  justify-self: center;
+  font-size: 20px;
+  color: var(--text-muted);
+  transition: color var(--dur) var(--ease-out), translate var(--dur) var(--ease-out);
 }
 .room-row.is-active .room-row__go {
-  border-color: var(--brand);
-  background: var(--brand);
-  color: var(--white);
+  color: var(--brand);
+  translate: 4px 0;
 }
 .room-row__promos {
   grid-area: promos;
@@ -343,12 +362,26 @@
   .hero__content h1 {
     font-size: 32px;
   }
+  /* Phones: the capsule becomes a card - segments stacked, then the
+     booking button across the full width. */
   .search-bar {
     flex-direction: column;
     align-items: stretch;
+    padding: 10px;
+    border-radius: 22px;
   }
-  .search-bar button {
+  .search-bar__seg {
+    padding: 10px 12px;
+  }
+  .search-bar__seg + .search-bar__seg {
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  .search-bar__actions {
     margin-top: 8px;
+  }
+  .search-bar__book {
+    flex: 1;
   }
   .rooms-section {
     padding-top: 220px;
@@ -357,15 +390,11 @@
 }
 
 @media (max-width: 860px) {
-  .rooms__head,
   .rooms__layout {
     grid-template-columns: 1fr;
   }
   .rooms__head {
     margin-bottom: 28px;
-  }
-  .rooms__lead {
-    justify-self: start;
   }
   .rooms__layout {
     gap: 24px;
@@ -378,9 +407,6 @@
   .room-row {
     padding: 16px 14px 16px 18px;
     column-gap: 14px;
-  }
-  .room-row.is-active {
-    translate: 0 0;
   }
   .room-row__names strong {
     font-size: 22px;

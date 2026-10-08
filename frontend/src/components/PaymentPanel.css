@@ -32,6 +32,176 @@
   color: var(--brand);
 }
 
+/* Test mode: a tappable QR that "scans" and pays the deposit. */
+.pay-panel__qr--live {
+  border: 2px solid var(--brand);
+  background: var(--white);
+  color: var(--brand-dark);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.pay-panel__qr--live:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+.pay-panel__qr--live:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.pay-panel__qr--live:disabled {
+  cursor: default;
+}
+.pay-panel__qr--live.is-paid {
+  border-color: var(--success);
+  color: var(--success);
+}
+.pay-panel__code {
+  position: relative;
+  width: 76%;
+  overflow: hidden;
+  border-radius: 6px;
+}
+.pay-panel__code svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  color: var(--brand-dark);
+  transition: opacity var(--dur) var(--ease-out);
+}
+.is-paid .pay-panel__code svg {
+  opacity: 0.15;
+}
+/* Gold line sweeping up and down while scanning. */
+.pay-panel__scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  border-radius: 3px;
+  background: hsl(44, 92%, 58%);
+  box-shadow: 0 0 12px 2px hsla(44, 92%, 58%, 0.7);
+  animation: pay-scan 1.1s ease-in-out infinite alternate;
+}
+.pay-panel__tick {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--success);
+  animation: pay-pop 0.4s var(--ease-out) both;
+}
+@keyframes pay-scan {
+  to {
+    top: calc(100% - 3px);
+  }
+}
+@keyframes pay-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+
+/* Real PromptPay QR: a white card with the PromptPay label on top. */
+.pay-panel__qr--real {
+  gap: 6px;
+  padding: 10px;
+  border: 2px solid hsl(207, 80%, 32%);
+  background: var(--white);
+}
+.pay-panel__pp {
+  padding: 2px 12px;
+  border-radius: 6px;
+  background: hsl(207, 80%, 32%);
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.pay-panel__qr--real .pay-panel__code {
+  width: 92%;
+}
+.pay-panel__qr--real img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: opacity var(--dur) var(--ease-out);
+}
+.pay-panel__qr--real.is-paid img {
+  opacity: 0.15;
+}
+.pay-panel__qr-wait {
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-alt), var(--white), var(--bg-alt)) 0 0 / 200% 100%;
+  animation: pay-wait 1.2s linear infinite;
+}
+@keyframes pay-wait {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Slip sent, waiting for the owner to check it. */
+.pay-panel__waiting {
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: hsl(44, 90%, 92%);
+  color: hsl(35, 70%, 26%);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Two short steps: scan, then upload the slip. */
+.pay-panel__steps {
+  margin: 6px 0 2px;
+  padding-left: 20px;
+  font-size: 14px;
+  color: var(--text);
+}
+.pay-panel__steps li + li {
+  margin-top: 2px;
+}
+.pay-panel__upload {
+  align-self: flex-start;
+  margin-top: 6px;
+}
+.pay-panel__spin {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: pay-spin 0.8s linear infinite;
+}
+@keyframes pay-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+.pay-panel__testlink {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.pay-panel__status:empty {
+  display: none;
+}
+
 .pay-panel__info {
   display: flex;
   flex-direction: column;
@@ -91,5 +261,12 @@
   }
   .pay-panel__test {
     justify-content: center;
+  }
+  .pay-panel__upload,
+  .pay-panel__testlink {
+    align-self: center;
+  }
+  .pay-panel__steps {
+    text-align: left;
   }
 }

@@ -1,5 +1,9 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 
+// Photos uploaded in admin are served by the API (/uploads/...); photos
+// that ship with the site (/images/...) by the frontend itself.
+export const mediaUrl = (file) => (file?.startsWith('/uploads/') ? `${API_BASE}${file}` : file);
+
 // Thin fetch wrapper shared by every page: prefixes the backend base URL,
 // attaches the stored JWT (if any) as a Bearer token, parses the JSON
 // response, and throws an Error with the server's message on non-2xx

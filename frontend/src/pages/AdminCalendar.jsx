@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatBaht } from '../lib/money';
 import './AdminCalendar.css';
@@ -11,239 +10,200 @@ const pad = (n) => String(n).padStart(2, '0');
 // Stays are stored as UTC-midnight check-in/check-out, so every date here is
 // a bare "YYYY-MM-DD" string: they compare correctly as plain text and never
 // shift with the browser's timezone.
-const dayKey = (year, month, day) => `${year}-${pad(month + 1)}-${pad(day)}`;
-const fmtDay = (key) =>
-  new Date(`${key}T00:00:00Z`).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
+const keyOf = (date) => `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+const fmtDay = (key, opts = { day: 'numeric', month: 'short', year: 'numeric' }) =>
+  new Date(`${key}T00:00:00Z`).toLocaleDateString(undefined, { ...opts, timeZone: 'UTC' });
 
 function todayKey() {
   const now = new Date();
-  return dayKey(now.getFullYear(), now.getMonth(), now.getDate());
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
-// Admin "Calendar" section: one month at a time, a row per room and a column
-// per night. A booked night is a coloured bar carrying the guest's name
-// (amber while awaiting the deposit, green once confirmed); an empty cell is
-// a free night. The bottom row counts the rooms still free each night.
-export default function AdminCalendar() {
-  const [data, setData] = useState(null);
+// The 6 weeks (Sunday first) shown for a month, padded with the end of the
+// previous month and the start of the next - like a desk calendar.
+function monthWeeks(year, month) {
+  const first = new Date(Date.UTC(year, month, 1));
+  const start = new Date(first);
+  start.setUTCDate(1 - first.getUTCDay());
+  return Array.from({ length: 6 }, (_, w) =>
+    Array.from({ length: 7 }, (_, d) => {
+      const date = new Date(start);
+      date.setUTCDate(start.getUTCDate() + w * 7 + d);
+      return { key: keyOf(date), n: date.getUTCDate(), inMonth: date.getUTCMonth() === month };
+    })
+  );
+}
+
+// Month calendar at the top of the admin Bookings section. Each day shows
+// how many rooms are taken that night (a dot per booked room: amber =
+// awaiting deposit, green = confirmed) and how many are free; a day with
+// nothing free is tinted red. Clicking a day lists every room for that night
+// - who is in it, or that it is free. `bookings` comes from the Bookings
+// list, so the calendar updates whenever a booking is confirmed or cancelled.
+export default function AdminCalendar({ bookings }) {
+  const today = todayKey();
+  const [rooms, setRooms] = useState(null);
   const [error, setError] = useState(null);
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(today);
   const [view, setView] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
 
   useEffect(() => {
-    Promise.all([api('/api/rooms'), api('/api/admin/bookings')])
-      .then(([rooms, bookings]) => setData({ rooms: rooms.rooms, bookings: bookings.bookings }))
+    api('/api/rooms')
+      .then((data) => setRooms([...data.rooms].sort((a, b) => b.price - a.price)))
       .catch((err) => setError(err.message));
   }, []);
-
-  const { year, month } = view;
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const today = todayKey();
-  const days = useMemo(
-    () =>
-      Array.from({ length: daysInMonth }, (_, i) => ({
-        n: i + 1,
-        key: dayKey(year, month, i + 1),
-        weekday: new Date(Date.UTC(year, month, i + 1)).getUTCDay(),
-      })),
-    [year, month, daysInMonth]
-  );
 
   // Active room stays, as { ...booking, in, out } with bare date strings.
   const stays = useMemo(
     () =>
-      (data?.bookings ?? [])
+      (bookings ?? [])
         .filter((b) => b.room_id && b.status !== 'cancelled')
         .map((b) => ({ ...b, in: b.booked_for.slice(0, 10), out: b.booked_until.slice(0, 10) })),
-    [data]
+    [bookings]
   );
+  // The stays covering the night of `key` (check-out day itself is free).
+  const staysOn = (key) => stays.filter((s) => s.in <= key && key < s.out);
 
-  // Each room's row as a list of cells: a free night, or a booking spanning
-  // the nights it covers within this month.
-  const rows = useMemo(() => {
-    const rooms = [...(data?.rooms ?? [])].sort((a, b) => b.price - a.price);
-    const nextMonth = new Date(year, month + 1, 1);
-    const nextMonthStart = dayKey(nextMonth.getFullYear(), nextMonth.getMonth(), 1);
-    return rooms.map((room) => {
-      const roomStays = stays.filter((s) => s.room_id === room.id);
-      const cells = [];
-      let i = 0;
-      while (i < days.length) {
-        const day = days[i];
-        const stay = roomStays.find((s) => s.in <= day.key && day.key < s.out);
-        if (!stay) {
-          cells.push({ day });
-          i += 1;
-          continue;
-        }
-        let span = 1;
-        while (i + span < days.length && days[i + span].key < stay.out) span += 1;
-        cells.push({
-          day,
-          stay,
-          span,
-          // The stay began before this month / runs on into the next one.
-          cutStart: stay.in < days[0].key,
-          cutEnd: stay.out > nextMonthStart,
-        });
-        i += span;
-      }
-      return { room, cells };
-    });
-  }, [data, stays, days, year, month]);
-
-  const freeByDay = useMemo(
-    () =>
-      days.map((day) => {
-        const taken = new Set(stays.filter((s) => s.in <= day.key && day.key < s.out).map((s) => s.room_id));
-        return (data?.rooms.length ?? 0) - taken.size;
-      }),
-    [days, stays, data]
-  );
-
-  const totalNights = (data?.rooms.length ?? 0) * days.length;
-  const bookedNights = totalNights - freeByDay.reduce((sum, n) => sum + n, 0);
+  const weeks = useMemo(() => monthWeeks(view.year, view.month), [view]);
+  const roomCount = rooms?.length ?? 0;
 
   function shift(delta) {
-    setSelected(null);
-    setView(({ year: y, month: m }) => {
-      const next = new Date(y, m + delta, 1);
+    setView(({ year, month }) => {
+      const next = new Date(year, month + delta, 1);
       return { year: next.getFullYear(), month: next.getMonth() };
     });
   }
-  function goToday() {
-    const now = new Date();
-    setSelected(null);
-    setView({ year: now.getFullYear(), month: now.getMonth() });
+
+  // Clicking a greyed day from a neighbouring month also turns to that month.
+  function pick(day) {
+    setSelected(day.key);
+    if (!day.inMonth) {
+      const [y, m] = day.key.split('-').map(Number);
+      setView({ year: y, month: m - 1 });
+    }
   }
 
-  const monthLabel = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  function goToday() {
+    const now = new Date();
+    setView({ year: now.getFullYear(), month: now.getMonth() });
+    setSelected(today);
+  }
+
+  const monthLabel = new Date(view.year, view.month, 1).toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  });
 
   if (error) return <p className="admin__error" role="alert">{error}</p>;
-  if (!data) return <p className="admin__muted">Loading…</p>;
+  if (!rooms) return <p className="admin__muted cal-month__loading">Loading calendar…</p>;
+
+  const night = staysOn(selected);
 
   return (
-    <>
-      <div className="admin__toolbar">
-        <div className="cal__nav">
-          <button type="button" className="admin__btn" onClick={() => shift(-1)} aria-label="Previous month">
-            ←
-          </button>
-          <h2 className="cal__month">{monthLabel}</h2>
-          <button type="button" className="admin__btn" onClick={() => shift(1)} aria-label="Next month">
-            →
-          </button>
-          <button type="button" className="admin__btn" onClick={goToday}>
+    <div className="cal-month">
+      <section className="cal-month__card" aria-label="Booking calendar">
+        <header className="cal-month__head">
+          <h2>{monthLabel}</h2>
+          <button type="button" className="cal-month__today" onClick={goToday}>
             Today
           </button>
-        </div>
-        <ul className="cal__legend">
-          <li><span className="cal__swatch cal__swatch--free" /> Free</li>
-          <li><span className="cal__swatch cal__swatch--pending" /> Awaiting deposit</li>
-          <li><span className="cal__swatch cal__swatch--confirmed" /> Confirmed</li>
-        </ul>
-      </div>
+          <button type="button" className="cal-month__arrow" onClick={() => shift(-1)} aria-label="Previous month">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button type="button" className="cal-month__arrow" onClick={() => shift(1)} aria-label="Next month">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </header>
 
-      <p className="admin__muted cal__summary">
-        {bookedNights} of {totalNights} room-nights booked this month
-        {totalNights > 0 && ` (${Math.round((bookedNights / totalNights) * 100)}%)`}.
-      </p>
-
-      <div className="admin__table-wrap">
-        <table className="cal">
-          <thead>
-            <tr>
-              <th className="cal__room">Room</th>
-              {days.map((day) => (
-                <th
-                  key={day.key}
-                  className={`cal__day${day.key === today ? ' is-today' : ''}${day.weekday === 0 || day.weekday === 6 ? ' is-weekend' : ''}`}
-                >
-                  <span>{WEEKDAYS[day.weekday]}</span>
-                  {day.n}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ room, cells }) => (
-              <tr key={room.id}>
-                <th scope="row" className="cal__room">
-                  {room.name}
-                </th>
-                {cells.map((cell) =>
-                  cell.stay ? (
-                    <td key={cell.day.key} colSpan={cell.span} className="cal__cell cal__cell--booked">
-                      <button
-                        type="button"
-                        className={`cal__bar cal__bar--${cell.stay.status}${cell.cutStart ? ' is-cut-start' : ''}${cell.cutEnd ? ' is-cut-end' : ''}${selected?.id === cell.stay.id ? ' is-selected' : ''}`}
-                        title={`${cell.stay.guest_name || cell.stay.user_email || 'Guest'} · ${fmtDay(cell.stay.in)} → ${fmtDay(cell.stay.out)} · ${STATUS_LABELS[cell.stay.status]}`}
-                        onClick={() => setSelected(selected?.id === cell.stay.id ? null : cell.stay)}
-                      >
-                        {cell.stay.guest_name || cell.stay.user_email || cell.stay.code}
-                      </button>
-                    </td>
-                  ) : (
-                    <td
-                      key={cell.day.key}
-                      className={`cal__cell cal__cell--free${cell.day.key === today ? ' is-today' : ''}${cell.day.key < today ? ' is-past' : ''}`}
-                      title={`${room.name} · ${fmtDay(cell.day.key)} · free`}
-                    />
-                  )
-                )}
-              </tr>
+        <div className="cal-month__grid">
+          <div className="cal-month__row">
+            {WEEKDAYS.map((w) => (
+              <span key={w} className="cal-month__weekday">
+                {w}
+              </span>
             ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <th scope="row" className="cal__room">Rooms free</th>
-              {days.map((day, i) => (
-                <td
-                  key={day.key}
-                  className={`cal__count${freeByDay[i] === 0 ? ' is-full' : ''}${day.key === today ? ' is-today' : ''}`}
-                >
-                  {freeByDay[i]}
-                </td>
-              ))}
-            </tr>
-          </tfoot>
-        </table>
-        {rows.length === 0 && <p className="admin__empty">No rooms yet.</p>}
-      </div>
-
-      {selected && (
-        <div className="cal__detail">
-          <div>
-            <strong>{selected.code || `#${selected.id}`}</strong>
-            <span className={`admin__status admin__status--${selected.status}`}>{STATUS_LABELS[selected.status]}</span>
           </div>
-          <div>
-            {selected.guest_name || selected.user_email || 'Guest'}
-            {selected.guest_phone && (
-              <>
-                {' · '}
-                <a href={`tel:${selected.guest_phone}`}>{selected.guest_phone}</a>
-              </>
-            )}
-            {selected.guests ? ` · ${selected.guests} guests` : ''}
-          </div>
-          <div className="admin__muted">
-            {selected.room_name} · {fmtDay(selected.in)} → {fmtDay(selected.out)}
-            {selected.total != null && ` · ${formatBaht(selected.total)}`}
-          </div>
-          <Link to="/admin/bookings" className="admin__btn">
-            Open Bookings
-          </Link>
+          {weeks.map((week) => (
+            <div key={week[0].key} className="cal-month__row">
+              {week.map((day) => {
+                const taken = staysOn(day.key);
+                const free = roomCount - taken.length;
+                const classes = [
+                  'cal-month__day',
+                  !day.inMonth && 'is-other',
+                  day.key < today && 'is-past',
+                  day.key === today && 'is-today',
+                  day.key === selected && 'is-selected',
+                  roomCount > 0 && free === 0 && 'is-full',
+                ]
+                  .filter(Boolean)
+                  .join(' ');
+                return (
+                  <button
+                    key={day.key}
+                    type="button"
+                    className={classes}
+                    aria-pressed={day.key === selected}
+                    aria-label={`${fmtDay(day.key)}: ${taken.length} booked, ${free} free`}
+                    onClick={() => pick(day)}
+                  >
+                    <span className="cal-month__num">{day.n}</span>
+                    <span className="cal-month__dots" aria-hidden="true">
+                      {taken.map((s) => (
+                        <i key={s.id} className={`cal-month__dot cal-month__dot--${s.status}`} />
+                      ))}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </div>
-      )}
-    </>
+
+        <ul className="cal-month__legend">
+          <li><i className="cal-month__dot cal-month__dot--pending" /> Awaiting deposit</li>
+          <li><i className="cal-month__dot cal-month__dot--confirmed" /> Confirmed</li>
+          <li><span className="cal-month__swatch" /> Fully booked</li>
+        </ul>
+      </section>
+
+      <section className="cal-month__night" aria-live="polite">
+        <h3>
+          Night of {fmtDay(selected, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        </h3>
+        <p className="admin__muted">
+          {night.length} of {roomCount} rooms booked · {roomCount - night.length} free
+        </p>
+        {roomCount === 0 && <p className="admin__empty">No rooms yet. Add them under Rooms.</p>}
+        <ul>
+          {rooms.map((room) => {
+            const stay = night.find((s) => s.room_id === room.id);
+            return (
+              <li key={room.id} className={stay ? `is-${stay.status}` : 'is-free'}>
+                <strong>{room.name}</strong>
+                {stay ? (
+                  <span>
+                    {stay.guest_name || stay.user_email || 'Guest'} · {stay.code || `#${stay.id}`}
+                    <small>
+                      {fmtDay(stay.in)} → {fmtDay(stay.out)} · {STATUS_LABELS[stay.status]}
+                      {stay.total != null && ` · ${formatBaht(stay.total)}`}
+                    </small>
+                  </span>
+                ) : (
+                  <span className="cal-month__free">Free</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    </div>
   );
 }

@@ -1,0 +1,111 @@
+/* Announcements from admin: one card each, picture beside the text (above
+   it on phones). Used on Home and on the booked-guest pages. */
+.announce {
+  display: grid;
+  gap: 18px;
+}
+.announce__card {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  overflow: hidden;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-left: 4px solid hsl(44, 92%, 58%);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  animation: fade-up var(--dur-slow) var(--ease-out) both;
+}
+.announce__card--text {
+  grid-template-columns: minmax(0, 1fr);
+}
+/* The picture fills the card's height (set by the text, at least 240px),
+   rather than its own height stretching the card. */
+.announce__photo {
+  position: relative;
+  min-height: 240px;
+  background: var(--bg-alt);
+}
+.announce__photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.announce__text {
+  display: grid;
+  gap: 8px;
+  align-content: center;
+  padding: 26px 30px;
+}
+.announce__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: hsl(36, 70%, 32%);
+}
+.announce__text h2 {
+  font-size: 26px;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+.announce__body {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  /* Keeps the line breaks typed in admin. */
+  white-space: pre-line;
+}
+.announce__until {
+  justify-self: start;
+  margin-top: 4px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: hsl(44, 92%, 90%);
+  color: hsl(36, 70%, 25%);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* On the Home page: its own band between the hero and the rooms. The top
+   padding clears the search bar that hangs over the hero's bottom edge. */
+.home-news {
+  padding: 110px max(24px, calc((100% - 1160px) / 2)) 0;
+  background: var(--bg);
+}
+/* With announcements above, the rooms no longer need room for the search bar. */
+.home-news + .rooms-section {
+  padding-top: 64px;
+}
+
+/* On "My bookings" and the room dashboard: above the page's own content. */
+.page-news {
+  margin-bottom: 28px;
+}
+
+@media (max-width: 720px) {
+  .announce__card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .announce__photo {
+    min-height: 0;
+    aspect-ratio: 16 / 9;
+  }
+  .announce__text {
+    padding: 20px;
+  }
+  .announce__text h2 {
+    font-size: 22px;
+  }
+}
+@media (max-width: 640px) {
+  .home-news {
+    padding: 210px 16px 0;
+  }
+  .home-news + .rooms-section {
+    padding-top: 48px;
+  }
+}

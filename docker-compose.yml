@@ -36,6 +36,9 @@ services:
       # Host port 4001, not 4000 - avoids clashing with other local
       # projects already publishing 4000. The container still listens on 4000.
       - "4001:4000"
+    volumes:
+      # Room/activity photos uploaded in admin - kept across rebuilds.
+      - uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -60,3 +63,4 @@ services:
 
 volumes:
   db-data:
+  uploads:

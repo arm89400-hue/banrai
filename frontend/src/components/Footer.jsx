@@ -22,7 +22,7 @@ const PHONE_PATH = 'M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2
 // so they aren't repeated elsewhere on the page.
 export default function Footer() {
   const { user } = useAuth();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const year = new Date().getFullYear();
 
   return (
@@ -78,11 +78,9 @@ export default function Footer() {
           <h2 className="footer__heading">{t('footer.contact')}</h2>
           {PHONES.map((p) => (
             <a key={p.tel} className="footer__phone" href={`tel:${p.tel}`}>
-              <span className="footer__phone-icon">
-                <Icon size={18}><path d={PHONE_PATH} /></Icon>
-              </span>
+              <Icon size={16}><path d={PHONE_PATH} /></Icon>
               <span>
-                <span>{p.display}</span>
+                {p.display} <small>{p.name[lang]}</small>
               </span>
             </a>
           ))}

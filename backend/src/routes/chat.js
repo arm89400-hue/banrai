@@ -1,4 +1,4 @@
-ัทมimport { Router } from 'express';
+import { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -13,7 +13,7 @@ chatRouter.use((req, res, next) => {
   if (req.user.is_admin) {
     return res.status(403).json({ error: 'Admins chat from the admin dashboard', reason: 'ADMIN_ACCOUNT' });
   }
-  next();
+  next(); 
 });
 
 // Express 4 doesn't catch rejected promises from async handlers - this

@@ -1,3 +1,26 @@
+/* Numbers: Georgia's old-style digits (dipping 3, 4, 5, 7, 9) look uneven
+   in prices and dates, so digits and ฿ always come from the sans font,
+   even inside serif headings. unicode-range limits this face to those
+   characters; letters still use the rest of the font stack. */
+@font-face {
+  font-family: 'Baanrai Digits';
+  src: local('Segoe UI'), local('Roboto'), local('Helvetica Neue'), local('Arial');
+  font-weight: 400 500;
+  unicode-range: U+0030-0039, U+0E3F;
+}
+@font-face {
+  font-family: 'Baanrai Digits';
+  src: local('Segoe UI Semibold'), local('Roboto Medium'), local('Helvetica Neue Medium'), local('Arial Bold');
+  font-weight: 600;
+  unicode-range: U+0030-0039, U+0E3F;
+}
+@font-face {
+  font-family: 'Baanrai Digits';
+  src: local('Segoe UI Bold'), local('Roboto Bold'), local('Helvetica Neue Bold'), local('Arial Bold');
+  font-weight: 700 900;
+  unicode-range: U+0030-0039, U+0E3F;
+}
+
 :root {
   --text: hsl(120, 10%, 15%);
   --text-h: hsl(120, 10%, 15%);
@@ -23,7 +46,7 @@
   --dur-slow: 0.7s;
 
   --sans: -apple-system, 'Segoe UI', Roboto, 'Noto Sans Thai', Helvetica, Arial, sans-serif;
-  --serif: Georgia, 'Noto Serif Thai', 'Times New Roman', serif;
+  --serif: 'Baanrai Digits', Georgia, 'Noto Serif Thai', 'Times New Roman', serif;
 
   font: 18px/145% var(--sans);
   color-scheme: light;
@@ -44,10 +67,39 @@
    scrollbar appears or disappears. */
 html {
   scrollbar-gutter: stable;
+  /* A slim farm-green scrollbar on the page's cream background instead of
+     the browser's grey one. Inherited, so inner scrolling areas (chat,
+     tables) match. */
+  scrollbar-width: thin;
+  scrollbar-color: hsl(150, 22%, 62%) var(--bg);
+}
+
+/* Older Safari/Chrome without scrollbar-color: the same look. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+  background: hsl(150, 22%, 62%);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand);
 }
 
 body {
   margin: 0;
+}
+
+/* Sections reached by #anchor links (e.g. /home#rooms) stop below the
+   floating navbar. :where() keeps this at zero specificity so a page's own
+   scroll-margin wins. */
+:where(section[id], footer[id]) {
+  scroll-margin-top: 90px;
 }
 
 #root {
@@ -88,8 +140,7 @@ img {
 html:lang(th) .info-eyebrow,
 html:lang(th) .know__label,
 html:lang(th) .footer__col h2,
-html:lang(th) .admin__eyebrow,
-html:lang(th) .hero__content h1:first-child:not(:only-of-type) {
+html:lang(th) .admin__eyebrow {
   letter-spacing: 0.02em;
 }
 

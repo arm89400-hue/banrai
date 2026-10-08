@@ -213,3 +213,75 @@
 .price-rows__row > span:last-child:not(:only-child) {
   white-space: nowrap;
 }
+
+/* Room-dashboard login after the deposit is paid: dark green like the
+   booking-done header, each value in a light box with a copy button. */
+.stay-login {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: var(--brand-dark);
+  color: var(--white);
+  text-align: left;
+}
+.stay-login__badge {
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(44, 92%, 70%);
+}
+.stay-login__title {
+  margin-top: -6px;
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 600;
+}
+.stay-login dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.stay-login__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 10px 14px;
+  border-radius: 12px;
+  background: hsla(0, 0%, 100%, 0.12);
+}
+.stay-login__row dt {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.stay-login__row dd {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: right;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.stay-login__copy {
+  padding: 6px 12px;
+  border: 1px solid hsla(0, 0%, 100%, 0.35);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.stay-login__copy:hover {
+  background: hsla(0, 0%, 100%, 0.14);
+}
+.stay-login__copy:focus-visible {
+  outline-color: hsl(44, 92%, 58%);
+}
+.stay-login__hint {
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0.85;
+}

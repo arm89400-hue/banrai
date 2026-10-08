@@ -16,6 +16,33 @@ export const PRICING = {
   pet_max_kg: PET_MAX_KG,
 };
 
+// Most guests one booking request may bring (spread over several rooms).
+export const MAX_PARTY = 14;
+
+// Spreads `guests` over `rooms` (in the order given): first up to each
+// room's included guests, then into the extra places rooms allow - so extra
+// fees are only charged once every room's included places are used. Every
+// room gets at least one guest. Returns the per-room counts, or null if the
+// rooms can't sleep that many (or there are more rooms than guests). The
+// frontend splits the same way (splitGuests in frontend/src/lib/booking.js).
+export function splitGuests(rooms, guests) {
+  if (rooms.length === 0 || rooms.length > guests) return null;
+  const base = (room) => room.capacity ?? MAX_PARTY;
+  const counts = rooms.map(() => 1);
+  let left = guests - rooms.length;
+  rooms.forEach((room, i) => {
+    const take = Math.min(left, base(room) - counts[i]);
+    counts[i] += take;
+    left -= take;
+  });
+  rooms.forEach((room, i) => {
+    const take = Math.min(left, room.capacity ? room.max_extra_guests ?? 0 : 0);
+    counts[i] += take;
+    left -= take;
+  });
+  return left === 0 ? counts : null;
+}
+
 // Most guests a room can take: the guests its price covers plus the extra
 // guests it allows. null if the room has no guest count set (no limit known).
 export function maxGuests(room) {

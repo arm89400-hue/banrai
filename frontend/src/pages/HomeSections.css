@@ -43,13 +43,6 @@
   line-height: 1.6;
   color: var(--text-muted);
 }
-/* Leaf ornament under a centered title (see Sprig in HomeSections.jsx). */
-.sprig {
-  display: block;
-  margin: 14px auto 0;
-  color: var(--brand);
-}
-
 /* ---- Photo tiles (open in the Lightbox) ---- */
 .photo-tile {
   position: relative;
@@ -169,31 +162,20 @@
   padding: 0;
   list-style: none;
 }
+/* Plain lines, one per highlight: what it is, then a short note. */
 .farm__highlights li {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-.farm__highlights li > span:last-child {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 2px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.farm__highlights li > span {
   font-size: 15px;
   color: var(--text-muted);
 }
 .farm__highlights strong {
   font-size: 17px;
   color: var(--text-h);
-}
-.farm__icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  background: var(--brand-soft);
-  color: var(--brand);
 }
 
 /* ---- Life on the farm: fruit / food / grounds as tabs (the dark band) ---- */
@@ -208,10 +190,6 @@
 }
 .life .info-title {
   color: var(--white);
-}
-.life .info-eyebrow,
-.life .sprig {
-  color: hsl(44, 92%, 58%);
 }
 .life :focus-visible {
   outline-color: hsl(44, 92%, 58%);
@@ -244,22 +222,12 @@
   white-space: nowrap;
   transition: background-color var(--dur) var(--ease-out), color var(--dur);
 }
-.life__tab span {
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  font-size: 12px;
-}
 .life__tab:hover {
   color: var(--white);
 }
 .life__tab.is-active {
   background: var(--white);
   color: var(--brand-dark);
-}
-.life__tab.is-active span {
-  background: var(--brand-soft);
-  color: var(--brand);
 }
 
 .life__panel {
@@ -364,16 +332,6 @@
   font-weight: 700;
   color: var(--text-h);
 }
-.amenity-row__icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
-  background: var(--brand-soft);
-  color: var(--brand);
-}
 .amenity-row ul {
   display: flex;
   flex-wrap: wrap;
@@ -459,10 +417,6 @@
     gap: 5px;
     padding: 9px 6px;
     font-size: 14px;
-  }
-  .life__tab span {
-    padding: 1px 6px;
-    font-size: 11px;
   }
   .photo-tile__caption {
     padding: 36px 12px 12px;

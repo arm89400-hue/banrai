@@ -7,7 +7,9 @@ import { usePromotions } from '../lib/promotions';
 import { PromoTag } from '../components/BookingBits';
 import { useLang } from '../i18n/lang';
 import DateRangePicker from '../components/DateRangePicker';
-import { FARM_PHOTOS, HERO_SLIDES } from '../lib/photos';
+import PhotoSlides from '../components/PhotoSlides';
+import Announcements from '../components/Announcements';
+import { FARM_PHOTOS, HERO_SLIDES, roomCover } from '../lib/photos';
 import { Amenities, FarmLife, FarmStory } from './HomeSections';
 import './Home.css';
 
@@ -50,37 +52,77 @@ export default function Home() {
   return (
     <>
       <section className="hero">
-        <HeroSlides />
+        <PhotoSlides photos={HERO_SLIDES} />
         <div className="hero__overlay">
           <div className="hero__content">
-            <h1>{t('hero.eyebrow')}</h1>
             <h1>{t('hero.title')}</h1>
-            <p>{t('hero.lead')}</p>
+            {/* Break only between phrases, never inside a Thai word. */}
+            <p>
+              {t('hero.lead')
+                .split(' ')
+                .map((phrase, i) => (
+                  <span key={i} className="hero__phrase">
+                    {phrase}{' '}
+                  </span>
+                ))}
+            </p>
           </div>
 
+          {/* One capsule: dates | guests | search + book. */}
           <form className="search-bar" onSubmit={handleSearch}>
-            <DateRangePicker
-              checkIn={search.checkIn}
-              checkOut={search.checkOut}
-              onChange={(dates) => setSearch({ ...search, ...dates })}
-            />
-            <label>
-              <span>{t('search.guests')}</span>
-              <input
-                type="number"
-                min="1"
-                max={MAX_GUESTS}
-                value={search.guests}
-                onChange={(e) => {
-                  const value = Math.min(MAX_GUESTS, Math.max(1, Number(e.target.value) || 1));
-                  setSearch({ ...search, guests: value });
-                }}
+            <div className="search-bar__seg">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="16" rx="2" />
+                <path d="M3 10h18M8 3v4M16 3v4" />
+              </svg>
+              <DateRangePicker
+                checkIn={search.checkIn}
+                checkOut={search.checkOut}
+                onChange={(dates) => setSearch({ ...search, ...dates })}
               />
-            </label>
-            <button type="submit">{t('search.submit')}</button>
+            </div>
+            <div className="search-bar__seg">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                <circle cx="9" cy="8" r="3.5" />
+                <path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5" />
+                <circle cx="17" cy="9" r="2.5" />
+                <path d="M17 14c2.4 0 4 1.5 4.6 4" />
+              </svg>
+              <div className="search-bar__guests">
+                <span className="search-bar__label">{t('search.guests')}</span>
+                <div className="search-bar__stepper">
+                  <button
+                    type="button"
+                    onClick={() => setSearch((s) => ({ ...s, guests: s.guests - 1 }))}
+                    disabled={search.guests <= 1}
+                    aria-label={t('flow.fewer')}
+                  >
+                    −
+                  </button>
+                  <output aria-live="polite">{search.guests}</output>
+                  <button
+                    type="button"
+                    onClick={() => setSearch((s) => ({ ...s, guests: s.guests + 1 }))}
+                    disabled={search.guests >= MAX_GUESTS}
+                    aria-label={t('flow.more')}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="search-bar__actions">
+              {/* One button: opens booking with the dates and guests picked here. */}
+              <button type="submit" className="search-bar__book">
+                {t('nav.book')}
+              </button>
+            </div>
           </form>
         </div>
       </section>
+
+      {/* Announcements for everyone; takes no space when there are none. */}
+      <Announcements source="/api/announcements/home" className="home-news" />
 
       <RoomsShowcase rooms={rooms} error={error} promotions={promotions} />
 
@@ -92,35 +134,6 @@ export default function Home() {
 }
 
 // How long each hero photo stays before the next fades in.
-const HERO_SLIDE_MS = 6000;
-
-// Decorative slideshow behind the hero: loops through HERO_SLIDES, one
-// cross-fade every HERO_SLIDE_MS. A photo is only requested just before it
-// is shown, so the page doesn't download all of them up front. With reduced
-// motion it stays on the first photo.
-function HeroSlides() {
-  const [step, setStep] = useState(0); // counts up forever; slide = step % length
-  const active = step % HERO_SLIDES.length;
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const timer = setInterval(() => setStep((s) => s + 1), HERO_SLIDE_MS);
-    return () => clearInterval(timer);
-  }, []);
-
-  return (
-    <div className="hero__slides" aria-hidden="true">
-      {HERO_SLIDES.map((src, i) => (
-        <div
-          key={src}
-          className={`hero__slide${i === active ? ' is-active' : ''}`}
-          style={i <= step + 1 ? { backgroundImage: `url(${src})` } : undefined}
-        />
-      ))}
-    </div>
-  );
-}
-
 // The five rooms as one list to compare at a glance (name, who it sleeps,
 // price), with a large photo beside it that follows the room under the
 // cursor or keyboard focus. Rooms without their own photo yet show the
@@ -133,16 +146,14 @@ function RoomsShowcase({ rooms, error, promotions }) {
   const [missing, setMissing] = useState({}); // room id -> has no photo
   const active = sorted.find((r) => r.id === activeId) ?? sorted[0];
   const activeNames = active ? roomNames(active.name, lang) : null;
-  const photoSrc = !active || missing[active.id] ? FARM_PHOTOS.main : active.image_url || `/images/rooms/room-${active.id}.jpg`;
+  const photoSrc = !active || missing[active.id] ? FARM_PHOTOS.main : roomCover(active);
 
   return (
     <section id="rooms" className="rooms-section">
       <header className="rooms__head reveal">
         <div>
-          <p className="info-eyebrow">{t('rooms.eyebrow')}</p>
           <h2 className="info-title">{t('rooms.title')}</h2>
         </div>
-        <p className="rooms__lead">{t('rooms.lead')}</p>
       </header>
 
       {error && <p role="alert">{error}</p>}

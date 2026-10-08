@@ -10,11 +10,18 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- name/description/tag are English, the *_th columns Thai (the site shows
+-- the visitor's language, falling back to the other). `position` orders them.
 CREATE TABLE IF NOT EXISTS activities (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
   price NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  name_th TEXT,
+  description_th TEXT,
+  tag TEXT,
+  tag_th TEXT,
+  position INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -72,6 +79,9 @@ CREATE TABLE IF NOT EXISTS bookings (
   -- Promotion discount already taken off `total`, and which promotion gave it.
   discount NUMERIC(10, 2) NOT NULL DEFAULT 0,
   promo_name TEXT,
+  -- Rooms booked together share the first room's booking code here (NULL
+  -- for a single-room booking).
+  group_code TEXT,
   -- Login for the room's guest dashboard, generated when the booking is
   -- confirmed (see users.stay_booking_id below).
   stay_username TEXT,
@@ -161,6 +171,69 @@ CREATE TABLE IF NOT EXISTS promotions (
   CONSTRAINT promotions_dates_valid CHECK (ends_on >= starts_on)
 );
 
+-- Photos of a room, an activity or an announcement (see db/migrations/013_photos.sql
+-- and 015_announcement_photos.sql; announcement_id is added below, after the
+-- announcements table): at most 6 each, in `position` order, the first being the cover. `file` is
+-- /uploads/... (uploaded in admin, served by the API) or /images/... (shipped
+-- with the site, served by the frontend).
+CREATE TABLE IF NOT EXISTS photos (
+  id SERIAL PRIMARY KEY,
+  room_id INTEGER REFERENCES rooms(id) ON DELETE CASCADE,
+  activity_id INTEGER REFERENCES activities(id) ON DELETE CASCADE,
+  file TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT photos_one_owner CHECK ((room_id IS NULL) <> (activity_id IS NULL))
+);
+CREATE INDEX IF NOT EXISTS idx_photos_room ON photos(room_id, position);
+CREATE INDEX IF NOT EXISTS idx_photos_activity ON photos(activity_id, position);
+
+CREATE OR REPLACE FUNCTION photos_max_six() RETURNS trigger AS $$
+BEGIN
+  IF (SELECT count(*) FROM photos
+      WHERE room_id IS NOT DISTINCT FROM NEW.room_id
+        AND activity_id IS NOT DISTINCT FROM NEW.activity_id
+        AND announcement_id IS NOT DISTINCT FROM NEW.announcement_id) >= 6 THEN
+    RAISE EXCEPTION 'A room, activity or announcement can have at most 6 photos'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'photos_max_six';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS photos_max_six ON photos;
+CREATE TRIGGER photos_max_six BEFORE INSERT ON photos
+  FOR EACH ROW EXECUTE FUNCTION photos_max_six();
+
+-- Announcements from admin (see db/migrations/014_announcements.sql):
+-- audience 'home' (Home page), 'booked' (guests with a booking) or 'both',
+-- shown from starts_at until ends_at (NULL = no end) while active.
+CREATE TABLE IF NOT EXISTS announcements (
+  id SERIAL PRIMARY KEY,
+  title TEXT,
+  title_th TEXT,
+  body TEXT,
+  body_th TEXT,
+  image TEXT,
+  audience TEXT NOT NULL DEFAULT 'home',
+  starts_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ends_at TIMESTAMPTZ,
+  active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT announcements_audience CHECK (audience IN ('home', 'booked', 'both')),
+  CONSTRAINT announcements_has_title CHECK (coalesce(title, title_th) IS NOT NULL),
+  CONSTRAINT announcements_dates CHECK (ends_at IS NULL OR ends_at > starts_at)
+);
+CREATE INDEX IF NOT EXISTS idx_announcements_window ON announcements(starts_at, ends_at);
+
+-- Announcement photos live in `photos` too (`image` is no longer used).
+ALTER TABLE photos
+  ADD COLUMN IF NOT EXISTS announcement_id INTEGER REFERENCES announcements(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_photos_announcement ON photos(announcement_id, position);
+ALTER TABLE photos DROP CONSTRAINT IF EXISTS photos_one_owner;
+ALTER TABLE photos ADD CONSTRAINT photos_one_owner
+  CHECK (num_nonnulls(room_id, activity_id, announcement_id) = 1);
+
 CREATE TABLE IF NOT EXISTS contact_messages (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -174,3 +247,28 @@ CREATE INDEX IF NOT EXISTS idx_bookings_activity_id ON bookings(activity_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_room_id ON bookings(room_id);
 CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_code ON bookings(code);
+
+-- Deposit slips checked with SlipOK (see migrations/016_slip_payments.sql).
+
+CREATE TABLE IF NOT EXISTS slip_payments (
+  id SERIAL PRIMARY KEY,
+  booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  status TEXT NOT NULL CHECK (status IN ('verified', 'rejected', 'review')), -- review = owner checks by hand
+  reason TEXT,                -- why it was rejected (SLIP_AMOUNT, SLIP_DUPLICATE, ...)
+  trans_ref TEXT,             -- the bank's transaction reference
+  amount NUMERIC(10, 2),      -- amount on the slip
+  expected NUMERIC(10, 2) NOT NULL, -- the deposit it had to match
+  sending_bank TEXT,
+  sender_name TEXT,
+  receiver_name TEXT,
+  trans_at TIMESTAMPTZ,       -- when the transfer was made
+  slip_file TEXT,             -- the uploaded image, /uploads/...
+  raw JSONB,                  -- SlipOK's full answer, for support
+  reviewed_at TIMESTAMPTZ,    -- when the owner approved/rejected a 'review' slip
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_slip_payments_booking ON slip_payments(booking_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_slip_payments_verified_ref
+  ON slip_payments(trans_ref) WHERE status = 'verified';
