@@ -299,8 +299,6 @@ export const STRINGS = {
     'season.title': 'ทั้งปี มีอะไรให้เก็บ',
     'season.none': 'ช่วงนี้ไม่มีผลไม้ตามฤดู',
     'season.listTitle': 'ผลไม้ของบ้านไร่',
-    'act.ctaTitle': 'มาเที่ยวสวนกับเรา',
-    'act.ctaText': 'จองห้องพัก แล้วบอกกิจกรรมที่อยากทำไว้ในหมายเหตุตอนจอง',
     'season.harvest': 'ช่วงเก็บ',
     'season.ripeNow': 'กำลังออกเดือนนี้',
     fruitInfo: {
@@ -629,8 +627,6 @@ export const STRINGS = {
     'season.title': 'Something to pick all year',
     'season.none': 'No fruit in season this month',
     'season.listTitle': 'Our fruit',
-    'act.ctaTitle': 'Come and stay on the farm',
-    'act.ctaText': 'Book a room and tell us which activities you would like in the booking note.',
     'season.harvest': 'Picking season',
     'season.ripeNow': 'In season this month',
     fruitInfo: {

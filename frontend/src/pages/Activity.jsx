@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { FRUIT_SEASONS, fruitPhoto, inRange } from '../lib/seasons';
 import { api } from '../lib/api';
 import { listingPhotos } from '../lib/photos';
@@ -67,8 +66,8 @@ function ActivityCard({ item, onOpen }) {
 
 // Public page of the farm's activities: a photo on top, the activities as
 // cards (two big, the rest smaller - managed in admin), the fruit ripe this
-// month, the fruit calendar for the whole year, then on to booking. Tapping
-// a fruit opens it large in FruitViewer.
+// month, and the fruit calendar for the whole year. Tapping a fruit opens
+// it large in FruitViewer.
 export default function Activity() {
   const { t, lang, locale } = useLang();
   const thisMonth = new Date().getMonth() + 1;
@@ -220,16 +219,6 @@ export default function Activity() {
         </div>
       </section>
 
-      {/* Where to go next: activities are arranged as part of a stay. */}
-      <section className="acts-cta">
-        <div>
-          <h2>{t('act.ctaTitle')}</h2>
-          <p>{t('act.ctaText')}</p>
-        </div>
-        <Link to="/book" className="page-cta">
-          {t('nav.book')}
-        </Link>
-      </section>
 
       {gallery && (
         <Lightbox
