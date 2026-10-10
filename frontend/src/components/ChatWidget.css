@@ -91,12 +91,9 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
-@media (max-width: 600px) {
-  .chat-widget {
-    right: 12px;
-    bottom: 12px;
-  }
-  /* Icon only, so the button doesn't cover the page on a phone. */
+/* Icon only unless the window is wide enough for the label to sit beside
+   the page's content (1110px) instead of over it. */
+@media (max-width: 1499px) {
   .chat-widget__toggle {
     width: 56px;
     padding: 0;
@@ -104,6 +101,13 @@
   }
   .chat-widget__toggle > span:not(.chat-widget__badge) {
     display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .chat-widget {
+    right: 12px;
+    bottom: 12px;
   }
   .chat-widget__panel {
     width: calc(100vw - 24px);
@@ -130,4 +134,12 @@
 }
 .chat-widget__login:hover {
   background: var(--brand-hover);
+}
+
+/* Pages with a bottom bar on phones (the room page): the chat button sits
+   above the bar instead of on its button. */
+@media (max-width: 760px) {
+  body.has-bottom-bar .chat-widget {
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  }
 }

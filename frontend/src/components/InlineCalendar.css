@@ -6,23 +6,22 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   font-weight: 700;
   color: var(--text-h);
 }
 .inline-cal__head button {
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--border);
+  width: 40px;
+  height: 40px;
+  border: none;
   border-radius: 50%;
-  background: var(--white);
+  background: var(--bg-alt);
   color: var(--text-h);
   font-size: 18px;
   line-height: 1;
-  transition: background-color var(--dur-fast), border-color var(--dur-fast);
+  transition: background-color var(--dur-fast);
 }
 .inline-cal__head button:hover:not(:disabled) {
-  border-color: var(--brand);
   background: var(--brand-soft);
 }
 .inline-cal__head button:disabled {
@@ -30,44 +29,82 @@
   cursor: not-allowed;
 }
 
+/* No gap between columns, so the stay's band runs unbroken across a week. */
 .inline-cal__grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  row-gap: 4px;
 }
 .inline-cal__dow {
-  padding-bottom: 4px;
-  font-size: 12px;
+  padding: 2px 0 6px;
+  font-size: 13px;
   text-align: center;
   color: var(--text-muted);
 }
 
+/* A day: the number in a 38px circle, and room under it for "in"/"out". */
 .inline-cal__day {
-  aspect-ratio: 1;
-  padding: 0;
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  height: 52px;
+  padding: 3px 0 0;
   border: none;
-  border-radius: 10px;
   background: none;
-  font-size: 14px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
   color: var(--text-h);
+}
+.inline-cal__n {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
   transition: background-color var(--dur-fast), color var(--dur-fast);
 }
-.inline-cal__day:hover:not(:disabled) {
+.inline-cal__day small {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  color: var(--brand-dark);
+}
+.inline-cal__day:hover:not(:disabled) .inline-cal__n {
   background: var(--brand-soft);
 }
 .inline-cal__day:disabled {
-  color: hsl(0, 0%, 74%);
+  color: hsl(0, 0%, 72%);
   cursor: not-allowed;
 }
-.inline-cal__day.is-taken {
+.inline-cal__day.is-taken .inline-cal__n {
   text-decoration: line-through;
 }
-.inline-cal__day.in-range {
-  border-radius: 0;
-  background: var(--brand-soft);
+.inline-cal__day.is-today .inline-cal__n {
+  box-shadow: inset 0 0 0 1.5px var(--text-muted);
 }
-.inline-cal__day.is-edge,
-.inline-cal__day.is-edge:hover:not(:disabled) {
+
+/* The stay: a soft band behind the nights, solid circles on the two ends. */
+.inline-cal__day.in-range,
+.inline-cal__day.is-first,
+.inline-cal__day.is-last {
+  background: linear-gradient(var(--brand-soft), var(--brand-soft)) 0 3px / 100% 38px no-repeat;
+}
+.inline-cal__day.is-first {
+  background-size: 50% 38px;
+  background-position: 100% 3px;
+}
+.inline-cal__day.is-last {
+  background-size: 50% 38px;
+  background-position: 0 3px;
+}
+.inline-cal__day.is-edge .inline-cal__n,
+.inline-cal__day.is-edge:hover:not(:disabled) .inline-cal__n {
   background: var(--brand);
   color: var(--white);
   font-weight: 700;
@@ -77,43 +114,38 @@
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
-  margin-top: 12px;
-  font-size: 12px;
+  margin-top: 8px;
+  font-size: 13px;
   color: var(--text-muted);
 }
-.inline-cal__swatch {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  margin-right: 6px;
-  border-radius: 4px;
-  vertical-align: -1px;
-}
-.inline-cal__swatch--taken {
-  background: hsl(0, 0%, 85%);
-}
-.inline-cal__swatch--picked {
-  background: var(--brand);
+.inline-cal__legend s {
+  margin-right: 4px;
+  color: hsl(0, 0%, 60%);
 }
 
-/* Compact: the same calendar, smaller (Home search bar's date popup). */
+/* Compact: the same calendar, a little smaller. */
 .inline-cal--compact .inline-cal__head {
-  margin-bottom: 8px;
   font-size: 15px;
 }
 .inline-cal--compact .inline-cal__head button {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   font-size: 15px;
 }
-.inline-cal--compact .inline-cal__grid {
-  gap: 2px;
-}
-.inline-cal--compact .inline-cal__dow {
-  padding-bottom: 2px;
-  font-size: 11px;
-}
 .inline-cal--compact .inline-cal__day {
-  border-radius: 8px;
-  font-size: 13px;
+  height: 46px;
+  font-size: 14px;
+}
+.inline-cal--compact .inline-cal__n {
+  width: 34px;
+  height: 34px;
+}
+.inline-cal--compact .inline-cal__day.in-range,
+.inline-cal--compact .inline-cal__day.is-first,
+.inline-cal--compact .inline-cal__day.is-last {
+  background-size: 100% 34px;
+}
+.inline-cal--compact .inline-cal__day.is-first,
+.inline-cal--compact .inline-cal__day.is-last {
+  background-size: 50% 34px;
 }

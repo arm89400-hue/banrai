@@ -13,20 +13,61 @@ import AdminPhotos, { MAX_PHOTOS } from './AdminPhotos';
 import { uploadPending } from '../lib/uploadPending';
 import './Admin.css';
 
-// Why a deposit slip was turned down (reason codes from POST /api/bookings/:id/slip).
+// Why a slip was turned down, or why SlipOK sent it to you to check
+// (reason codes from POST /api/bookings/:id/slip and admin actions).
 const SLIP_REASONS = {
   SLIP_UNREADABLE: 'no QR',
   SLIP_NOT_FOUND: 'not found at bank',
-  SLIP_PENDING: 'bank not ready',
+  SLIP_PENDING: 'bank asks to wait a few minutes',
   SLIP_DUPLICATE: 'used before',
   SLIP_AMOUNT: 'wrong amount',
   SLIP_RECEIVER: 'wrong account',
   SLIP_OLD: 'older than booking',
-  SLIP_SERVICE: 'check failed',
+  SLIP_SERVICE: 'SlipOK or the bank was down',
+  SLIPOK_SETUP: 'SlipOK setup problem - check the API key and branch ID',
+  SLIPOK_PACKAGE: 'SlipOK package expired or quota used up - renew it',
   NOT_PENDING: 'booking not pending',
+  BALANCE_NOT_DUE: 'nothing left to pay',
   MANUAL_REJECT: 'rejected by you',
   BOOKING_CANCELLED: 'booking cancelled',
+  SUPERSEDED: 'another slip was approved',
+  PAID_AT_FARM: 'paid at the farm instead',
 };
+
+// One payment slip on a booking row: its result, a link to the image and,
+// while it waits for a manual check, Approve / Reject. `s` holds the slip
+// fields for one kind (deposit or balance).
+function SlipLine({ label, s, onApprove, onReject }) {
+  if (!s.status) return null;
+  return (
+    <div className={`admin__sub admin__slip admin__slip--${s.status}`}>
+      {s.status === 'verified'
+        ? `${label} slip ✓ ${s.amount != null ? formatBaht(s.amount) : 'checked by hand'}`
+        : s.status === 'review'
+          ? `${label} slip sent · check it${s.reason ? ` (${SLIP_REASONS[s.reason] ?? s.reason})` : ''}`
+          : `${label} slip ✗ ${SLIP_REASONS[s.reason] ?? s.reason}${s.amount != null ? ` (${formatBaht(s.amount)})` : ''}`}
+      {s.count > 1 && ` · ${s.count} tries`}
+      {s.file && (
+        <>
+          {' · '}
+          <a href={mediaUrl(s.file)} target="_blank" rel="noreferrer">
+            view
+          </a>
+        </>
+      )}
+      {s.status === 'review' && onApprove && (
+        <span className="admin__slip-actions">
+          <button type="button" className="admin__btn admin__btn--primary" onClick={onApprove}>
+            Approve
+          </button>
+          <button type="button" className="admin__btn" onClick={onReject}>
+            Reject
+          </button>
+        </span>
+      )}
+    </div>
+  );
+}
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
@@ -225,6 +266,23 @@ function Status({ loading, error }) {
   return null;
 }
 
+// Go-live checklist for payments: what is set up in backend/.env.
+function PaymentSetup({ setup }) {
+  if (!setup) return null;
+  const items = [
+    setup.promptpay
+      ? `PromptPay QR: on${setup.promptpay_name ? ` (${setup.promptpay_name})` : ''}`
+      : 'PromptPay QR: not set - guests see a sample QR (add PROMPTPAY_ID)',
+    setup.slipok ? 'SlipOK: on - slips are checked automatically' : 'SlipOK: off - you check slips by hand',
+    setup.test_pay ? 'Test button (PassPay): on - turn off before going live' : 'Test button (PassPay): off',
+  ];
+  return (
+    <p className="admin__setup">
+      <strong>Payments</strong> {items.join(' · ')}
+    </p>
+  );
+}
+
 function Overview({ onJump }) {
   const { data, error, loading } = useAdminData('/api/admin/stats');
   const s = data?.stats;
@@ -245,6 +303,7 @@ function Overview({ onJump }) {
   return (
     <>
       <Status loading={loading && !s} error={error} />
+      <PaymentSetup setup={data?.payment_setup} />
       {cards && (
         <div className="admin__stats">
           {cards.map((c, i) => (
@@ -305,12 +364,44 @@ function Bookings() {
     }
   }
 
-  // Turns down a slip waiting for a manual check; the guest can send another.
-  async function rejectSlip(b) {
-    if (!window.confirm(`Reject the slip for ${b.code || `#${b.id}`}? The booking stays pending and the guest is asked for a new slip.`)) return;
+  // Approves a slip waiting for a manual check: a deposit confirms the
+  // booking and the rooms booked with it; a balance marks the rest paid.
+  async function approveSlip(b, kind) {
+    const amount = kind === 'deposit' ? b.slip_expected : b.balance_slip_expected;
+    const rooms = kind === 'deposit' && b.slip_rooms > 1 ? ` for ${b.slip_rooms} rooms` : '';
+    const what = kind === 'deposit' ? 'confirm the booking' : 'mark the rest of the price paid';
+    if (!window.confirm(`Approve the slip and ${what}${rooms}? Check that ${formatBaht(amount)} reached your account.`)) return;
     setActionError(null);
     try {
-      await api(`/api/admin/slips/${b.slip_id}/reject`, { method: 'PATCH' });
+      await api(`/api/admin/slips/${kind === 'deposit' ? b.slip_id : b.balance_slip_id}/approve`, { method: 'POST' });
+      reload();
+    } catch (err) {
+      setActionError(err.message);
+    }
+  }
+
+  // Turns down a slip waiting for a manual check; the guest can send another.
+  async function rejectSlip(b, kind) {
+    const after = kind === 'deposit' ? 'The booking stays pending and' : '';
+    if (!window.confirm(`Reject the slip for ${b.code || `#${b.id}`}? ${after} The guest is asked for a new slip.`)) return;
+    setActionError(null);
+    try {
+      await api(`/api/admin/slips/${kind === 'deposit' ? b.slip_id : b.balance_slip_id}/reject`, { method: 'PATCH' });
+      reload();
+    } catch (err) {
+      setActionError(err.message);
+    }
+  }
+
+  // The other half of the price paid at the farm (or undo that mark).
+  async function markBalance(b, paid) {
+    const question = paid
+      ? `Mark the rest of the price for ${b.group_code || b.code || `#${b.id}`} as paid at the farm?`
+      : `Undo "paid at the farm" for ${b.group_code || b.code || `#${b.id}`}?`;
+    if (!window.confirm(question)) return;
+    setActionError(null);
+    try {
+      await api(`/api/admin/bookings/${b.id}/balance`, { method: 'PATCH', body: JSON.stringify({ paid }) });
       reload();
     } catch (err) {
       setActionError(err.message);
@@ -437,36 +528,37 @@ function Bookings() {
                       <>
                         {formatBaht(b.total)}
                         <div className="admin__sub">Deposit {formatBaht(b.deposit)}</div>
-                        {/* The transfer slip checked with SlipOK, if the guest sent one. */}
-                        {b.slip_status && (
-                          <div className={`admin__sub admin__slip admin__slip--${b.slip_status}`}>
-                            {b.slip_status === 'verified'
-                              ? `Slip ✓ ${b.slip_amount != null ? formatBaht(b.slip_amount) : 'checked by hand'}`
-                              : b.slip_status === 'review'
-                                ? 'Slip sent · check it'
-                                : `Slip ✗ ${SLIP_REASONS[b.slip_reason] ?? b.slip_reason}${b.slip_amount != null ? ` (${formatBaht(b.slip_amount)})` : ''}`}
-                            {b.slip_count > 1 && ` · ${b.slip_count} tries`}
-                            {b.slip_file && (
-                              <>
-                                {' · '}
-                                <a href={mediaUrl(b.slip_file)} target="_blank" rel="noreferrer">
-                                  view
-                                </a>
-                              </>
+                        {/* The deposit slip, if the guest sent one (one slip can pay for a group). */}
+                        <SlipLine
+                          label={b.slip_rooms > 1 ? `Deposit (${b.slip_rooms} rooms)` : 'Deposit'}
+                          s={{ status: b.slip_status, reason: b.slip_reason, amount: b.slip_amount, file: b.slip_file, count: b.slip_count }}
+                          onApprove={b.status === 'pending' ? () => approveSlip(b, 'deposit') : null}
+                          onReject={() => rejectSlip(b, 'deposit')}
+                        />
+                        {/* The other half: paid online, at the farm, or still due. */}
+                        {b.room_id && b.status === 'confirmed' && Number(b.total) > Number(b.deposit) && (
+                          <div className={`admin__sub admin__balance${b.balance_paid_at ? ' is-paid' : ''}`}>
+                            {b.balance_paid_at
+                              ? `Balance ✓ ${b.balance_method === 'at_farm' ? 'paid at the farm' : 'paid online'}`
+                              : `Balance ${formatBaht(Number(b.total) - Number(b.deposit))} due`}
+                            {!b.balance_paid_at && (
+                              <button type="button" className="admin__btn" onClick={() => markBalance(b, true)}>
+                                Paid at farm
+                              </button>
                             )}
-                            {/* Manual check: approve = confirm the booking. */}
-                            {b.slip_status === 'review' && b.status === 'pending' && (
-                              <span className="admin__slip-actions">
-                                <button type="button" className="admin__btn admin__btn--primary" onClick={() => setStatus(b, 'confirmed', `Approve the slip and confirm ${b.code || `#${b.id}`}? Check the amount is ${formatBaht(b.deposit)} and it reached your account.`)}>
-                                  Approve
-                                </button>
-                                <button type="button" className="admin__btn" onClick={() => rejectSlip(b)}>
-                                  Reject
-                                </button>
-                              </span>
+                            {b.balance_method === 'at_farm' && (
+                              <button type="button" className="admin__btn" onClick={() => markBalance(b, false)}>
+                                Undo
+                              </button>
                             )}
                           </div>
                         )}
+                        <SlipLine
+                          label="Balance"
+                          s={{ status: b.balance_slip_status, reason: b.balance_slip_reason, amount: b.balance_slip_amount, file: b.balance_slip_file }}
+                          onApprove={b.status === 'confirmed' && !b.balance_paid_at ? () => approveSlip(b, 'balance') : null}
+                          onReject={() => rejectSlip(b, 'balance')}
+                        />
                         {Number(b.discount) > 0 && (
                           <div className="admin__sub admin__sub--flag">
                             {b.promo_name || 'Promotion'}: −{formatBaht(b.discount)}
@@ -1051,7 +1143,9 @@ const LOG_TYPES = {
   'booking.reopened': { label: 'Booking re-opened', group: 'bookings', tone: 'pending' },
   'booking.deleted': { label: 'Booking deleted', group: 'bookings', tone: 'cancelled' },
   'booking.repriced': { label: 'Price edited', group: 'bookings', tone: 'pending' },
-  'booking.slip_sent': { label: 'Deposit slip sent', group: 'bookings', tone: 'pending' },
+  'booking.slip_sent': { label: 'Slip sent', group: 'bookings', tone: 'pending' },
+  'booking.balance_paid': { label: 'Rest of the price paid', group: 'bookings', tone: 'confirmed' },
+  'booking.balance_unpaid': { label: '"Paid at farm" undone', group: 'bookings', tone: 'pending' },
   'booking.slip_rejected': { label: 'Slip rejected', group: 'bookings', tone: 'cancelled' },
   'promotion.created': { label: 'Promotion created', group: 'bookings', tone: 'confirmed' },
   'promotion.deleted': { label: 'Promotion deleted', group: 'bookings', tone: 'cancelled' },

@@ -1,102 +1,119 @@
-/* "My bookings" (/booking). Shared pieces live in BookingBits.css. */
-.my-bookings__head {
+/* "My bookings" (/booking): the stay that needs you now in full (see
+   components/StayView), then the other bookings as short rows. Lines up
+   with the header's edges. */
+.my-page {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+  min-height: 80vh;
+  padding: 112px max(20px, calc((100% - 1110px) / 2)) 96px;
+  background: var(--bg);
+  color: var(--text);
+}
+.my-page__head {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 24px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 24px;
 }
-.my-bookings__head h1 {
-  font-size: 32px;
+.my-page__head h1 {
+  margin: 0;
+  font-size: 36px;
+  font-weight: 600;
 }
-.my-bookings__member {
-  margin-top: 4px;
-  font-size: 14px;
+.my-page__head p {
+  margin: 0;
   color: var(--text-muted);
-  overflow-wrap: anywhere;
 }
-.my-bookings__member strong {
-  padding: 2px 10px;
+
+/* Other bookings: photo, rooms and code, dates, status, one button. */
+.my-others {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+.my-others h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+.my-others ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+.my-others li {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.my-others li:not(:has(img)) {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.my-others li.is-cancelled {
+  opacity: 0.6;
+}
+.my-others img {
+  width: 88px;
+  height: 60px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.my-others__txt b {
+  font-size: 18px;
+  font-weight: 600;
+}
+.my-others__txt p {
+  margin: 2px 0 0;
+  font-size: 15px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.my-pill {
+  padding: 3px 12px;
   border-radius: 999px;
   background: var(--brand-soft);
-  color: var(--brand);
-  letter-spacing: 0.04em;
-}
-
-.my-bookings__results {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
-  gap: 20px;
-  align-items: start;
-}
-.my-bookings__empty {
-  color: var(--text-muted);
-}
-
-.my-card {
-  display: grid;
-  gap: 16px;
-  padding: 22px 24px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  box-shadow: var(--shadow);
-  animation: fade-up var(--dur) var(--ease-out) both;
-}
-.my-card header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-}
-.my-card h3 {
-  font-size: 22px;
-}
-.my-card__code {
-  margin-top: 2px;
+  color: var(--brand-dark);
   font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--brand);
+  white-space: nowrap;
 }
-.my-card__meta {
-  color: var(--text-muted);
-}
-.my-card__list {
+.my-empty {
   display: grid;
-  gap: 8px;
-  margin: 0;
-  font-size: 15px;
-}
-.my-card__list > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-}
-.my-card__list dt {
-  flex: none;
+  justify-items: start;
+  gap: 14px;
   color: var(--text-muted);
-}
-.my-card__list dd {
-  margin: 0;
-  text-align: right;
-  overflow-wrap: anywhere;
 }
 
-.my-card__help {
-  display: grid;
-  gap: 6px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-  font-size: 14px;
-  color: var(--text-muted);
-}
-.my-card__help > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 6px;
+@media (max-width: 760px) {
+  .my-page {
+    padding: 92px 16px 64px;
+    gap: 20px;
+  }
+  .my-page__head h1 {
+    font-size: 28px;
+  }
+  .my-others li {
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 8px 14px;
+  }
+  .my-others img {
+    grid-row: span 2;
+    width: 72px;
+    height: 56px;
+  }
+  .my-others li > .status-badge,
+  .my-others li > .my-pill {
+    justify-self: start;
+  }
+  .my-others li > .bk-btn {
+    grid-column: 1 / -1;
+  }
 }
 
 /* "The property deleted your booking" notice, above the booking cards. */

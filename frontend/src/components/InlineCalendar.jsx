@@ -5,13 +5,16 @@ import './InlineCalendar.css';
 
 const NO_NIGHTS = new Set();
 
-// Always-visible month calendar for picking a stay: first click sets
-// check-in, the next (later) click sets check-out. `bookedNights` (a Set of
-// "YYYY-MM-DD") crosses out nights that are already taken; a range can't
-// span a taken night, though it may end on one (you check out that
-// morning, the next guest arrives that afternoon). `compact` gives the same
-// calendar in a smaller size (the Home search bar's date popup).
-export default function InlineCalendar({ checkIn, checkOut, onChange, bookedNights = NO_NIGHTS, compact = false }) {
+// Month calendar for picking a stay. The stay shows as one band from
+// check-in to check-out, with "in" / "out" under the two ends.
+// - Without `mode`: the first tap sets check-in, the next (later) tap sets
+//   check-out.
+// - `mode` 'in' / 'out' (the date sheet's tabs): the tap sets that date.
+// `bookedNights` (a Set of "YYYY-MM-DD") crosses out nights that are already
+// taken; a range can't span a taken night, though it may end on one (you
+// check out that morning, the next guest arrives that afternoon).
+// `compact` gives the same calendar in a smaller size.
+export default function InlineCalendar({ checkIn, checkOut, onChange, bookedNights = NO_NIGHTS, compact = false, mode }) {
   const { t, locale } = useLang();
   const [viewMonth, setViewMonth] = useState(() => {
     const base = checkIn ? new Date(`${checkIn}T00:00:00`) : new Date();
@@ -19,7 +22,8 @@ export default function InlineCalendar({ checkIn, checkOut, onChange, bookedNigh
   });
 
   const today = toISODate(new Date());
-  const picking = Boolean(checkIn && !checkOut);
+  // Is the next tap setting check-out?
+  const picking = Boolean(checkIn && (mode ? mode === 'out' : !checkOut));
   const hasBooked = bookedNights.size > 0;
 
   const year = viewMonth.getFullYear();
@@ -74,13 +78,18 @@ export default function InlineCalendar({ checkIn, checkOut, onChange, bookedNigh
 
           const isPast = day < today;
           const taken = bookedNights.has(day) && !canBeCheckOut(day);
-          const isEdge = day === checkIn || day === checkOut;
+          const isIn = day === checkIn;
+          const isOut = day === checkOut;
           const inRange = checkIn && checkOut && day > checkIn && day < checkOut;
 
           const classes = ['inline-cal__day'];
-          if (isEdge) classes.push('is-edge');
+          if (isIn || isOut) classes.push('is-edge');
+          // The band runs out of check-in and into check-out.
+          if (isIn && checkOut) classes.push('is-first');
+          if (isOut) classes.push('is-last');
           if (inRange) classes.push('in-range');
           if (taken) classes.push('is-taken');
+          if (day === today) classes.push('is-today');
 
           return (
             <button
@@ -88,10 +97,12 @@ export default function InlineCalendar({ checkIn, checkOut, onChange, bookedNigh
               key={day}
               className={classes.join(' ')}
               disabled={isPast || taken}
-              aria-pressed={isEdge}
+              aria-pressed={isIn || isOut}
+              aria-label={new Date(`${day}T00:00:00`).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })}
               onClick={() => handlePick(day)}
             >
-              {Number(day.slice(8))}
+              <span className="inline-cal__n">{Number(day.slice(8))}</span>
+              {(isIn || isOut) && <small>{isIn ? t('cal.in') : t('cal.out')}</small>}
             </button>
           );
         })}
@@ -100,12 +111,7 @@ export default function InlineCalendar({ checkIn, checkOut, onChange, bookedNigh
       {hasBooked && (
         <div className="inline-cal__legend">
           <span>
-            <i className="inline-cal__swatch inline-cal__swatch--taken" />
-            {t('cal.full')}
-          </span>
-          <span>
-            <i className="inline-cal__swatch inline-cal__swatch--picked" />
-            {t('cal.picked')}
+            <s>17</s> {t('cal.full')}
           </span>
         </div>
       )}

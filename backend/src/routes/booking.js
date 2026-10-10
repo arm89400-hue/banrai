@@ -3,11 +3,20 @@ import express, { Router } from 'express';
 import { pool } from '../db/pool.js';
 import { requireAuth, requireMember } from '../middleware/auth.js';
 import { logEvent } from '../lib/activityLog.js';
-import { ensureStayAccount } from '../lib/stayAccount.js';
 import { MAX_PARTY, priceStay, splitGuests } from '../lib/pricing.js';
 import { bestPromotion, currentPromotions } from '../lib/promotions.js';
 import { MAX_UPLOAD_BYTES, imageExtension, saveUpload } from '../lib/photos.js';
-import { checkSlip, satang, slipokConfigured } from '../lib/slipok.js';
+import { CHECKER_PROBLEMS, checkSlip, satang, slipokConfigured } from '../lib/slipok.js';
+import {
+  KINDS,
+  PAYMENT_COLUMNS,
+  PAYMENT_TEST_MODE,
+  logPayment,
+  paymentOptions,
+  paymentScope,
+  recordSlip,
+  settlePayment,
+} from '../lib/payments.js';
 
 export const bookingRouter = Router();
 
@@ -30,27 +39,6 @@ function newCode() {
 
 const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
 
-// Until real QR payment (PromptPay + SlipOK) is wired up, guests get a
-// "PassPay" test button that marks their deposit as paid. On unless
-// PAYMENT_TEST_MODE=false - turn it off before taking real bookings.
-const PAYMENT_TEST_MODE = process.env.PAYMENT_TEST_MODE !== 'false';
-
-// Real deposits: a PromptPay QR with the amount filled in (PROMPTPAY_ID is
-// the phone number, citizen ID or e-wallet ID the money goes to), then the
-// guest uploads the transfer slip (POST /:id/slip). With SlipOK set up the
-// slip is checked automatically; until then it waits for the owner to
-// approve it in admin ("manual").
-const PROMPTPAY_ID = String(process.env.PROMPTPAY_ID ?? '').replace(/\D/g, '');
-const PROMPTPAY_OK = [10, 13, 15].includes(PROMPTPAY_ID.length);
-
-// What the payment panel needs to know, sent with the guest's bookings.
-const paymentOptions = () => ({
-  test_pay: PAYMENT_TEST_MODE,
-  slip_pay: true,
-  slip_check: slipokConfigured() ? 'auto' : 'manual',
-  promptpay: PROMPTPAY_OK ? PROMPTPAY_ID : null,
-});
-
 // Uploads per booking per hour - every check uses SlipOK quota.
 const SLIP_TRIES_PER_HOUR = 8;
 // A slip must be made after the booking (minus this slack for clock drift).
@@ -70,9 +58,7 @@ const PUBLIC_COLUMNS = `
   b.id, b.code, b.status, b.room_id, b.activity_id, b.booked_for, b.booked_until,
   b.guests, b.extra_guests, b.pets, b.guest_name, b.guest_phone, b.requests, b.note, b.total, b.deposit,
   b.discount, b.promo_name, b.group_code, b.stay_username, b.stay_password, b.created_at,
-  r.name AS room_name, a.name AS activity_name,
-  (SELECT x.status FROM slip_payments x WHERE x.booking_id = b.id ORDER BY x.created_at DESC LIMIT 1) AS slip_status,
-  (SELECT x.reason FROM slip_payments x WHERE x.booking_id = b.id ORDER BY x.created_at DESC LIMIT 1) AS slip_reason`;
+  r.name AS room_name, a.name AS activity_name, ${PAYMENT_COLUMNS}`;
 
 // Lists the signed-in user's own bookings - rooms and activities both -
 // soonest first. Exactly one of activity_name/room_name is set per row;
@@ -104,9 +90,38 @@ bookingRouter.get(
   })
 );
 
-// TEST ONLY ("PassPay"): marks the member's own pending room booking as
-// paid - the same as the admin confirming it - so the whole flow can be
-// tried before real payments exist. Disabled when PAYMENT_TEST_MODE=false.
+// Which payment a request is about: ?kind=deposit (the default) or ?kind=balance.
+const kindOf = (req) => (KINDS.includes(req.query.kind) ? req.query.kind : 'deposit');
+
+// Answers a payment for something that isn't owed (already paid, cancelled,
+// not the member's booking).
+function notPayable(res, error, kind) {
+  if (error === 'NOT_FOUND') return res.status(404).json({ error: 'Booking not found' });
+  return kind === 'deposit'
+    ? res.status(409).json({ error: 'This booking is not waiting for payment', reason: 'NOT_PENDING' })
+    : res.status(409).json({ error: 'Nothing is left to pay on this booking', reason: 'BALANCE_NOT_DUE' });
+}
+
+// After a payment: the booking paid from plus the rooms booked with it, so
+// the page can update every card.
+async function paidResponse(bookingId) {
+  const { rows } = await pool.query(
+    `SELECT ${PUBLIC_COLUMNS}
+     FROM bookings b
+     LEFT JOIN activities a ON a.id = b.activity_id
+     LEFT JOIN rooms r ON r.id = b.room_id
+     WHERE b.id = $1
+        OR b.group_code = (SELECT t.group_code FROM bookings t WHERE t.id = $1)
+     ORDER BY b.id`,
+    [bookingId]
+  );
+  return { booking: rows.find((b) => b.id === Number(bookingId)), bookings: rows };
+}
+
+// TEST ONLY ("PassPay"): marks the member's own payment as paid - a deposit
+// confirms the booking (and the rooms booked with it) the same as the admin
+// confirming it; ?kind=balance marks the other half paid. Lets the whole
+// flow be tried before real payments exist. Off when PAYMENT_TEST_MODE=false.
 bookingRouter.post(
   '/:id/pass-pay',
   requireAuth,
@@ -114,34 +129,19 @@ bookingRouter.post(
   wrap(async (req, res) => {
     if (!PAYMENT_TEST_MODE) return res.status(403).json({ error: 'Test payments are turned off' });
     if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'Booking not found' });
+    const kind = kindOf(req);
 
     const client = await pool.connect();
-    let stay;
-    let booking;
+    let scope;
+    let stays;
     try {
       await client.query('BEGIN');
-      booking = (
-        await client.query(
-          `SELECT b.id, b.status, b.code, b.room_id, b.guest_name, b.deposit, r.name AS room_name,
-                  to_char(b.booked_for AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS check_in,
-                  to_char(b.booked_until AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS check_out
-           FROM bookings b
-           LEFT JOIN rooms r ON r.id = b.room_id
-           WHERE b.id = $1 AND b.user_id = $2
-           FOR UPDATE OF b`,
-          [req.params.id, req.user.id]
-        )
-      ).rows[0];
-      if (!booking?.room_id) {
+      scope = await paymentScope(client, req.params.id, { kind, userId: req.user.id, lock: true });
+      if (scope.error) {
         await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Booking not found' });
+        return notPayable(res, scope.error, kind);
       }
-      if (booking.status !== 'pending') {
-        await client.query('ROLLBACK');
-        return res.status(409).json({ error: 'This booking is not waiting for payment', reason: 'NOT_PENDING' });
-      }
-      await client.query("UPDATE bookings SET status = 'confirmed' WHERE id = $1", [booking.id]);
-      stay = await ensureStayAccount(client, booking.id);
+      stays = await settlePayment(client, scope.due.map((b) => b.id), kind, 'online');
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
@@ -150,66 +150,17 @@ bookingRouter.post(
       client.release();
     }
 
-    await logEvent('booking.confirmed', {
-      actor: req.user.email,
-      bookingId: booking.id,
-      details: {
-        code: stay?.stay_username ?? booking.code,
-        room: booking.room_name,
-        guest: booking.guest_name,
-        check_in: booking.check_in,
-        check_out: booking.check_out,
-        paid_with: 'PassPay (test payment)',
-        deposit: booking.deposit,
-        room_username: stay?.stay_username,
-        room_password: stay?.stay_password,
-      },
-    });
-
-    const { rows } = await pool.query(
-      `SELECT ${PUBLIC_COLUMNS}
-       FROM bookings b
-       LEFT JOIN activities a ON a.id = b.activity_id
-       LEFT JOIN rooms r ON r.id = b.room_id
-       WHERE b.id = $1`,
-      [booking.id]
-    );
-    res.json({ booking: rows[0] });
+    await logPayment(req.user.email, scope, kind, stays, { paidWith: 'PassPay (test payment)' });
+    res.json(await paidResponse(scope.target.id));
   })
 );
-
-// Records one slip upload (passed or not) for the owner to look at later.
-async function recordSlip(db, { booking, userId, status, reason, slip, slipFile, raw }) {
-  const transAt = slip?.transTimestamp ? new Date(slip.transTimestamp) : null;
-  await db.query(
-    `INSERT INTO slip_payments
-       (booking_id, user_id, status, reason, trans_ref, amount, expected, sending_bank,
-        sender_name, receiver_name, trans_at, slip_file, raw)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-    [
-      booking.id,
-      userId,
-      status,
-      reason ?? null,
-      slip?.transRef || null,
-      slip?.amount ?? null,
-      booking.deposit,
-      slip?.sendingBank || null,
-      slip?.sender?.displayName || slip?.sender?.name || null,
-      slip?.receiver?.displayName || slip?.receiver?.name || null,
-      transAt && !Number.isNaN(transAt.getTime()) ? transAt : null,
-      slipFile,
-      raw ? JSON.stringify(raw) : null,
-    ]
-  );
-}
 
 const SLIP_MESSAGES = {
   SLIP_UNREADABLE: 'Could not read a payment QR code on this slip',
   SLIP_NOT_FOUND: 'The bank could not find this transfer',
   SLIP_PENDING: 'The bank has not confirmed this transfer yet - try again in a few minutes',
   SLIP_DUPLICATE: 'This slip has already been used',
-  SLIP_AMOUNT: 'The amount on the slip does not match the deposit',
+  SLIP_AMOUNT: 'The amount on the slip does not match the amount due',
   SLIP_RECEIVER: 'The money was sent to a different account',
   SLIP_OLD: 'This slip was made before the booking',
   SLIP_SERVICE: 'The slip check service is not available right now',
@@ -217,15 +168,19 @@ const SLIP_MESSAGES = {
   SLIP_TOO_MANY: 'Too many slips for this booking - try again in an hour or call us',
 };
 
-// Deposit by bank transfer: the guest uploads the slip for one of their own
-// pending room bookings. Without SlipOK set up, the slip is saved as
-// 'review' and the booking waits for the owner to approve it in admin
-// (202). With SlipOK, SlipOK checks it is a real transfer, for exactly
-// the deposit, to the property's account, and not used before; this route
-// then checks the amount and transfer reference again itself, and that the
-// transfer was made after the booking. If everything passes, the booking
-// is confirmed at once (with its room dashboard login), the same as the
-// owner confirming it. Every upload is kept in slip_payments.
+// Payment by bank transfer: the guest uploads the slip for one of their own
+// room bookings - ?kind=deposit (default, confirms the booking) or
+// ?kind=balance (the other half). Rooms booked together are paid with one
+// slip for their sum (see lib/payments.js).
+// - SlipOK not set up: the slip waits for the owner to check it in admin (202).
+// - SlipOK set up: SlipOK checks it is a real transfer, for exactly the
+//   amount due, to the property's account, and not used before; this route
+//   then checks the amount and transfer reference again itself, and that the
+//   transfer was made after the booking. If everything passes the payment is
+//   recorded at once - the same as the owner approving it.
+// - SlipOK can't answer (account, quota, bank down or delayed): the slip
+//   waits for the owner instead of being turned down (202).
+// Every upload is kept in slip_payments.
 bookingRouter.post(
   '/:id/slip',
   requireAuth,
@@ -234,57 +189,50 @@ bookingRouter.post(
   wrap(async (req, res) => {
     const fail = (status, reason) => res.status(status).json({ error: SLIP_MESSAGES[reason] ?? reason, reason });
     if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'Booking not found' });
+    const kind = kindOf(req);
     const ext = imageExtension(req.body);
     if (!ext) return fail(400, 'SLIP_UNREADABLE');
 
-    const booking = (
-      await pool.query(
-        `SELECT b.id, b.status, b.code, b.room_id, b.deposit, b.created_at, b.guest_name, r.name AS room_name,
-                to_char(b.booked_for AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS check_in,
-                to_char(b.booked_until AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS check_out
-         FROM bookings b
-         LEFT JOIN rooms r ON r.id = b.room_id
-         WHERE b.id = $1 AND b.user_id = $2`,
-        [req.params.id, req.user.id]
-      )
-    ).rows[0];
-    if (!booking?.room_id) return res.status(404).json({ error: 'Booking not found' });
-    if (booking.status !== 'pending') {
-      return res.status(409).json({ error: 'This booking is not waiting for payment', reason: 'NOT_PENDING' });
-    }
+    const scope = await paymentScope(pool, req.params.id, { kind, userId: req.user.id });
+    if (scope.error) return notPayable(res, scope.error, kind);
+    const { target } = scope;
+
     const recent = (
       await pool.query(
-        `SELECT count(*)::int AS n FROM slip_payments WHERE booking_id = $1 AND created_at > now() - interval '1 hour'`,
-        [booking.id]
+        `SELECT count(*)::int AS n FROM slip_payments
+         WHERE booking_ids && $1::int[] AND created_at > now() - interval '1 hour'`,
+        [scope.due.map((b) => b.id)]
       )
     ).rows[0].n;
     if (recent >= SLIP_TRIES_PER_HOUR) return fail(429, 'SLIP_TOO_MANY');
 
     const slipFile = await saveUpload(req.body, ext, 'slip');
 
-    // No automatic checker yet: keep the slip for the owner to check.
-    if (!slipokConfigured()) {
-      await recordSlip(pool, { booking, userId: req.user.id, status: 'review', slipFile });
+    // Keeps the slip for the owner to check by hand.
+    const toReview = async (reason, slip, raw) => {
+      await recordSlip(pool, { scope, kind, userId: req.user.id, status: 'review', reason, slip, slipFile, raw });
       await logEvent('booking.slip_sent', {
         actor: req.user.email,
-        bookingId: booking.id,
-        details: { code: booking.code, room: booking.room_name, guest: booking.guest_name, deposit: booking.deposit, slip: slipFile },
+        bookingId: target.id,
+        details: {
+          code: scope.code,
+          payment: kind,
+          rooms: scope.due.map((b) => b.room_name).join(', '),
+          guest: target.guest_name,
+          amount: scope.amount,
+          slip: slipFile,
+          slipok: reason ?? undefined,
+        },
       });
-      const { rows } = await pool.query(
-        `SELECT ${PUBLIC_COLUMNS}
-         FROM bookings b
-         LEFT JOIN activities a ON a.id = b.activity_id
-         LEFT JOIN rooms r ON r.id = b.room_id
-         WHERE b.id = $1`,
-        [booking.id]
-      );
-      return res.status(202).json({ booking: rows[0], review: true });
-    }
+      return res.status(202).json({ ...(await paidResponse(target.id)), review: true });
+    };
+
+    if (!slipokConfigured()) return toReview(null);
 
     const result = await checkSlip({
       image: req.body,
       contentType: ext === 'jpg' ? 'image/jpeg' : `image/${ext}`,
-      amount: Number(booking.deposit),
+      amount: scope.amount,
     });
     const slip = result.ok ? result.slip : null;
 
@@ -292,41 +240,42 @@ bookingRouter.post(
     let reason = result.ok ? null : result.reason;
     if (slip) {
       const madeAt = new Date(slip.transTimestamp);
-      if (satang(slip.amount) !== satang(booking.deposit)) reason = 'SLIP_AMOUNT';
+      if (satang(slip.amount) !== satang(scope.amount)) reason = 'SLIP_AMOUNT';
       else if (!slip.transRef) reason = 'SLIP_NOT_FOUND';
-      else if (!Number.isNaN(madeAt.getTime()) && madeAt < new Date(booking.created_at).getTime() - SLIP_CLOCK_SLACK_MS) {
+      else if (!Number.isNaN(madeAt.getTime()) && madeAt < new Date(target.created_at).getTime() - SLIP_CLOCK_SLACK_MS) {
         reason = 'SLIP_OLD';
       }
     }
+    if (reason && CHECKER_PROBLEMS.has(reason)) return toReview(reason, slip, result.raw);
     if (reason) {
-      await recordSlip(pool, { booking, userId: req.user.id, status: 'rejected', reason, slip, slipFile, raw: result.raw });
-      const status = ['SLIP_SERVICE', 'SLIP_NOT_CONFIGURED'].includes(reason) ? 502 : 422;
-      return fail(status, reason);
+      await recordSlip(pool, { scope, kind, userId: req.user.id, status: 'rejected', reason, slip, slipFile, raw: result.raw });
+      return fail(422, reason);
     }
 
-    // Passed: confirm in one transaction. The booking is locked and checked
-    // again (it may have been paid or cancelled meanwhile); the unique index
-    // on verified trans_ref stops one transfer confirming two bookings.
+    // Passed: record it in one transaction. The bookings are locked and
+    // checked again (paid, cancelled or re-priced meanwhile); the unique index
+    // on verified trans_ref stops one transfer paying twice.
     const client = await pool.connect();
-    let stay;
+    let current;
+    let stays;
     try {
       await client.query('BEGIN');
-      const current = (await client.query('SELECT status FROM bookings WHERE id = $1 FOR UPDATE', [booking.id])).rows[0];
-      if (current?.status !== 'pending') {
+      current = await paymentScope(client, target.id, { kind, userId: req.user.id, lock: true });
+      if (current.error || satang(current.amount) !== satang(scope.amount)) {
         await client.query('ROLLBACK');
-        await recordSlip(pool, { booking, userId: req.user.id, status: 'rejected', reason: 'NOT_PENDING', slip, slipFile, raw: result.raw });
-        return res.status(409).json({ error: 'This booking is not waiting for payment', reason: 'NOT_PENDING' });
+        const why = current.error ? (kind === 'deposit' ? 'NOT_PENDING' : 'BALANCE_NOT_DUE') : 'SLIP_AMOUNT';
+        await recordSlip(pool, { scope, kind, userId: req.user.id, status: 'rejected', reason: why, slip, slipFile, raw: result.raw });
+        return why === 'SLIP_AMOUNT' ? fail(422, why) : notPayable(res, 'NOT_DUE', kind);
       }
       try {
-        await recordSlip(client, { booking, userId: req.user.id, status: 'verified', slip, slipFile, raw: result.raw });
+        await recordSlip(client, { scope: current, kind, userId: req.user.id, status: 'verified', slip, slipFile, raw: result.raw });
       } catch (err) {
         if (err.code !== '23505') throw err;
         await client.query('ROLLBACK');
-        await recordSlip(pool, { booking, userId: req.user.id, status: 'rejected', reason: 'SLIP_DUPLICATE', slip, slipFile, raw: result.raw });
+        await recordSlip(pool, { scope, kind, userId: req.user.id, status: 'rejected', reason: 'SLIP_DUPLICATE', slip, slipFile, raw: result.raw });
         return fail(422, 'SLIP_DUPLICATE');
       }
-      await client.query("UPDATE bookings SET status = 'confirmed' WHERE id = $1", [booking.id]);
-      stay = await ensureStayAccount(client, booking.id);
+      stays = await settlePayment(client, current.due.map((b) => b.id), kind, 'online');
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
@@ -335,32 +284,8 @@ bookingRouter.post(
       client.release();
     }
 
-    await logEvent('booking.confirmed', {
-      actor: req.user.email,
-      bookingId: booking.id,
-      details: {
-        code: booking.code,
-        room: booking.room_name,
-        guest: booking.guest_name,
-        check_in: booking.check_in,
-        check_out: booking.check_out,
-        paid_with: `Bank transfer slip (SlipOK) ${slip.transRef}`,
-        deposit: booking.deposit,
-        slip: slipFile,
-        room_username: stay?.stay_username,
-        room_password: stay?.stay_password,
-      },
-    });
-
-    const { rows } = await pool.query(
-      `SELECT ${PUBLIC_COLUMNS}
-       FROM bookings b
-       LEFT JOIN activities a ON a.id = b.activity_id
-       LEFT JOIN rooms r ON r.id = b.room_id
-       WHERE b.id = $1`,
-      [booking.id]
-    );
-    res.json({ booking: rows[0] });
+    await logPayment(req.user.email, current, kind, stays, { paidWith: `Bank transfer slip (SlipOK) ${slip.transRef}`, slipFile });
+    res.json(await paidResponse(target.id));
   })
 );
 

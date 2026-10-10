@@ -1,18 +1,18 @@
-/* Deposit payment box: QR on the left, amount and actions on the right;
+/* Payment box (deposit or balance): QR on the left, amount and actions on the right;
    stacks on phones with the QR first. */
 .pay-panel {
   display: grid;
-  grid-template-columns: 168px minmax(0, 1fr);
-  gap: 20px;
-  align-items: center;
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+  padding: 24px;
+  border-radius: 20px;
   background: var(--white);
+  box-shadow: 0 0 0 1px var(--border), 0 10px 28px -20px hsla(150, 30%, 10%, 0.45);
   text-align: left;
 }
 
-/* Placeholder until the real PromptPay QR is generated. */
+/* The QR card (square). */
 .pay-panel__qr {
   aspect-ratio: 1;
   display: flex;
@@ -28,64 +28,12 @@
   font-size: 13px;
   text-align: center;
 }
-.pay-panel__qr svg {
-  color: var(--brand);
-}
 
-/* Test mode: a tappable QR that "scans" and pays the deposit. */
-.pay-panel__qr--live {
-  border: 2px solid var(--brand);
-  background: var(--white);
-  color: var(--brand-dark);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    transform var(--dur-fast) var(--ease-out),
-    box-shadow var(--dur-fast) var(--ease-out);
-}
-.pay-panel__qr--live:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow);
-}
-.pay-panel__qr--live:active:not(:disabled) {
-  transform: scale(0.97);
-}
-.pay-panel__qr--live:disabled {
-  cursor: default;
-}
-.pay-panel__qr--live.is-paid {
-  border-color: var(--success);
-  color: var(--success);
-}
 .pay-panel__code {
   position: relative;
   width: 76%;
   overflow: hidden;
   border-radius: 6px;
-}
-.pay-panel__code svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  color: var(--brand-dark);
-  transition: opacity var(--dur) var(--ease-out);
-}
-.is-paid .pay-panel__code svg {
-  opacity: 0.15;
-}
-/* Gold line sweeping up and down while scanning. */
-.pay-panel__scanline {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 3px;
-  border-radius: 3px;
-  background: hsl(44, 92%, 58%);
-  box-shadow: 0 0 12px 2px hsla(44, 92%, 58%, 0.7);
-  animation: pay-scan 1.1s ease-in-out infinite alternate;
 }
 .pay-panel__tick {
   position: absolute;
@@ -96,11 +44,6 @@
   font-weight: 700;
   color: var(--success);
   animation: pay-pop 0.4s var(--ease-out) both;
-}
-@keyframes pay-scan {
-  to {
-    top: calc(100% - 3px);
-  }
 }
 @keyframes pay-pop {
   from {
@@ -150,6 +93,41 @@
   }
 }
 
+/* Sample QR (no PromptPay ID yet): same card, grey, stamped "do not pay". */
+.pay-panel__qr--sample {
+  border-color: var(--text-muted);
+  border-style: dashed;
+}
+.pay-panel__qr--sample .pay-panel__pp {
+  background: var(--text-muted);
+}
+.pay-panel__qr--sample img {
+  opacity: 0.35;
+}
+.pay-panel__qr--sample .pay-panel__code {
+  overflow: visible;
+}
+.pay-panel__stamp {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  rotate: -14deg;
+  padding: 4px 10px;
+  border: 2px solid var(--error);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--error);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pay-panel__sample-note {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--error);
+}
+
 /* Slip sent, waiting for the owner to check it. */
 .pay-panel__waiting {
   margin: 4px 0 0;
@@ -161,19 +139,63 @@
   font-weight: 600;
 }
 
-/* Two short steps: scan, then upload the slip. */
+/* Numbered steps: save the QR, pay from the bank app, upload the slip. */
 .pay-panel__steps {
+  display: grid;
+  gap: 10px;
   margin: 6px 0 2px;
-  padding-left: 20px;
-  font-size: 14px;
+  padding: 0;
+  list-style: none;
+  counter-reset: pay-step;
+  font-size: 16px;
   color: var(--text);
 }
-.pay-panel__steps li + li {
-  margin-top: 2px;
+.pay-panel__steps li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 12px;
+  align-items: start;
+  counter-increment: pay-step;
+}
+.pay-panel__steps li::before {
+  content: counter(pay-step);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-size: 14px;
+  font-weight: 700;
+}
+.pay-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+.pay-panel__save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow: inset 0 0 0 1.5px var(--brand);
+  color: var(--brand-dark);
+  font-weight: 600;
+  text-decoration: none;
+}
+.pay-panel__save:hover {
+  background: var(--brand-soft);
 }
 .pay-panel__upload {
-  align-self: flex-start;
-  margin-top: 6px;
+  min-height: 48px;
+}
+.pay-panel__to {
+  font-size: 16px;
 }
 .pay-panel__spin {
   width: 16px;
@@ -205,20 +227,21 @@
 .pay-panel__info {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   min-width: 0;
 }
+.pay-panel__info p {
+  margin: 0;
+}
 .pay-panel__title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 15px;
   color: var(--text-muted);
 }
 .pay-panel__amount {
-  font-family: var(--serif);
-  font-size: 32px;
+  font-size: 44px;
   font-weight: 700;
   line-height: 1.1;
-  color: var(--brand);
+  color: var(--brand-dark);
   font-variant-numeric: tabular-nums;
 }
 .pay-panel__ref {
@@ -247,26 +270,75 @@
   white-space: nowrap;
 }
 
-@media (max-width: 560px) {
+@media (max-width: 640px) {
   .pay-panel {
     grid-template-columns: minmax(0, 1fr);
     justify-items: center;
-    text-align: center;
+    gap: 18px;
+    padding: 18px;
   }
   .pay-panel__qr {
-    width: 180px;
+    width: min(240px, 100%);
   }
   .pay-panel__info {
-    align-items: center;
+    align-self: stretch;
+  }
+  .pay-panel__title,
+  .pay-panel__amount,
+  .pay-panel__to,
+  .pay-panel__sample-note {
+    text-align: center;
+  }
+  .pay-panel__actions > * {
+    flex: 1 1 100%;
   }
   .pay-panel__test {
     justify-content: center;
   }
-  .pay-panel__upload,
-  .pay-panel__testlink {
-    align-self: center;
-  }
-  .pay-panel__steps {
-    text-align: left;
-  }
+}
+
+/* The other half of the price (after the deposit): amount + "pay online";
+   opening it shows the payment box for that amount. */
+.balance-pay {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-alt);
+}
+.balance-pay__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+.balance-pay__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.balance-pay__amount {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+}
+.balance-pay__text {
+  font-size: 14px;
+  color: var(--text);
+}
+.balance-pay__done {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-size: 14px;
+  font-weight: 600;
+}
+.pay-panel__together {
+  font-size: 14px;
+  color: var(--text-muted);
 }

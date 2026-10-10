@@ -1,0 +1,22 @@
+# Used only by tests/payment-flow.mjs, on top of the main docker-compose.yml:
+#   docker compose -f docker-compose.yml -f backend/tests/docker-compose.payment-test.yml ...
+# Adds the pretend SlipOK and points the backend at it. The runner sets the
+# TEST_* variables and puts the normal backend back when it finishes.
+services:
+  slipok-mock:
+    image: baanraireal-main-backend
+    command: ['node', '/mock/slipok-mock.mjs']
+    volumes:
+      - ./backend/tests/slipok-mock.mjs:/mock/slipok-mock.mjs:ro
+    ports:
+      - '4010:4010'
+
+  backend:
+    environment:
+      # Empty = SlipOK off (slips wait for a manual check).
+      SLIPOK_API_KEY: ${TEST_SLIPOK_KEY:-}
+      SLIPOK_BRANCH_ID: ${TEST_SLIPOK_BRANCH:-}
+      SLIPOK_API_URL: http://slipok-mock:4010/api/line/apikey
+      PAYMENT_TEST_MODE: 'true'
+      # The real admins plus the test's own admin account.
+      ADMIN_EMAILS: ${TEST_ADMIN_EMAILS}

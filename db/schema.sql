@@ -86,7 +86,12 @@ CREATE TABLE IF NOT EXISTS bookings (
   -- confirmed (see users.stay_booking_id below).
   stay_username TEXT,
   stay_password TEXT,
+  -- The other half of the price (total - deposit): when it was paid and how
+  -- ('online' = a checked slip, 'at_farm' = marked in admin).
+  balance_paid_at TIMESTAMPTZ,
+  balance_method TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT bookings_balance_method_check CHECK (balance_method IS NULL OR balance_method IN ('online', 'at_farm')),
   CONSTRAINT bookings_exactly_one_target CHECK (num_nonnulls(activity_id, room_id) = 1),
   CONSTRAINT bookings_room_range_valid CHECK (
     (room_id IS NULL AND booked_until IS NULL) OR
@@ -248,17 +253,20 @@ CREATE INDEX IF NOT EXISTS idx_bookings_room_id ON bookings(room_id);
 CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_code ON bookings(code);
 
--- Deposit slips checked with SlipOK (see migrations/016_slip_payments.sql).
+-- Payment slips checked with SlipOK (see migrations/016_slip_payments.sql
+-- and 018_payment_groups_balance.sql).
 
 CREATE TABLE IF NOT EXISTS slip_payments (
   id SERIAL PRIMARY KEY,
-  booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE, -- the booking paid from
+  booking_ids INTEGER[] NOT NULL,   -- every booking this slip pays for (rooms booked together)
+  kind TEXT NOT NULL DEFAULT 'deposit' CHECK (kind IN ('deposit', 'balance')),
   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   status TEXT NOT NULL CHECK (status IN ('verified', 'rejected', 'review')), -- review = owner checks by hand
-  reason TEXT,                -- why it was rejected (SLIP_AMOUNT, SLIP_DUPLICATE, ...)
+  reason TEXT,                -- why it was rejected or sent for review (SLIP_AMOUNT, SLIPOK_PACKAGE, ...)
   trans_ref TEXT,             -- the bank's transaction reference
   amount NUMERIC(10, 2),      -- amount on the slip
-  expected NUMERIC(10, 2) NOT NULL, -- the deposit it had to match
+  expected NUMERIC(10, 2) NOT NULL, -- the amount it had to match
   sending_bank TEXT,
   sender_name TEXT,
   receiver_name TEXT,
@@ -270,5 +278,6 @@ CREATE TABLE IF NOT EXISTS slip_payments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_slip_payments_booking ON slip_payments(booking_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_slip_payments_booking_ids ON slip_payments USING GIN (booking_ids);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_slip_payments_verified_ref
   ON slip_payments(trans_ref) WHERE status = 'verified';

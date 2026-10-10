@@ -1,0 +1,172 @@
+/* One stay: progress line, then what to do (left) beside the booking in
+   footer green (right). */
+.stay-view {
+  display: grid;
+  gap: 28px;
+}
+
+/* Sent -> deposit -> confirmed -> the rest: a bar per step. */
+.stay-track {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stay-track li {
+  flex: 1;
+  display: grid;
+  gap: 6px;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+.stay-track li + li {
+  margin-left: 8px;
+}
+.stay-track li::before {
+  content: '';
+  height: 4px;
+  border-radius: 4px;
+  background: var(--border);
+}
+.stay-track .is-done {
+  color: var(--brand-dark);
+  font-weight: 600;
+}
+.stay-track .is-done::before {
+  background: var(--brand);
+}
+.stay-track .is-now,
+.stay-track .is-wait {
+  color: var(--text-h);
+  font-weight: 700;
+}
+.stay-track .is-now::before {
+  background: hsl(44, 92%, 58%);
+}
+.stay-track .is-wait::before {
+  background: linear-gradient(90deg, hsl(44, 92%, 58%) 50%, var(--border) 50%);
+}
+
+.stay-view__cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 56px;
+  align-items: start;
+}
+.stay-view__main {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.stay-view__cancelled {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: hsl(0, 70%, 96%);
+  color: hsl(0, 60%, 32%);
+}
+
+/* The booking, in the footer's green. */
+.stay-box {
+  position: sticky;
+  top: 96px;
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+  border-radius: 20px;
+  background: var(--brand-dark);
+  color: rgba(255, 255, 255, 0.86);
+}
+.stay-box h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--white);
+}
+.stay-box dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+}
+.stay-box dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.stay-box dt {
+  flex: none;
+  color: rgba(255, 255, 255, 0.72);
+}
+.stay-box dd {
+  margin: 0;
+  color: var(--white);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.stay-box__total {
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.25);
+  font-size: 19px;
+  font-weight: 700;
+}
+.stay-box__total dt,
+.stay-box__dep dt {
+  color: var(--white) !important;
+}
+.stay-box__dep {
+  margin: 0 -10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 700;
+}
+.stay-box__note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+
+@media (max-width: 960px) {
+  .stay-view__cols {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .stay-box {
+    position: static;
+  }
+}
+@media (max-width: 560px) {
+  .stay-track li {
+    font-size: 12.5px;
+    line-height: 1.35;
+  }
+}
+
+/* The room login sits beside the green booking box: a light card here so
+   the two don't read as one dark block. */
+.stay-view .stay-login {
+  background: var(--white);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border), 0 10px 28px -20px hsla(150, 30%, 10%, 0.45);
+}
+.stay-view .stay-login__badge {
+  color: var(--brand);
+}
+.stay-view .stay-login__row {
+  background: var(--bg);
+}
+.stay-view .stay-login__copy {
+  border-color: var(--brand);
+  color: var(--brand-dark);
+}
+.stay-view .stay-login__copy:hover {
+  background: var(--brand-soft);
+}
+.stay-view .stay-login__hint {
+  color: var(--text-muted);
+  opacity: 1;
+}

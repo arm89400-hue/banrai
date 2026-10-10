@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatBaht } from '../lib/money';
 import {
@@ -7,6 +7,7 @@ import {
   MAX_PETS,
   REQUEST_OPTIONS,
   formatDay,
+  formatStay,
   isISODate,
   nightsBetween,
   priceStay,
@@ -17,24 +18,16 @@ import {
 } from '../lib/booking';
 import { usePromotions } from '../lib/promotions';
 import { CHECK_IN_TIME, CHECK_OUT_TIME } from '../lib/site';
-import { BOOKING_SLIDES, roomCover } from '../lib/photos';
+import { roomCover } from '../lib/photos';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
-import InlineCalendar from '../components/InlineCalendar';
-import PhotoSlides from '../components/PhotoSlides';
-import { PriceRows, PromoTag, StayLogin } from '../components/BookingBits';
-import PaymentPanel from '../components/PaymentPanel';
+import StaySearch from '../components/StaySearch';
+import { PromoTag } from '../components/BookingBits';
+import StayView from '../components/StayView';
+import { groupStays, mergeBookings, payOptions } from '../lib/payments';
 import './BookFlow.css';
 
-// The server's payment options -> PaymentPanel props.
-const payOptions = (data) => ({
-  testPay: Boolean(data?.test_pay),
-  slipPay: Boolean(data?.slip_pay),
-  slipCheck: data?.slip_check ?? 'manual',
-  promptpay: data?.promptpay ?? null,
-});
-
-const STEPS = ['step.dates', 'step.room', 'step.details', 'step.review'];
+const STEPS = ['step.room', 'step.details', 'step.review'];
 const EMPTY_FORM = { name: '', phone: '', email: '', line: '', requests: [], pets: 0, note: '' };
 
 const digits = (value) => value.replace(/\D/g, '');
@@ -51,18 +44,42 @@ function validateForm(form) {
   return errors;
 }
 
-// Step-by-step room booking: dates & guests -> room -> guest details ->
-// review & send. Anyone can browse dates and rooms; from the details step
-// on the guest must be logged in (they're sent to /login and brought back).
-// No payment is taken here: the guest sends a request, gets a booking
-// code, and the property follows up about the deposit.
-// A party too big for one room picks several rooms on step 2; they are
-// booked together (one booking per room, sharing a group code).
-// The room page links here with ?room=&in=&out=&guests=&step=3 to skip
+// Room sets that sleep the whole party, from the free rooms: the fewest
+// rooms (cheapest among those) and, if different, the cheapest overall.
+// Each set is priced the way the booking will be (see priceStay).
+function suggestSets(free, guests, nights, fee, promotions, checkIn) {
+  const sets = [];
+  for (let mask = 1; mask < 1 << free.length; mask++) {
+    const pick = free.filter((_, i) => mask & (1 << i));
+    const split = splitGuests(pick, guests);
+    if (!split) continue;
+    const total = pick.reduce((sum, r, i) => sum + priceStay(r, nights, split[i], fee, 0, 0, promoFor(promotions, r.id, checkIn)).total, 0);
+    sets.push({ rooms: pick, total });
+  }
+  if (!sets.length) return [];
+  const fewest = [...sets].sort((a, b) => a.rooms.length - b.rooms.length || a.total - b.total)[0];
+  const cheapest = [...sets].sort((a, b) => a.total - b.total || a.rooms.length - b.rooms.length)[0];
+  const out = [{ ...fewest, kind: 'fewest' }];
+  if (cheapest.total < fewest.total) out.push({ ...cheapest, kind: 'cheapest', saves: fewest.total - cheapest.total });
+  return out;
+}
+
+const sameRooms = (ids, rooms) => ids.length === rooms.length && rooms.every((r) => ids.includes(r.id));
+
+// Step-by-step room booking: choose rooms (with the dates and guests at
+// the top) -> guest details -> review & send. Anyone can browse dates and
+// rooms; from the details step on the guest must be logged in (they're sent
+// to /login and brought back). No payment is taken here: the guest sends a
+// request, gets a booking code and pays the deposit by QR on the next page.
+// A party too big for one room picks several rooms; they are booked
+// together (one booking per room, sharing a group code). A dark green box
+// keeps the stay, the price and the next button in view on every step.
+// The room page links here with ?room=&in=&out=&guests=&step=2 to skip
 // straight to the details step; ?rooms=1,2 selects several.
 export default function BookFlow() {
   const { t, lang, locale } = useLang();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
 
   // Initial state comes from the URL once; after that the URL follows state.
@@ -165,13 +182,12 @@ export default function BookFlow() {
 
   // The furthest step the guest may be on given what's been chosen so far.
   let allowed = 1;
-  if (nights) allowed = 2;
-  if (nights && split) allowed = 3;
-  if (allowed === 3 && Object.keys(validateForm(form)).length === 0) allowed = 4;
+  if (nights && split) allowed = 2;
+  if (allowed === 2 && Object.keys(validateForm(form)).length === 0) allowed = 3;
   const current = Math.min(Math.max(step, 1), allowed);
 
   // From the details step on, a guest who isn't logged in is sent to /login.
-  const needsLogin = !user && current >= 3;
+  const needsLogin = !user && current >= 2;
 
   // Room accounts only have their room dashboard, so they're sent there.
   const isStay = Boolean(user?.is_stay);
@@ -190,6 +206,13 @@ export default function BookFlow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkIn, checkOut, guests, roomIds, current, done, needsLogin, isStay]);
 
+  // The phone's bottom bar is in the chat button's corner: lift the chat
+  // button above it while booking.
+  useEffect(() => {
+    document.body.classList.add('has-bottom-bar');
+    return () => document.body.classList.remove('has-bottom-bar');
+  }, []);
+
   function goTo(nextStep) {
     setStep(nextStep);
     setSubmitError(null);
@@ -206,7 +229,7 @@ export default function BookFlow() {
     e.preventDefault();
     const found = validateForm(form);
     setErrors(found);
-    if (Object.keys(found).length === 0) goTo(4);
+    if (Object.keys(found).length === 0) goTo(3);
   }
 
   function toggleRequest(option) {
@@ -249,7 +272,7 @@ export default function BookFlow() {
         api(`/api/rooms?checkIn=${checkIn}&checkOut=${checkOut}`)
           .then((data) => setAvailableIds(new Set(data.rooms.map((r) => r.id))))
           .catch(() => setLoadError(true));
-        goTo(2);
+        goTo(1);
       } else {
         setSubmitError('flow.errGeneric');
       }
@@ -266,142 +289,96 @@ export default function BookFlow() {
   // Booking needs an account: from the details step on, send guests who
   // aren't logged in to /login, which brings them back to this exact step.
   if (!done && needsLogin) {
-    const back = new URLSearchParams({ in: checkIn, out: checkOut, guests: String(guests), rooms: roomIds.join(','), step: '3' });
+    const back = new URLSearchParams({ in: checkIn, out: checkOut, guests: String(guests), rooms: roomIds.join(','), step: '2' });
     return <Navigate to={`/login?next=${encodeURIComponent(`/book?${back}`)}`} replace />;
   }
   if (isStay) return <Navigate to="/stay" replace />;
 
   // ---------- Finished ----------
+  // The request is in: the same view as "My bookings" (pay the deposit by
+  // QR right here, then the room logins appear).
   if (done) {
-    const allPaid = done.every((b) => b.status === 'confirmed');
-    const updateBooking = (paid) => setDone((list) => list.map((b) => (b.id === paid.id ? paid : b)));
-    const depositTotal = done.reduce((sum, b) => sum + Number(b.deposit), 0);
-    // What happens after the request: sent -> deposit -> room login.
-    const steps = [
-      { key: 'sent', state: 'done', title: t('done.stepSent'), text: t('done.stepSentText') },
-      {
-        key: 'pay',
-        state: allPaid ? 'done' : 'now',
-        title: t('done.stepPay', { amount: formatBaht(depositTotal) }),
-        text: allPaid
-          ? t('done.stepPaidText')
-          : done.some((b) => b.slip_status === 'review')
-            ? t('done.stepReviewText')
-            : t('done.stepPayText'),
-      },
-      { key: 'login', state: allPaid ? 'done' : 'todo', title: t('done.stepLogin'), text: t('done.stepLoginText') },
-    ];
+    const sent = groupStays(done);
+    const allConfirmed = sent.every((stay) => stay.status === 'confirmed');
     return (
-      <section className="bk-page">
-        <div className="flow-done">
-          <header className="flow-done__head">
-            <p className="flow-done__badge">✓ {t('done.badge')}</p>
-            <h1>{allPaid ? t('pay.doneTitle') : t('flow.doneTitle')}</h1>
-            {done.length > 1 && <p className="flow-done__rooms">{t('flow.doneRooms', { n: done.length })}</p>}
-            <div className="flow-done__codes">
-              {done.map((b) => (
-                <div key={b.id} className="flow-done__code">
-                  <span>
-                    {t('flow.yourCode')}
-                    <br />
-                    {roomNames(b.room_name, lang).title} · {t('sum.guestCount', { n: b.guests })}
-                  </span>
-                  <strong>{b.code}</strong>
-                </div>
-              ))}
-            </div>
-          </header>
-
-          <div className="flow-done__body">
-            <ol className="flow-done__steps">
-              {steps.map((s, i) => (
-                <li key={s.key} className={`is-${s.state}`} aria-current={s.state === 'now' ? 'step' : undefined}>
-                  <span className="flow-done__dot" aria-hidden="true">
-                    {s.state === 'done' ? '✓' : i + 1}
-                  </span>
-                  <div>
-                    <b>{s.title}</b>
-                    <p>{s.text}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-
-            {done.map((b) =>
-              b.status === 'pending' ? (
-                <PaymentPanel key={b.id} booking={b} {...pay} onPaid={updateBooking} />
-              ) : (
-                /* Paid: the room dashboard login, same as on "My bookings". */
-                b.stay_username && (
-                  <StayLogin
-                    key={b.id}
-                    booking={b}
-                    room={done.length > 1 ? roomNames(b.room_name, lang).title : null}
-                    hint={t('my.stayHint', { date: formatDay(checkOut, locale), time: CHECK_OUT_TIME })}
-                  />
-                )
-              ),
-            )}
-
-            <dl className="flow-list flow-done__summary">
-              <div>
-                <dt>{t('sum.checkIn')}</dt>
-                <dd>
-                  {formatDay(checkIn, locale)} · {CHECK_IN_TIME}
-                </dd>
-              </div>
-              <div>
-                <dt>{t('sum.checkOut')}</dt>
-                <dd>
-                  {formatDay(checkOut, locale)} · {CHECK_OUT_TIME}
-                </dd>
-              </div>
-            </dl>
-            <PriceRows
-              total={done.reduce((sum, b) => sum + Number(b.total), 0)}
-              deposit={depositTotal}
-              extraGuests={done.reduce((sum, b) => sum + (b.extra_guests ?? 0), 0)}
-              pets={done.reduce((sum, b) => sum + (b.pets ?? 0), 0)}
-              discount={done.reduce((sum, b) => sum + Number(b.discount ?? 0), 0)}
-            />
-
-            <p className="flow-done__hint">{t('flow.keepCode')}</p>
-            <div className="flow-done__actions">
-              <Link className="bk-btn bk-btn--primary" to="/booking">
-                {t('flow.checkStatus')}
-              </Link>
-              <Link className="bk-btn" to="/home">
-                {t('flow.backHome')}
-              </Link>
-            </div>
-          </div>
+      <section className="flow-page">
+        <header className="flow-done-head">
+          <p className="flow-done-head__badge">✓ {t('done.badge')}</p>
+          <h1>{allConfirmed ? t('pay.doneTitle') : t('flow.doneTitle')}</h1>
+          <p>{allConfirmed ? t('flow.doneLeadPaid') : t('flow.doneLead')}</p>
+        </header>
+        {sent.map((stay) => (
+          <StayView key={stay.key} stay={stay} pay={pay} onPaid={(updated) => setDone((list) => mergeBookings(list, updated))} />
+        ))}
+        <div className="flow-done-actions">
+          <Link className="bk-btn bk-btn--primary" to="/booking">
+            {t('flow.checkStatus')}
+          </Link>
+          <Link className="bk-btn" to="/home">
+            {t('flow.backHome')}
+          </Link>
         </div>
       </section>
     );
   }
 
   // ---------- Steps ----------
-  return (
-    <section className="bk-page">
-      <ol className="flow-steps">
-        {STEPS.map((key, i) => {
-          const n = i + 1;
-          const state = n < current ? 'done' : n === current ? 'current' : 'todo';
-          return (
-            <li key={key} className={`flow-steps__item flow-steps__item--${state}`} aria-current={n === current ? 'step' : undefined}>
-              <button type="button" disabled={n > allowed || n === current} onClick={() => goTo(n)}>
-                <span className="flow-steps__bar" />
-                <span className="flow-steps__label">
-                  {n} {t(key)}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+  const sets = availableIds && nights ? suggestSets(freeRooms, guests, nights, fee, promotions, checkIn) : [];
+  const taken = availableIds ? (rooms ?? []).filter((r) => !availableIds.has(r.id)) : [];
+  const extraGuests = plans.reduce((sum, p) => sum + p.extraGuests, 0);
+  const extraTotal = plans.reduce((sum, p) => sum + p.extraTotal, 0);
+  const petTotal = plans.reduce((sum, p) => sum + p.petTotal, 0);
 
-      {/* Step 1 is the full width: the farm photo takes the summary's place. */}
-      <div className={`flow${current === 1 ? ' flow--intro' : ''}`}>
+  // The one button for this step (in the green box, and the phone's bottom bar).
+  let next;
+  if (current === 1) {
+    if (!nights) next = { label: t('flow.needDates'), disabled: true };
+    else if (!chosen.length) next = { label: t('flow.needRoom'), disabled: true };
+    else if (!split) next = { label: capacity < guests ? t('flow.needMore', { n: guests - capacity }) : t('flow.tooManyShort'), disabled: true };
+    else next = { label: t('flow.toDetails'), onClick: () => goTo(2) };
+  } else if (current === 2) {
+    next = { label: t('flow.toReview'), form: 'flow-details' };
+  } else {
+    next = { label: submitting ? t('flow.submitting') : t('flow.submit'), disabled: !accepted || submitting, onClick: handleSubmit };
+  }
+  // key={current}: a new button per step, so the click that moves to the
+  // details step can't also submit the details form that replaces it.
+  const nextButton = (className) => (
+    <button
+      key={current}
+      type={next.form ? 'submit' : 'button'}
+      form={next.form}
+      className={className}
+      disabled={next.disabled}
+      onClick={next.onClick}
+    >
+      {next.label}
+    </button>
+  );
+
+  return (
+    <section className="flow-page">
+      <div className="flow-top">
+        <button type="button" className="flow-top__back" onClick={() => (current > 1 ? goTo(current - 1) : navigate('/home'))}>
+          ‹ {t('flow.back')}
+        </button>
+        <ol className="flow-steps">
+          {STEPS.map((key, i) => {
+            const n = i + 1;
+            const state = n < current ? 'done' : n === current ? 'now' : 'todo';
+            return (
+              <li key={key} className={`is-${state}`} aria-current={n === current ? 'step' : undefined}>
+                <button type="button" disabled={n > allowed || n === current} onClick={() => goTo(n)}>
+                  <i>{state === 'done' ? '✓' : n}</i>
+                  {t(key)}
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+
+      <div className="flow">
         <div className="flow__main" key={current}>
           {loadError && (
             <p className="bk-error" role="alert">
@@ -409,153 +386,122 @@ export default function BookFlow() {
             </p>
           )}
 
-          {/* Step 1: a slideshow of the farm beside the calendar and guests. */}
+          {/* Step 1: dates and guests at the top, then the free rooms. */}
           {current === 1 && (
-            <div className="flow-intro">
-              <div className="flow-intro__photo">
-                <PhotoSlides photos={BOOKING_SLIDES} />
-                <div className="flow-intro__caption">
-                  <p className="flow-intro__title">{t('hero.title')}</p>
-                  <p>{t('flow.introNote', { in: CHECK_IN_TIME, out: CHECK_OUT_TIME })}</p>
-                </div>
-              </div>
-
-              <div className="flow-intro__side">
-                <h1>{t('flow.pickDates')}</h1>
-                <p className="flow__hint">{t('flow.pickDatesHint')}</p>
-                <InlineCalendar checkIn={checkIn} checkOut={checkOut} onChange={handleDates} />
-
-                <div className="flow-intro__row">
-                  <span className="bk-label">{t('flow.guests')}</span>
-                  <div className="bk-counter">
-                    <button type="button" onClick={() => setGuests((g) => g - 1)} disabled={guests <= 1} aria-label={t('flow.fewer')}>
-                      −
-                    </button>
-                    <output aria-live="polite">{guests}</output>
-                    <button type="button" onClick={() => setGuests((g) => g + 1)} disabled={guests >= MAX_GUESTS} aria-label={t('flow.more')}>
-                      +
-                    </button>
-                    <span>{t('flow.guestUnit')}</span>
-                  </div>
-                </div>
-
-                <div className="flow-intro__row">
-                  <span className="flow-intro__stay">
-                    {nights ? (
-                      <>
-                        <strong>
-                          {formatDay(checkIn, locale)} → {formatDay(checkOut, locale)}
-                        </strong>
-                        {' · '}
-                        {t('flow.nights', { n: nights })}
-                      </>
-                    ) : (
-                      t('date.select')
-                    )}
-                  </span>
-                  <button type="button" className="bk-btn bk-btn--primary" disabled={!nights} onClick={() => goTo(2)}>
-                    {t('flow.seeRooms')} →
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {current === 2 && (
             <>
-              <h1>{t('flow.pickRoom')}</h1>
-              <p className="flow__hint">
-                {formatDay(checkIn, locale)} – {formatDay(checkOut, locale)} · {t('flow.nights', { n: nights })}
-              </p>
+              <h1 className="flow__title">{t('flow.pickRoom')}</h1>
+              <StaySearch
+                checkIn={checkIn}
+                checkOut={checkOut}
+                guests={guests}
+                onDates={handleDates}
+                onGuests={(n) => setGuests(Math.min(MAX_GUESTS, Math.max(1, n)))}
+              />
+
+              {!nights && <p className="flow__hint">{t('flow.startHint')}</p>}
+              {nights > 0 && !availableIds && !loadError && <p className="flow__hint">{t('flow.checking')}</p>}
               {roomNotice && (
                 <p className="bk-error" role="alert">
                   {t(roomNotice)}
                 </p>
               )}
+              {availableIds && freeRooms.length === 0 && <p className="flow-none">{t('flow.noneFree')}</p>}
 
-              {/* How much of the party the chosen rooms can sleep. */}
-              {availableIds && freeRooms.length > 0 && (
-                <div className={`flow-capacity${capacity >= guests ? ' is-enough' : ''}`} aria-live="polite">
-                  <div className="flow-capacity__bar">
-                    <span style={{ width: `${Math.min(100, (capacity / guests) * 100)}%` }} />
+              {sets.length > 0 && (
+                <>
+                  <h2 className="flow__sub">{t('flow.suggestTitle', { n: guests })}</h2>
+                  <div className="flow-sets">
+                    {sets.map((set) => {
+                      const on = sameRooms(roomIds, set.rooms);
+                      return (
+                        <button
+                          type="button"
+                          key={set.kind}
+                          className={`flow-set${on ? ' is-on' : ''}`}
+                          aria-pressed={on}
+                          onClick={() => {
+                            setRoomNotice(null);
+                            setRoomIds(set.rooms.map((r) => r.id));
+                          }}
+                        >
+                          <span className="flow-set__top">
+                            <b>{set.kind === 'cheapest' ? t('flow.cheapest') : set.rooms.length === 1 ? t('flow.oneRoom') : t('flow.nRooms', { n: set.rooms.length })}</b>
+                            <strong>{formatBaht(set.total)}</strong>
+                          </span>
+                          {set.saves > 0 && <span className="flow-set__tag">{t('flow.cheaperBy', { amount: formatBaht(set.saves) })}</span>}
+                          <span className="flow-set__pics">
+                            {set.rooms.map((r) => (
+                              <span key={r.id}>
+                                <img src={roomCover(r)} alt="" />
+                                <em>{roomNames(r.name, lang).title}</em>
+                              </span>
+                            ))}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <p>
-                    {capacity >= guests
-                      ? t('flow.capacityOk', { have: Math.min(capacity, guests), need: guests })
-                      : t('flow.capacityNeed', { have: capacity, need: guests, more: guests - capacity })}
-                  </p>
-                  {capacity >= guests && !split && chosen.length > guests && (
-                    <p className="bk-error">{t('flow.tooManyRooms')}</p>
-                  )}
-                </div>
+                </>
               )}
 
-              {!availableIds && nights > 0 && !loadError && <p className="flow__hint">{t('flow.checking')}</p>}
-              {availableIds && freeRooms.length === 0 && <p className="flow-rooms__none">{t('flow.noneFree')}</p>}
-
-              <div className="flow-rooms">
-                {freeRooms.map((r) => {
-                  const names = roomNames(r.name, lang);
-                  const roomPromo = promoFor(promotions, r.id, checkIn);
-                  const plan = plans.find((p) => p.room.id === r.id);
-                  const picked = roomIds.includes(r.id);
-                  const quote = plan ?? priceStay(r, nights, Math.min(roomMaxGuests(r), r.capacity ?? 1), fee, 0, 0, roomPromo);
-                  return (
-                    <button
-                      type="button"
-                      key={r.id}
-                      className={`flow-room${picked ? ' is-selected' : ''}`}
-                      aria-pressed={picked}
-                      onClick={() => toggleRoom(r.id)}
-                    >
-                      <span className="flow-room__check" aria-hidden="true">
-                        {picked && (
-                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M5 12.5l4.5 4.5L19 7.5" />
-                          </svg>
-                        )}
-                      </span>
-                      <span className="flow-room__thumb">
-                        <img
-                          src={roomCover(r)}
-                          alt=""
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      </span>
-                      <span className="flow-room__text">
-                        <strong>{names.title}</strong>
-                        {names.subtitle && <span>{names.subtitle}</span>}
-                        <em className="is-free">
-                          {plan ? t('flow.roomFor', { n: plan.guests }) : t('flow.sleeps', { n: roomMaxGuests(r) })}
-                        </em>
-                      </span>
-                      <span className="flow-room__price">
-                        <strong>{formatBaht(quote.total)}</strong>
-                        <span>{t('sum.priceLine', { price: formatBaht(r.price), n: nights })}</span>
-                        {plan?.extraGuests > 0 && <span>+ {t('price.extraSaved', { n: plan.extraGuests })}</span>}
-                        {roomPromo && <PromoTag promo={roomPromo} />}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flow__nav">
-                <button type="button" className="bk-btn" onClick={() => goTo(1)}>
-                  ← {t('flow.back')}
-                </button>
-                <button type="button" className="bk-btn bk-btn--primary" disabled={!split} onClick={() => goTo(3)}>
-                  {t('flow.next')} →
-                </button>
-              </div>
+              {availableIds && freeRooms.length > 0 && (
+                <>
+                  <h2 className="flow__sub">{sets.length > 0 ? t('flow.ownPick') : t('flow.pickRoom')}</h2>
+                  {chosen.length > 0 && !split && (
+                    <p className="flow-short" aria-live="polite">
+                      {capacity < guests
+                        ? t('flow.capacityNeed', { have: capacity, need: guests, more: guests - capacity })
+                        : t('flow.tooManyRooms')}
+                    </p>
+                  )}
+                  <div className="flow-picks">
+                    {freeRooms.map((r) => {
+                      const names = roomNames(r.name, lang);
+                      const roomPromo = promoFor(promotions, r.id, checkIn);
+                      const picked = roomIds.includes(r.id);
+                      const max = roomMaxGuests(r);
+                      const base = priceStay(r, nights, Math.min(max, r.capacity ?? 1), fee, 0, 0, roomPromo).total;
+                      return (
+                        <div key={r.id} className={`flow-pick${picked ? ' is-on' : ''}`}>
+                          <img src={roomCover(r)} alt="" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
+                          <div className="flow-pick__txt">
+                            <strong>{names.title}</strong>
+                            <span className="flow-pick__ppl" aria-hidden="true">
+                              {Array.from({ length: max }, (_, i) => (
+                                <svg key={i} className={i >= (r.capacity ?? max) ? 'is-extra' : ''} width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                                  <circle cx="12" cy="7.5" r="4" />
+                                  <path d="M4 21c0-4.4 3.6-7.5 8-7.5s8 3.1 8 7.5z" />
+                                </svg>
+                              ))}
+                            </span>
+                            <span>
+                              {r.capacity && max > r.capacity ? t('rooms.guestsRange', { from: r.capacity, to: max }) : t('rooms.guests', { n: r.capacity || max })}
+                            </span>
+                            {roomPromo && <PromoTag promo={roomPromo} />}
+                          </div>
+                          <div className="flow-pick__end">
+                            <b>
+                              {formatBaht(base)} <small>/ {t('flow.nights', { n: nights })}</small>
+                            </b>
+                            <button type="button" className={`flow-pick__btn${picked ? ' is-on' : ''}`} aria-pressed={picked} onClick={() => toggleRoom(r.id)}>
+                              {picked ? `✓ ${t('flow.picked')}` : t('flow.pick')}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {taken.length > 0 && (
+                    <p className="flow-taken">{t('flow.taken', { rooms: taken.map((r) => roomNames(r.name, lang).title).join(', ') })}</p>
+                  )}
+                </>
+              )}
             </>
           )}
 
-          {current === 3 && (
-            <form onSubmit={handleDetailsNext} noValidate>
-              <h1>{t('flow.details')}</h1>
+          {current === 2 && (
+            <form id="flow-details" onSubmit={handleDetailsNext} noValidate>
+              <h1 className="flow__title">{t('flow.details')}</h1>
               <div className="flow__fields">
                 <label className={`bk-field${errors.name ? ' bk-field--error' : ''}`}>
                   <span className="bk-label">{t('flow.name')}</span>
@@ -582,11 +528,7 @@ export default function BookFlow() {
                 <legend className="bk-label">{t('flow.requests')}</legend>
                 {REQUEST_OPTIONS.map((option) => (
                   <label key={option}>
-                    <input
-                      type="checkbox"
-                      checked={form.requests.includes(option)}
-                      onChange={() => toggleRequest(option)}
-                    />
+                    <input type="checkbox" checked={form.requests.includes(option)} onChange={() => toggleRequest(option)} />
                     <span>{t(`req.${option}`)}</span>
                     <small>{t(`req.${option}.note`)}</small>
                   </label>
@@ -598,21 +540,11 @@ export default function BookFlow() {
                     <small>{t('req.pets.rule', { fee: formatBaht(petRule.fee), kg: petRule.maxKg })}</small>
                   </span>
                   <div className="bk-counter">
-                    <button
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, pets: f.pets - 1 }))}
-                      disabled={form.pets <= 0}
-                      aria-label={t('req.pets.fewer')}
-                    >
+                    <button type="button" onClick={() => setForm((f) => ({ ...f, pets: f.pets - 1 }))} disabled={form.pets <= 0} aria-label={t('req.pets.fewer')}>
                       −
                     </button>
                     <output aria-live="polite">{form.pets}</output>
-                    <button
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, pets: f.pets + 1 }))}
-                      disabled={form.pets >= MAX_PETS}
-                      aria-label={t('req.pets.more')}
-                    >
+                    <button type="button" onClick={() => setForm((f) => ({ ...f, pets: f.pets + 1 }))} disabled={form.pets >= MAX_PETS} aria-label={t('req.pets.more')}>
                       +
                     </button>
                     <span>{t('req.pets.unit')}</span>
@@ -624,21 +556,12 @@ export default function BookFlow() {
                 <span className="bk-label">{t('flow.note')}</span>
                 <textarea rows={2} maxLength={500} placeholder={t('flow.notePh')} {...field('note')} />
               </label>
-
-              <div className="flow__nav">
-                <button type="button" className="bk-btn" onClick={() => goTo(2)}>
-                  ← {t('flow.back')}
-                </button>
-                <button type="submit" className="bk-btn bk-btn--primary">
-                  {t('flow.toReview')} →
-                </button>
-              </div>
             </form>
           )}
 
-          {current === 4 && plans.length > 0 && (
+          {current === 3 && plans.length > 0 && (
             <>
-              <h1>{t('flow.review')}</h1>
+              <h1 className="flow__title">{t('flow.review')}</h1>
               <dl className="flow-list">
                 <div>
                   <dt>{t('sum.name')}</dt>
@@ -647,6 +570,24 @@ export default function BookFlow() {
                 <div>
                   <dt>{t('sum.phone')}</dt>
                   <dd>{form.phone}</dd>
+                </div>
+                {form.email.trim() && (
+                  <div>
+                    <dt>{t('flow.emailShort')}</dt>
+                    <dd>{form.email}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>{t('sum.checkIn')}</dt>
+                  <dd>
+                    {formatDay(checkIn, locale)} · {CHECK_IN_TIME}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t('sum.checkOut')}</dt>
+                  <dd>
+                    {formatDay(checkOut, locale)} · {CHECK_OUT_TIME}
+                  </dd>
                 </div>
                 {form.requests.length > 0 && (
                   <div>
@@ -668,11 +609,7 @@ export default function BookFlow() {
                 )}
               </dl>
 
-              <div className="flow-deposit">
-                <p className="flow-deposit__title">{t('flow.depositTitle')}</p>
-                <p className="flow-deposit__amount">{formatBaht(grandTotal / 2)}</p>
-                <p>{t('flow.depositInfo')}</p>
-              </div>
+              <p className="flow__hint">{t('flow.depositInfo')}</p>
 
               <label className="flow__accept">
                 <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
@@ -684,75 +621,68 @@ export default function BookFlow() {
                   {t(submitError)}
                 </p>
               )}
-
-              <div className="flow__nav">
-                <button type="button" className="bk-btn" onClick={() => goTo(3)}>
-                  ← {t('flow.back')}
-                </button>
-                <button type="button" className="bk-btn bk-btn--sun" disabled={!accepted || submitting} onClick={handleSubmit}>
-                  {submitting ? t('flow.submitting') : t('flow.submit')}
-                </button>
-              </div>
             </>
           )}
         </div>
 
-        {current > 1 && (
-        <aside className="flow__side">
-          <h2>{t('sum.title')}</h2>
-          <dl className="flow-list">
+        {/* The stay so far, in the footer's green: the same box on every step. */}
+        <aside className="flow-stay">
+          <h2>{t('stayBox.title')}</h2>
+          <dl className="flow-stay__rows">
             <div>
-              <dt>{t('sum.checkIn')}</dt>
-              <dd>{checkIn ? `${formatDay(checkIn, locale)} · ${CHECK_IN_TIME}` : '—'}</dd>
+              <dt>{t('stayBox.dates')}</dt>
+              <dd>{nights ? formatStay(checkIn, checkOut, locale, t('date.wd')) : '—'}</dd>
             </div>
             <div>
-              <dt>{t('sum.checkOut')}</dt>
-              <dd>{checkOut ? `${formatDay(checkOut, locale)} · ${CHECK_OUT_TIME}` : '—'}</dd>
+              <dt>{t('stayBox.party')}</dt>
+              <dd>{nights ? t('stayBox.partyValue', { guests, nights }) : t('sum.guestCount', { n: guests })}</dd>
             </div>
-            <div>
-              <dt>{t('sum.guests')}</dt>
-              <dd>{t('sum.guestCount', { n: guests })}</dd>
-            </div>
-            <div>
-              <dt>{t('sum.room')}</dt>
-              <dd>{chosen.length ? chosen.map((r) => roomNames(r.name, lang).title).join(', ') : '—'}</dd>
-            </div>
+            {plans.map((p) => (
+              <div key={p.room.id}>
+                <dt>{roomNames(p.room.name, lang).title}</dt>
+                <dd>{formatBaht(p.base - p.discount)}</dd>
+              </div>
+            ))}
+            {extraGuests > 0 && (
+              <div>
+                <dt>{t('price.extraSaved', { n: extraGuests })}</dt>
+                <dd>{formatBaht(extraTotal)}</dd>
+              </div>
+            )}
+            {petTotal > 0 && (
+              <div>
+                <dt>{t('price.petSaved', { n: form.pets })}</dt>
+                <dd>{formatBaht(petTotal)}</dd>
+              </div>
+            )}
+            {plans.length > 0 && nights > 0 && (
+              <>
+                <div className="flow-stay__total">
+                  <dt>{t('sum.total')}</dt>
+                  <dd>{formatBaht(grandTotal)}</dd>
+                </div>
+                <div className="flow-stay__dep">
+                  <dt>{t('sum.deposit')}</dt>
+                  <dd>{formatBaht(grandTotal / 2)}</dd>
+                </div>
+              </>
+            )}
           </dl>
-          {plans.length === 1 && nights > 0 && (
-            <PriceRows
-              price={plans[0].room.price}
-              nights={nights}
-              extraGuests={plans[0].extraGuests}
-              fee={fee}
-              pets={form.pets}
-              petFee={petRule.fee}
-              discount={plans[0].discount}
-              promoName={plans[0].promo && `${plans[0].promo.name} (-${plans[0].promo.percent}%)`}
-            />
-          )}
-          {/* Several rooms: one line per room, then the combined total. */}
-          {plans.length > 1 && nights > 0 && (
-            <>
-              <ul className="flow-side-rooms">
-                {plans.map((p) => (
-                  <li key={p.room.id}>
-                    <span>
-                      {roomNames(p.room.name, lang).title}
-                      <small>
-                        {t('sum.guestCount', { n: p.guests })} · {t('flow.nights', { n: nights })}
-                        {p.discount > 0 && ` · ${t('promo.off', { percent: p.promo.percent })}`}
-                      </small>
-                    </span>
-                    <span>{formatBaht(p.total)}</span>
-                  </li>
-                ))}
-              </ul>
-              <PriceRows total={grandTotal} deposit={grandTotal / 2} />
-            </>
-          )}
-          {!(plans.length > 0 && nights > 0) && <p className="flow__side-empty">{t('sum.empty')}</p>}
+          {nextButton('flow-stay__go')}
+          <p className="flow-stay__note">{current === 3 ? t('stayBox.noteSend') : t('stayBox.noteNoPay')}</p>
         </aside>
-        )}
+      </div>
+
+      {/* Phones: the total and the same button, always in reach. */}
+      <div className="flow-bar">
+        <span className="flow-bar__info">
+          <small>
+            {nights ? t('stayBox.partyValue', { guests, nights }) : t('sum.guestCount', { n: guests })}
+            {chosen.length > 0 && ` · ${t('flow.nRooms', { n: chosen.length })}`}
+          </small>
+          <b>{plans.length > 0 && nights > 0 ? formatBaht(grandTotal) : t(STEPS[current - 1])}</b>
+        </span>
+        {nextButton('flow-bar__go')}
       </div>
     </section>
   );

@@ -133,3 +133,21 @@ export function promoFor(promotions, roomId, checkIn) {
 export function promosForRoom(promotions, roomId) {
   return (promotions ?? []).filter((p) => p.room_id == null || p.room_id === roomId);
 }
+
+// Short weekday + day + month, e.g. "ศ. 16 ต.ค." / "Fri 16 Oct". `wd` is
+// the language's short weekday names, Sunday first (i18n `date.wd`).
+export function formatDayShort(iso, locale, wd) {
+  const d = new Date(`${iso}T00:00:00`);
+  return `${wd[d.getDay()]} ${d.toLocaleDateString(locale, { day: 'numeric', month: 'short' })}`;
+}
+
+// A stay, e.g. "ศ. 16 – อา. 18 ต.ค." / "Fri 16 – Sun 18 Oct" (the month once
+// when both dates share it).
+export function formatStay(checkIn, checkOut, locale, wd) {
+  if (!checkOut) return `${formatDayShort(checkIn, locale, wd)} – ?`;
+  if (checkIn.slice(0, 7) !== checkOut.slice(0, 7)) {
+    return `${formatDayShort(checkIn, locale, wd)} – ${formatDayShort(checkOut, locale, wd)}`;
+  }
+  const d = (iso) => new Date(`${iso}T00:00:00`);
+  return `${wd[d(checkIn).getDay()]} ${d(checkIn).getDate()} – ${formatDayShort(checkOut, locale, wd)}`;
+}

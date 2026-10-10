@@ -5,6 +5,7 @@ import { ensureStayAccount, removeStayAccount } from '../lib/stayAccount.js';
 import { logEvent } from '../lib/activityLog.js';
 import { MAX_PHOTOS, MAX_UPLOAD_BYTES, PHOTO_OWNERS, imageExtension, removeUploads, saveUpload } from '../lib/photos.js';
 import { PROMOTION_COLUMNS } from '../lib/promotions.js';
+import { logPayment, paymentScope, paymentSetup, settlePayment } from '../lib/payments.js';
 import { CHAT_COLUMNS, MAX_CHAT_LENGTH, readChatBody } from './chat.js';
 
 export const adminRouter = Router();
@@ -34,8 +35,12 @@ adminRouter.get(
           WHERE b.status <> 'cancelled'
             AND now() >= b.booked_for AND now() < b.booked_until)::int AS rooms_occupied_now,
         (SELECT count(*) FROM chat_messages WHERE NOT from_admin AND read_at IS NULL)::int AS unread_chats,
-        (SELECT count(DISTINCT x.booking_id) FROM slip_payments x JOIN bookings y ON y.id = x.booking_id
-          WHERE x.status = 'review' AND y.status = 'pending')::int AS slips_to_review,
+        -- Payments with a slip waiting for a manual check that are still owed.
+        (SELECT count(DISTINCT x.kind || x.booking_ids::text) FROM slip_payments x
+          WHERE x.status = 'review' AND EXISTS (
+            SELECT 1 FROM bookings y WHERE y.id = ANY(x.booking_ids)
+              AND CASE WHEN x.kind = 'deposit' THEN y.status = 'pending'
+                       ELSE y.status = 'confirmed' AND y.balance_paid_at IS NULL END))::int AS slips_to_review,
         (SELECT coalesce(sum(coalesce(b.total,
                    r.price * greatest(1, extract(day FROM b.booked_until - b.booked_for)))), 0)
           FROM bookings b JOIN rooms r ON r.id = b.room_id
@@ -44,7 +49,7 @@ adminRouter.get(
             AND b.booked_for < date_trunc('month', now()) + interval '1 month'
         )::float AS room_revenue_this_month
     `);
-    res.json({ stats: rows[0] });
+    res.json({ stats: rows[0], payment_setup: paymentSetup() });
   })
 );
 
@@ -59,21 +64,35 @@ adminRouter.get(
               b.user_id, u.email AS user_email, r.name AS room_name, r.price AS room_price,
               a.name AS activity_name, s.account_expires_at AS stay_expires_at,
               sp.status AS slip_status, sp.reason AS slip_reason, sp.amount AS slip_amount,
-              sp.trans_ref AS slip_ref, sp.slip_file, sp.slips AS slip_count, sp.id AS slip_id
+              sp.trans_ref AS slip_ref, sp.slip_file, sp.slips AS slip_count, sp.id AS slip_id,
+              sp.rooms AS slip_rooms, sp.expected AS slip_expected,
+              b.balance_paid_at, b.balance_method,
+              bs.status AS balance_slip_status, bs.reason AS balance_slip_reason, bs.amount AS balance_slip_amount,
+              bs.slip_file AS balance_slip_file, bs.id AS balance_slip_id, bs.expected AS balance_slip_expected
        FROM bookings b
        LEFT JOIN users u ON u.id = b.user_id
        LEFT JOIN users s ON s.stay_booking_id = b.id
        LEFT JOIN rooms r ON r.id = b.room_id
        LEFT JOIN activities a ON a.id = b.activity_id
-       -- The slip that matters most: the verified one, else the latest try.
+       -- The deposit slip that matters most: the verified one, else one
+       -- waiting for a check, else the latest try. A slip can pay for
+       -- several rooms booked together (booking_ids).
        LEFT JOIN LATERAL (
-         SELECT x.id, x.status, x.reason, x.amount, x.trans_ref, x.slip_file,
-                count(*) OVER ()::int AS slips
+         SELECT x.id, x.status, x.reason, x.amount, x.expected, x.trans_ref, x.slip_file,
+                cardinality(x.booking_ids) AS rooms, count(*) OVER ()::int AS slips
          FROM slip_payments x
-         WHERE x.booking_id = b.id
+         WHERE b.id = ANY(x.booking_ids) AND x.kind = 'deposit'
          ORDER BY (x.status = 'verified') DESC, (x.status = 'review') DESC, x.created_at DESC
          LIMIT 1
        ) sp ON true
+       -- The same for a slip paying the other half (balance).
+       LEFT JOIN LATERAL (
+         SELECT x.id, x.status, x.reason, x.amount, x.expected, x.slip_file
+         FROM slip_payments x
+         WHERE b.id = ANY(x.booking_ids) AND x.kind = 'balance'
+         ORDER BY (x.status = 'verified') DESC, (x.status = 'review') DESC, x.created_at DESC
+         LIMIT 1
+       ) bs ON true
        ORDER BY b.booked_for DESC`
     );
     res.json({
@@ -129,7 +148,7 @@ adminRouter.patch(
       if (status !== 'pending') {
         await client.query(
           `UPDATE slip_payments SET status = $2, reason = $3, reviewed_at = now()
-           WHERE booking_id = $1 AND status = 'review'`,
+           WHERE $1 = ANY(booking_ids) AND kind = 'deposit' AND status = 'review'`,
           [req.params.id, status === 'confirmed' ? 'verified' : 'rejected', status === 'confirmed' ? 'MANUAL' : 'BOOKING_CANCELLED']
         );
       }
@@ -551,9 +570,114 @@ adminRouter.delete(
 
 const baht = (n) => `฿${Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 
-// Corrects what a booking costs: the admin sets the total and the deposit
-// directly (a price agreed by phone, a goodwill discount, a mistake to fix).
-// The member who booked is told the new amounts in their chat.
+// Approves a slip waiting for a manual check (the owner saw the money
+// arrive). A deposit slip confirms every room it pays for (rooms booked
+// together are one payment) and creates their room logins; a balance slip
+// marks the other half paid. Other slips still waiting for the same payment
+// are closed.
+adminRouter.post(
+  '/slips/:id/approve',
+  wrap(async (req, res) => {
+    if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'Slip not found' });
+    const client = await pool.connect();
+    let slip;
+    let scope;
+    let stays;
+    try {
+      await client.query('BEGIN');
+      slip = (
+        await client.query('SELECT id, booking_id, kind, status, slip_file FROM slip_payments WHERE id = $1 FOR UPDATE', [
+          req.params.id,
+        ])
+      ).rows[0];
+      if (slip?.status !== 'review') {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'This slip is not waiting for review' });
+      }
+      scope = await paymentScope(client, slip.booking_id, { kind: slip.kind, lock: true });
+      if (scope.error) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Nothing is owed on this booking any more' });
+      }
+      const ids = scope.due.map((b) => b.id);
+      stays = await settlePayment(client, ids, slip.kind, 'online');
+      await client.query(
+        `UPDATE slip_payments SET status = 'verified', reason = 'MANUAL', reviewed_at = now(), booking_ids = $2
+         WHERE id = $1`,
+        [slip.id, ids]
+      );
+      await client.query(
+        `UPDATE slip_payments SET status = 'rejected', reason = 'SUPERSEDED', reviewed_at = now()
+         WHERE id <> $1 AND status = 'review' AND kind = $2 AND booking_ids && $3::int[]`,
+        [slip.id, slip.kind, ids]
+      );
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+    await logPayment(req.user.email, scope, slip.kind, stays, { paidWith: 'Slip checked by hand', slipFile: slip.slip_file });
+    res.json({ ok: true, amount: scope.amount, bookings: scope.due.map((b) => b.id) });
+  })
+);
+
+// The other half of the price, paid at the farm: { paid: true } marks it
+// paid for the booking and the rooms booked with it; { paid: false } undoes a
+// mark made here by mistake (an online payment can't be undone here).
+adminRouter.patch(
+  '/bookings/:id/balance',
+  wrap(async (req, res) => {
+    if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'Booking not found' });
+    if (req.body?.paid === false) {
+      const { rows } = await pool.query(
+        `UPDATE bookings SET balance_paid_at = NULL, balance_method = NULL
+         WHERE balance_method = 'at_farm'
+           AND (id = $1 OR group_code = (SELECT t.group_code FROM bookings t WHERE t.id = $1))
+         RETURNING id, code`,
+        [req.params.id]
+      );
+      if (!rows.length) return res.status(409).json({ error: 'This booking was not marked as paid at the farm' });
+      await logEvent('booking.balance_unpaid', {
+        actor: req.user.email,
+        bookingId: Number(req.params.id),
+        details: { codes: rows.map((r) => r.code).join(', ') },
+      });
+      return res.json({ ok: true });
+    }
+
+    const client = await pool.connect();
+    let scope;
+    try {
+      await client.query('BEGIN');
+      scope = await paymentScope(client, req.params.id, { kind: 'balance', lock: true });
+      if (scope.error) {
+        await client.query('ROLLBACK');
+        return scope.error === 'NOT_FOUND'
+          ? res.status(404).json({ error: 'Booking not found' })
+          : res.status(409).json({ error: 'Nothing is left to pay on this booking (confirm the deposit first)' });
+      }
+      const ids = scope.due.map((b) => b.id);
+      await settlePayment(client, ids, 'balance', 'at_farm');
+      // A balance slip still waiting is no longer needed.
+      await client.query(
+        `UPDATE slip_payments SET status = 'rejected', reason = 'PAID_AT_FARM', reviewed_at = now()
+         WHERE status = 'review' AND kind = 'balance' AND booking_ids && $1::int[]`,
+        [ids]
+      );
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+    await logPayment(req.user.email, scope, 'balance', {}, { paidWith: 'Paid at the farm', method: 'at_farm' });
+    res.json({ ok: true, amount: scope.amount });
+  })
+);
+
 // Turns down a slip waiting for a manual check (wrong amount, unreadable,
 // not received...). The booking stays pending; the guest sees the slip was
 // not accepted and can send another.
@@ -573,6 +697,9 @@ adminRouter.patch(
   })
 );
 
+// Corrects what a booking costs: the admin sets the total and the deposit
+// directly (a price agreed by phone, a goodwill discount, a mistake to fix).
+// The member who booked is told the new amounts in their chat.
 adminRouter.patch(
   '/bookings/:id/amount',
   wrap(async (req, res) => {
