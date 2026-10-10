@@ -47,7 +47,7 @@
   color: var(--brand);
 }
 
-/* The calendar: a dialog in the middle on larger screens... */
+/* The calendar: one plain white box in the middle on larger screens... */
 .date-sheet,
 .date-sheet * {
   box-sizing: border-box;
@@ -59,20 +59,20 @@
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(15, 25, 18, 0.45);
+  background: rgba(15, 25, 18, 0.4);
   font-family: var(--plex);
   animation: date-sheet-fade 0.2s ease;
 }
 .date-sheet__panel {
   display: grid;
-  gap: 12px;
-  width: min(420px, 100%);
+  gap: 14px;
+  width: min(400px, 100%);
   max-height: calc(100vh - 40px);
   overflow-y: auto;
-  padding: 16px 20px 20px;
-  border-radius: 24px;
-  background: var(--bg);
-  box-shadow: var(--shadow-lg);
+  padding: 20px 24px 22px;
+  border-radius: 20px;
+  background: var(--white);
+  box-shadow: 0 24px 48px -16px rgba(20, 40, 30, 0.5);
   color: var(--text);
 }
 .date-sheet__grip {
@@ -86,42 +86,58 @@
 }
 .date-sheet__top h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 600;
 }
 .date-sheet__close {
-  min-height: 44px;
-  padding: 0 18px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--white);
-  color: var(--text-h);
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: hsl(40, 20%, 95%);
+  color: var(--text-muted);
   font: inherit;
-  font-size: 15px;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
 }
+.date-sheet__close:hover {
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+}
+
+/* The two dates as one box split in two; the one the next tap sets has a
+   green line under it. */
 .date-sheet__tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
 }
 .date-sheet__tab {
   display: grid;
   padding: 8px 14px;
   border: none;
-  border-radius: 14px;
-  background: var(--white);
-  box-shadow: inset 0 0 0 1.5px var(--border);
+  background: none;
+  box-shadow: inset 0 -2px 0 transparent;
+  color: var(--text-h);
   font: inherit;
   text-align: left;
-  color: var(--text-h);
-  transition: box-shadow var(--dur-fast), background-color var(--dur-fast);
+  cursor: pointer;
+  transition: box-shadow var(--dur-fast);
+}
+.date-sheet__tab + .date-sheet__tab {
+  border-left: 1px solid var(--border);
 }
 .date-sheet__tab small {
   font-size: 13px;
   color: var(--text-muted);
 }
 .date-sheet__tab b {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
 }
 .date-sheet__tab b.is-empty {
@@ -129,18 +145,13 @@
   color: var(--text-muted);
 }
 .date-sheet__tab.is-on {
-  background: var(--brand-soft);
-  box-shadow: inset 0 0 0 2.5px var(--brand);
+  box-shadow: inset 0 -3px 0 var(--brand);
 }
-.date-sheet .inline-cal {
-  padding: 10px 8px 8px;
-  border-radius: 18px;
-  background: var(--white);
-}
+
 .date-sheet__foot {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 .date-sheet__clear {
   padding: 0;
@@ -151,23 +162,28 @@
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 4px;
+  cursor: pointer;
 }
 .date-sheet__done {
   flex: 1;
-  min-height: 54px;
+  min-height: 48px;
   padding: 0 20px;
   border: none;
   border-radius: 999px;
-  background: hsl(44, 92%, 58%);
-  color: hsl(150, 38%, 13%);
+  background: var(--brand);
+  color: var(--white);
   font: inherit;
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-fast);
+}
+.date-sheet__done:hover:not(:disabled) {
+  background: var(--brand-hover);
 }
 .date-sheet__done:disabled {
-  background: var(--brand-soft);
-  color: var(--brand-dark);
-  box-shadow: inset 0 0 0 2px var(--brand);
+  background: hsl(40, 20%, 94%);
+  color: var(--text-muted);
   cursor: default;
 }
 
@@ -181,7 +197,7 @@
     width: 100%;
     max-height: 94vh;
     padding: 8px 16px calc(16px + env(safe-area-inset-bottom, 0px));
-    border-radius: 26px 26px 0 0;
+    border-radius: 24px 24px 0 0;
     animation: date-sheet-up 0.38s var(--ease-out);
   }
   .date-sheet__grip {
@@ -197,7 +213,7 @@
     bottom: calc(-16px - env(safe-area-inset-bottom, 0px));
     margin: 0 -16px;
     padding: 10px 16px 16px;
-    background: var(--bg);
+    background: var(--white);
   }
 }
 

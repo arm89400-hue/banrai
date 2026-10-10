@@ -7,9 +7,10 @@ import InlineCalendar from './InlineCalendar';
 import './DateRangePicker.css';
 
 // The dates field used in every search (Home, room page, booking): shows
-// the chosen stay and opens the calendar - a sheet from the bottom on
-// phones, a dialog on larger screens. Two tabs show which date the next tap
-// sets; the stay is a band across the calendar. `bookedNights` crosses out
+// the chosen stay and opens the calendar - a plain white box in the middle,
+// a sheet from the bottom on phones. The two date fields at the top show
+// the stay (the one the next tap sets is marked); the stay is a band across
+// the calendar. `bookedNights` crosses out
 // taken nights (a single room's page).
 export default function DateRangePicker({ checkIn, checkOut, onChange, bookedNights, className = '' }) {
   const { t, locale } = useLang();
@@ -74,8 +75,8 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, bookedNig
               <span className="date-sheet__grip" aria-hidden="true" />
               <div className="date-sheet__top">
                 <h2 id="date-sheet-title">{t('date.sheetTitle')}</h2>
-                <button type="button" className="date-sheet__close" onClick={() => setOpen(false)}>
-                  {t('date.close')}
+                <button type="button" className="date-sheet__close" onClick={() => setOpen(false)} aria-label={t('date.close')}>
+                  ×
                 </button>
               </div>
               <div className="date-sheet__tabs">

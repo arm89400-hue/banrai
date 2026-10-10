@@ -5,8 +5,8 @@ import './InlineCalendar.css';
 
 const NO_NIGHTS = new Set();
 
-// Month calendar for picking a stay. The stay shows as one band from
-// check-in to check-out, with "in" / "out" under the two ends.
+// Month calendar for picking a stay. The stay shows as one soft band from
+// check-in to check-out, with the two ends in solid green.
 // - Without `mode`: the first tap sets check-in, the next (later) tap sets
 //   check-out.
 // - `mode` 'in' / 'out' (the date sheet's tabs): the tap sets that date.
@@ -98,11 +98,10 @@ export default function InlineCalendar({ checkIn, checkOut, onChange, bookedNigh
               className={classes.join(' ')}
               disabled={isPast || taken}
               aria-pressed={isIn || isOut}
-              aria-label={new Date(`${day}T00:00:00`).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })}
+              aria-label={`${new Date(`${day}T00:00:00`).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })}${isIn ? ` · ${t('cal.in')}` : isOut ? ` · ${t('cal.out')}` : ''}`}
               onClick={() => handlePick(day)}
             >
               <span className="inline-cal__n">{Number(day.slice(8))}</span>
-              {(isIn || isOut) && <small>{isIn ? t('cal.in') : t('cal.out')}</small>}
             </button>
           );
         })}
