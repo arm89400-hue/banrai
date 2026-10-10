@@ -17,16 +17,17 @@
   margin-bottom: 28px;
 }
 .flow-top__back {
-  min-height: 42px;
-  padding: 0 18px;
+  padding: 6px 0;
   border: none;
-  border-radius: 999px;
-  background: var(--white);
-  box-shadow: inset 0 0 0 1.5px var(--brand);
-  color: var(--brand-dark);
+  background: none;
+  color: var(--brand);
   font: inherit;
-  font-size: 15px;
   font-weight: 600;
+  cursor: pointer;
+}
+.flow-top__back:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 .flow-steps {
   display: flex;
@@ -110,11 +111,6 @@
   font-weight: 600;
   line-height: 1.25;
 }
-.flow__sub {
-  margin: 10px 0 0;
-  font-size: 22px;
-  font-weight: 600;
-}
 .flow__hint {
   margin: 0;
   color: var(--text-muted);
@@ -138,189 +134,121 @@
   font-weight: 600;
 }
 
-/* ---- Step 1: suggested sets ---- */
-.flow-sets {
+/* ---- Step 1: the free rooms as photo cards ---- */
+.flow__label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+}
+.flow__label h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+.flow__label span {
+  font-size: 15px;
+  color: var(--text-muted);
+}
+.flow-tiles {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
-.flow-set {
+.flow-tile {
+  position: relative;
   display: grid;
   align-content: start;
-  gap: 12px;
-  padding: 14px;
+  gap: 8px;
+  padding: 10px 10px 12px;
   border: none;
   border-radius: 16px;
   background: var(--white);
-  box-shadow: 0 0 0 1px var(--border), 0 8px 24px -18px hsla(150, 30%, 10%, 0.45);
+  box-shadow: 0 0 0 1px var(--border);
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
   transition: box-shadow var(--dur-fast);
 }
-.flow-set:hover {
-  box-shadow: 0 0 0 1.5px var(--brand), 0 8px 24px -18px hsla(150, 30%, 10%, 0.45);
+.flow-tile:hover {
+  box-shadow: 0 0 0 1.5px var(--brand);
 }
-.flow-set.is-on {
-  box-shadow: 0 0 0 2.5px var(--brand), 0 8px 24px -18px hsla(150, 30%, 10%, 0.45);
+.flow-tile.is-on {
+  box-shadow: 0 0 0 2px var(--brand);
 }
-.flow-set__top {
+.flow-tile img {
+  width: 100%;
+  aspect-ratio: 8 / 5;
+  border-radius: 10px;
+  object-fit: cover;
+}
+/* A round tick in the photo's corner: empty, or green once chosen. */
+.flow-tile__tick {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.95), 0 1px 4px rgba(0, 0, 0, 0.25);
+  color: var(--white);
+  font-size: 15px;
+  font-weight: 700;
+}
+.flow-tile.is-on .flow-tile__tick {
+  background: var(--brand);
+}
+.flow-tile__row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
-  padding: 0 4px;
-}
-.flow-set__top b {
-  font-size: 17px;
-  font-weight: 600;
-}
-.flow-set__top strong {
-  font-size: 22px;
-  font-variant-numeric: tabular-nums;
-}
-.flow-set__tag {
-  justify-self: start;
-  margin-left: 4px;
-  padding: 1px 12px;
-  border-radius: 999px;
-  background: var(--brand-soft);
-  color: var(--brand-dark);
-  font-size: 14px;
-  font-weight: 600;
-}
-.flow-set__pics {
-  display: flex;
-  gap: 8px;
-}
-.flow-set__pics > span {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-}
-.flow-set__pics img {
-  width: 100%;
-  height: 110px;
-  border-radius: 10px;
-  object-fit: cover;
-}
-.flow-set__pics em {
-  position: absolute;
-  left: 8px;
-  bottom: 8px;
-  padding: 1px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.94);
-  font-size: 14px;
-  font-style: normal;
-  font-weight: 600;
-}
-
-/* ---- Step 1: pick rooms yourself ---- */
-.flow-picks {
-  display: grid;
   gap: 12px;
+  padding: 0 6px;
 }
-.flow-pick {
-  display: grid;
-  grid-template-columns: 168px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 20px;
-  padding: 10px 18px 10px 10px;
-  border-radius: 16px;
-  background: var(--white);
-  box-shadow: 0 0 0 1px var(--border);
-  transition: background-color var(--dur-fast), box-shadow var(--dur-fast);
-}
-.flow-pick.is-on {
-  background: var(--brand-soft);
-  box-shadow: 0 0 0 2px var(--brand);
-}
-.flow-pick img {
-  width: 168px;
-  height: 104px;
-  border-radius: 10px;
-  object-fit: cover;
-}
-.flow-pick__txt {
-  display: grid;
-  justify-items: start;
-  gap: 2px;
-  min-width: 0;
-}
-.flow-pick__txt strong {
-  font-size: 20px;
+.flow-tile__row strong {
+  font-size: 19px;
   font-weight: 600;
 }
-.flow-pick__txt > span:last-of-type {
-  font-size: 15px;
-  color: var(--text-muted);
-}
-.flow-pick__ppl {
-  display: flex;
-  gap: 1px;
-  color: var(--brand);
-}
-.flow-pick__ppl .is-extra {
-  opacity: 0.4;
-}
-.flow-pick__end {
-  display: grid;
-  justify-items: end;
-  gap: 8px;
-}
-.flow-pick__end b {
-  font-size: 18px;
-  white-space: nowrap;
+.flow-tile__row b {
+  font-size: 17px;
   font-variant-numeric: tabular-nums;
 }
-.flow-pick__end small {
-  font-size: 14px;
-  font-weight: 400;
+.flow-tile__facts {
+  padding: 0 6px;
+  font-size: 15px;
   color: var(--text-muted);
 }
-.flow-pick__btn {
-  min-height: 40px;
-  padding: 0 18px;
-  border: none;
-  border-radius: 999px;
-  background: var(--white);
-  box-shadow: inset 0 0 0 1.5px var(--brand);
-  color: var(--brand-dark);
-  font: inherit;
-  font-size: 15px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.flow-pick__btn.is-on {
-  background: var(--brand);
-  box-shadow: none;
-  color: var(--white);
+.flow-tile .promo-tag {
+  justify-self: start;
+  margin: 0 6px;
 }
 
-/* ---- The stay box (footer green) ---- */
+/* ---- The booking so far: a white card, the same as the room page's ---- */
 .flow-stay {
   position: sticky;
   top: 96px;
   display: grid;
-  gap: 14px;
-  padding: 24px;
-  border-radius: 20px;
-  background: var(--brand-dark);
-  color: rgba(255, 255, 255, 0.86);
+  gap: 12px;
+  padding: 22px;
+  border-radius: 18px;
+  background: var(--white);
+  box-shadow: 0 0 0 1px var(--border), 0 10px 28px -20px hsla(150, 30%, 10%, 0.45);
 }
 .flow-stay h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
-  color: var(--white);
 }
 .flow-stay__rows {
   display: grid;
   gap: 8px;
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
 }
 .flow-stay__rows div {
   display: flex;
@@ -328,42 +256,42 @@
   gap: 12px;
 }
 .flow-stay__rows dt {
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--text-muted);
 }
 .flow-stay__rows dd {
   margin: 0;
-  color: var(--white);
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 .flow-stay__total {
   padding-top: 10px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.25);
-  font-size: 19px;
+  border-top: 1px dashed var(--border);
+  font-size: 18px;
   font-weight: 700;
 }
 .flow-stay__total dt,
 .flow-stay__dep dt {
-  color: var(--white) !important;
+  color: var(--text-h) !important;
 }
 .flow-stay__dep {
   margin: 0 -10px;
   padding: 8px 10px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.1);
+  background: hsl(44, 92%, 91%);
   font-weight: 700;
 }
 .flow-stay__go,
 .flow-bar__go {
-  min-height: 56px;
+  min-height: 52px;
   padding: 0 22px;
   border: none;
   border-radius: 999px;
   background: hsl(44, 92%, 58%);
   color: hsl(150, 38%, 13%);
   font: inherit;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
+  cursor: pointer;
   transition: background-color var(--dur-fast);
 }
 .flow-stay__go:hover:not(:disabled),
@@ -371,14 +299,14 @@
   background: hsl(44, 92%, 52%);
 }
 .flow-stay__go:disabled {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.8);
+  background: hsl(40, 20%, 94%);
+  color: var(--text-muted);
   cursor: default;
 }
 .flow-stay__note {
   margin: 0;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  color: var(--text-muted);
   text-align: center;
 }
 
@@ -421,27 +349,11 @@
   .flow__title {
     font-size: 26px;
   }
-  .flow__sub {
-    font-size: 20px;
-  }
-  .flow-sets {
+  .flow-tiles {
     grid-template-columns: 1fr;
   }
-  .flow-pick {
-    grid-template-columns: 96px minmax(0, 1fr);
-    gap: 12px;
-    padding: 10px;
-  }
-  .flow-pick img {
-    width: 96px;
-    height: 76px;
-  }
-  .flow-pick__end {
-    grid-column: 1 / -1;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    justify-items: start;
-  }
+  
+  
   .flow-stay__go {
     display: none;
   }

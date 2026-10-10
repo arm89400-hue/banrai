@@ -44,28 +44,6 @@ function validateForm(form) {
   return errors;
 }
 
-// Room sets that sleep the whole party, from the free rooms: the fewest
-// rooms (cheapest among those) and, if different, the cheapest overall.
-// Each set is priced the way the booking will be (see priceStay).
-function suggestSets(free, guests, nights, fee, promotions, checkIn) {
-  const sets = [];
-  for (let mask = 1; mask < 1 << free.length; mask++) {
-    const pick = free.filter((_, i) => mask & (1 << i));
-    const split = splitGuests(pick, guests);
-    if (!split) continue;
-    const total = pick.reduce((sum, r, i) => sum + priceStay(r, nights, split[i], fee, 0, 0, promoFor(promotions, r.id, checkIn)).total, 0);
-    sets.push({ rooms: pick, total });
-  }
-  if (!sets.length) return [];
-  const fewest = [...sets].sort((a, b) => a.rooms.length - b.rooms.length || a.total - b.total)[0];
-  const cheapest = [...sets].sort((a, b) => a.total - b.total || a.rooms.length - b.rooms.length)[0];
-  const out = [{ ...fewest, kind: 'fewest' }];
-  if (cheapest.total < fewest.total) out.push({ ...cheapest, kind: 'cheapest', saves: fewest.total - cheapest.total });
-  return out;
-}
-
-const sameRooms = (ids, rooms) => ids.length === rooms.length && rooms.every((r) => ids.includes(r.id));
-
 // Step-by-step room booking: choose rooms (with the dates and guests at
 // the top) -> guest details -> review & send. Anyone can browse dates and
 // rooms; from the details step on the guest must be logged in (they're sent
@@ -323,7 +301,6 @@ export default function BookFlow() {
   }
 
   // ---------- Steps ----------
-  const sets = availableIds && nights ? suggestSets(freeRooms, guests, nights, fee, promotions, checkIn) : [];
   const taken = availableIds ? (rooms ?? []).filter((r) => !availableIds.has(r.id)) : [];
   const extraGuests = plans.reduce((sum, p) => sum + p.extraGuests, 0);
   const extraTotal = plans.reduce((sum, p) => sum + p.extraTotal, 0);
@@ -386,10 +363,10 @@ export default function BookFlow() {
             </p>
           )}
 
-          {/* Step 1: dates and guests at the top, then the free rooms. */}
+          {/* Step 1: dates and guests at the top, then the free rooms as
+              photo cards; tap a card to choose it (several for a big party). */}
           {current === 1 && (
             <>
-              <h1 className="flow__title">{t('flow.pickRoom')}</h1>
               <StaySearch
                 checkIn={checkIn}
                 checkOut={checkOut}
@@ -407,46 +384,12 @@ export default function BookFlow() {
               )}
               {availableIds && freeRooms.length === 0 && <p className="flow-none">{t('flow.noneFree')}</p>}
 
-              {sets.length > 0 && (
-                <>
-                  <h2 className="flow__sub">{t('flow.suggestTitle', { n: guests })}</h2>
-                  <div className="flow-sets">
-                    {sets.map((set) => {
-                      const on = sameRooms(roomIds, set.rooms);
-                      return (
-                        <button
-                          type="button"
-                          key={set.kind}
-                          className={`flow-set${on ? ' is-on' : ''}`}
-                          aria-pressed={on}
-                          onClick={() => {
-                            setRoomNotice(null);
-                            setRoomIds(set.rooms.map((r) => r.id));
-                          }}
-                        >
-                          <span className="flow-set__top">
-                            <b>{set.kind === 'cheapest' ? t('flow.cheapest') : set.rooms.length === 1 ? t('flow.oneRoom') : t('flow.nRooms', { n: set.rooms.length })}</b>
-                            <strong>{formatBaht(set.total)}</strong>
-                          </span>
-                          {set.saves > 0 && <span className="flow-set__tag">{t('flow.cheaperBy', { amount: formatBaht(set.saves) })}</span>}
-                          <span className="flow-set__pics">
-                            {set.rooms.map((r) => (
-                              <span key={r.id}>
-                                <img src={roomCover(r)} alt="" />
-                                <em>{roomNames(r.name, lang).title}</em>
-                              </span>
-                            ))}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-
               {availableIds && freeRooms.length > 0 && (
                 <>
-                  <h2 className="flow__sub">{sets.length > 0 ? t('flow.ownPick') : t('flow.pickRoom')}</h2>
+                  <div className="flow__label">
+                    <h2>{t('flow.freeRooms')}</h2>
+                    <span>{t('flow.priceFor', { n: nights })}</span>
+                  </div>
                   {chosen.length > 0 && !split && (
                     <p className="flow-short" aria-live="polite">
                       {capacity < guests
@@ -454,40 +397,39 @@ export default function BookFlow() {
                         : t('flow.tooManyRooms')}
                     </p>
                   )}
-                  <div className="flow-picks">
+                  <div className="flow-tiles">
                     {freeRooms.map((r) => {
                       const names = roomNames(r.name, lang);
                       const roomPromo = promoFor(promotions, r.id, checkIn);
                       const picked = roomIds.includes(r.id);
                       const max = roomMaxGuests(r);
-                      const base = priceStay(r, nights, Math.min(max, r.capacity ?? 1), fee, 0, 0, roomPromo).total;
+                      const price = (room) => priceStay(room, nights, Math.min(roomMaxGuests(room), room.capacity ?? 1), fee, 0, 0, promoFor(promotions, room.id, checkIn)).total;
+                      const base = price(r);
+                      const cheapest = freeRooms.length > 1 && freeRooms.every((o) => price(o) >= base);
                       return (
-                        <div key={r.id} className={`flow-pick${picked ? ' is-on' : ''}`}>
+                        <button
+                          type="button"
+                          key={r.id}
+                          className={`flow-tile${picked ? ' is-on' : ''}`}
+                          aria-pressed={picked}
+                          onClick={() => toggleRoom(r.id)}
+                        >
                           <img src={roomCover(r)} alt="" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
-                          <div className="flow-pick__txt">
+                          <span className="flow-tile__tick" aria-hidden="true">
+                            {picked && '✓'}
+                          </span>
+                          <span className="flow-tile__row">
                             <strong>{names.title}</strong>
-                            <span className="flow-pick__ppl" aria-hidden="true">
-                              {Array.from({ length: max }, (_, i) => (
-                                <svg key={i} className={i >= (r.capacity ?? max) ? 'is-extra' : ''} width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                                  <circle cx="12" cy="7.5" r="4" />
-                                  <path d="M4 21c0-4.4 3.6-7.5 8-7.5s8 3.1 8 7.5z" />
-                                </svg>
-                              ))}
-                            </span>
-                            <span>
-                              {r.capacity && max > r.capacity ? t('rooms.guestsRange', { from: r.capacity, to: max }) : t('rooms.guests', { n: r.capacity || max })}
-                            </span>
-                            {roomPromo && <PromoTag promo={roomPromo} />}
-                          </div>
-                          <div className="flow-pick__end">
-                            <b>
-                              {formatBaht(base)} <small>/ {t('flow.nights', { n: nights })}</small>
-                            </b>
-                            <button type="button" className={`flow-pick__btn${picked ? ' is-on' : ''}`} aria-pressed={picked} onClick={() => toggleRoom(r.id)}>
-                              {picked ? `✓ ${t('flow.picked')}` : t('flow.pick')}
-                            </button>
-                          </div>
-                        </div>
+                            <b>{formatBaht(base)}</b>
+                          </span>
+                          <span className="flow-tile__facts">
+                            {r.capacity && max > r.capacity ? t('rooms.guestsRange', { from: r.capacity, to: max }) : t('rooms.guests', { n: r.capacity || max })}
+                            {cheapest && ` · ${t('flow.cheapest')}`}
+                            {' · '}
+                            {t('flow.nightsBreakfast', { n: nights })}
+                          </span>
+                          {roomPromo && <PromoTag promo={roomPromo} />}
+                        </button>
                       );
                     })}
                   </div>
