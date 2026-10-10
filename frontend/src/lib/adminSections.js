@@ -1,10 +1,9 @@
-// Sections of the admin dashboard. The Admin page shows these as its icon
-// rail (and phone tab bar) and renders the matching panel. `icon` names an
-// icon in components/AdminIcons.jsx; `group` splits the rail with a thin line
-// between groups; `tab` puts the section on the phone's bottom bar (the rest
-// sit under "More").
+// Sections of the admin dashboard. The Admin page shows these as its menu
+// and renders the matching panel. `icon` names an icon in
+// components/AdminIcons.jsx; `group` splits the menu with a thin line
+// between groups. "overview" is the Today page.
 export const ADMIN_SECTIONS = [
-  { id: 'overview', label: 'Overview', icon: 'overview', group: 'bookings', tab: true },
+  { id: 'overview', label: 'Today', icon: 'overview', group: 'bookings', tab: true },
   { id: 'bookings', label: 'Bookings', icon: 'bookings', group: 'bookings', tab: true },
   { id: 'promotions', label: 'Promotions', icon: 'promotions', group: 'bookings' },
   { id: 'announcements', label: 'Announcements', icon: 'announcements', group: 'bookings' },
@@ -15,5 +14,5 @@ export const ADMIN_SECTIONS = [
   { id: 'log', label: 'Log', icon: 'log', group: 'people' },
 ];
 
-// Overview lives at /admin itself; every other section at /admin/<id>.
+// Today lives at /admin itself; every other section at /admin/<id>.
 export const adminPath = (id) => (id === 'overview' ? '/admin' : `/admin/${id}`);

@@ -1,73 +1,19 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, Navigate, NavLink, useNavigate, useParams } from 'react-router-dom';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, Navigate, NavLink, useParams } from 'react-router-dom';
 import { api, mediaUrl } from '../lib/api';
 import { formatBaht } from '../lib/money';
+import { toISODate } from '../lib/booking';
+import { groupRows, needsYou } from '../lib/adminBookings';
 import { useAuth } from '../context/AuthContext';
 import { ADMIN_SECTIONS, adminPath } from '../lib/adminSections';
 import AdminIcon from '../components/AdminIcons';
-import AdminCalendar from './AdminCalendar';
+import { Bookings, Today } from './AdminBookings';
 import AdminChat from './AdminChat';
 import AdminPromotions from './AdminPromotions';
 import AdminAnnouncements from './AdminAnnouncements';
 import AdminPhotos, { MAX_PHOTOS } from './AdminPhotos';
 import { uploadPending } from '../lib/uploadPending';
 import './Admin.css';
-
-// Why a slip was turned down, or why SlipOK sent it to you to check
-// (reason codes from POST /api/bookings/:id/slip and admin actions).
-const SLIP_REASONS = {
-  SLIP_UNREADABLE: 'no QR',
-  SLIP_NOT_FOUND: 'not found at bank',
-  SLIP_PENDING: 'bank asks to wait a few minutes',
-  SLIP_DUPLICATE: 'used before',
-  SLIP_AMOUNT: 'wrong amount',
-  SLIP_RECEIVER: 'wrong account',
-  SLIP_OLD: 'older than booking',
-  SLIP_SERVICE: 'SlipOK or the bank was down',
-  SLIPOK_SETUP: 'SlipOK setup problem - check the API key and branch ID',
-  SLIPOK_PACKAGE: 'SlipOK package expired or quota used up - renew it',
-  NOT_PENDING: 'booking not pending',
-  BALANCE_NOT_DUE: 'nothing left to pay',
-  MANUAL_REJECT: 'rejected by you',
-  BOOKING_CANCELLED: 'booking cancelled',
-  SUPERSEDED: 'another slip was approved',
-  PAID_AT_FARM: 'paid at the farm instead',
-};
-
-// One payment slip on a booking row: its result, a link to the image and,
-// while it waits for a manual check, Approve / Reject. `s` holds the slip
-// fields for one kind (deposit or balance).
-function SlipLine({ label, s, onApprove, onReject }) {
-  if (!s.status) return null;
-  return (
-    <div className={`admin__sub admin__slip admin__slip--${s.status}`}>
-      {s.status === 'verified'
-        ? `${label} slip ✓ ${s.amount != null ? formatBaht(s.amount) : 'checked by hand'}`
-        : s.status === 'review'
-          ? `${label} slip sent · check it${s.reason ? ` (${SLIP_REASONS[s.reason] ?? s.reason})` : ''}`
-          : `${label} slip ✗ ${SLIP_REASONS[s.reason] ?? s.reason}${s.amount != null ? ` (${formatBaht(s.amount)})` : ''}`}
-      {s.count > 1 && ` · ${s.count} tries`}
-      {s.file && (
-        <>
-          {' · '}
-          <a href={mediaUrl(s.file)} target="_blank" rel="noreferrer">
-            view
-          </a>
-        </>
-      )}
-      {s.status === 'review' && onApprove && (
-        <span className="admin__slip-actions">
-          <button type="button" className="admin__btn admin__btn--primary" onClick={onApprove}>
-            Approve
-          </button>
-          <button type="button" className="admin__btn" onClick={onReject}>
-            Reject
-          </button>
-        </span>
-      )}
-    </div>
-  );
-}
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
@@ -89,9 +35,9 @@ function useAdminData(path) {
   return { ...state, reload };
 }
 
-// The red numbers on the menu: bookings awaiting their deposit and unread
-// chat messages. Re-checked every 8 seconds and whenever the section
-// changes (opening a conversation in Chat marks it read).
+// The numbers on the menu: Today = bookings that need you (the same list
+// as on the Today page); Chat = unread messages. Re-checked every 8 seconds and whenever the
+// section changes (opening a conversation in Chat marks it read).
 function useAdminBadges(enabled, tab) {
   const [badges, setBadges] = useState({});
 
@@ -99,10 +45,12 @@ function useAdminBadges(enabled, tab) {
     if (!enabled) return undefined;
     let cancelled = false;
     const load = () =>
-      api('/api/admin/stats')
-        .then((data) => {
+      Promise.all([api('/api/admin/stats'), api('/api/admin/bookings')])
+        .then(([stats, list]) => {
           if (cancelled) return;
-          setBadges({ bookings: data.stats.pending_bookings ?? 0, chat: data.stats.unread_chats ?? 0 });
+          const today = toISODate(new Date());
+          const todo = groupRows(list.bookings).filter((g) => needsYou(g, today)).length;
+          setBadges({ overview: todo, chat: stats.stats.unread_chats ?? 0 });
         })
         .catch(() => {});
     load();
@@ -116,26 +64,22 @@ function useAdminBadges(enabled, tab) {
   return badges;
 }
 
-// What a menu badge's number means, shown in the icon's hover label.
-const badgeText = (id, n) => (id === 'chat' ? `${n} unread` : `${n} waiting`);
-
 // Admin dashboard: a page of its own, outside the public site's navbar and
 // footer (see App.jsx). Only reachable for accounts listed in the backend's
 // ADMIN_EMAILS. There is no separate admin login: signed-out visitors go to
 // the site's normal /login (which sends admins back here), and signed-in
 // non-admins go to the Home page. The server enforces this on every
 // /api/admin call - the check here just picks where to send people.
-// The current section comes from the URL (/admin/:section).
+// The current section comes from the URL (/admin/:section). Computers get a
+// side menu with names; phones a bar on top with a Menu button.
 export default function Admin() {
   const { user, logout } = useAuth();
   const { section } = useParams();
-  const navigate = useNavigate();
   const tab = section ?? 'overview';
   const current = ADMIN_SECTIONS.find((s) => s.id === tab);
   const isAdmin = Boolean(user?.is_admin);
   const badges = useAdminBadges(isAdmin, tab);
-  // Phone only: the "More" sheet of sections that are not on the tab bar.
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   if (!user) {
     return <Navigate to="/login?next=/admin" replace />;
@@ -144,108 +88,87 @@ export default function Admin() {
     return <Navigate to="/home" replace />;
   }
 
-  // The calendar is now part of Bookings; keep old links working.
+  // The calendar is now the room board on Today; keep old links working.
   if (tab === 'calendar') {
-    return <Navigate to="/admin/bookings" replace />;
+    return <Navigate to="/admin" replace />;
   }
 
-  // Unknown section in the URL - go back to the Overview.
+  // Unknown section in the URL - go back to Today.
   if (!current) {
     return <Navigate to="/admin" replace />;
   }
 
+  const title =
+    tab === 'overview' ? `Today · ${new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}` : current.label;
+
+  const menu = (
+    <>
+      <nav className="admin-side__nav" aria-label="Admin sections">
+        {ADMIN_SECTIONS.map((s, i) => (
+          <Fragment key={s.id}>
+            {i > 0 && ADMIN_SECTIONS[i - 1].group !== s.group && <span className="admin-side__sep" aria-hidden="true" />}
+            <NavLink to={adminPath(s.id)} end className="admin-side__item" onClick={() => setMenuOpen(false)}>
+              <AdminIcon name={s.icon} />
+              <span>{s.label}</span>
+              {badges[s.id] > 0 && <em>{badges[s.id]}</em>}
+            </NavLink>
+          </Fragment>
+        ))}
+      </nav>
+      <div className="admin-side__foot">
+        <Link to="/home" className="admin-side__item">
+          <AdminIcon name="site" />
+          <span>View the website</span>
+        </Link>
+        <button type="button" className="admin-side__item" onClick={logout} title={user.email}>
+          <AdminIcon name="logout" />
+          <span>Log out</span>
+        </button>
+      </div>
+    </>
+  );
+
   return (
     <div className="admin-shell">
-      {/* Laptop: a slim icon rail; each icon's name slides out on hover or
-          keyboard focus. Red numbers show what is waiting. */}
-      <aside className="admin-rail">
-        <Link to="/admin" className="admin-rail__logo" aria-label="Baanrai admin - Overview">
+      <aside className="admin-side">
+        <Link to="/admin" className="admin-side__brand">
           <img src="/images/logo-mark.png" alt="" />
+          Baanrai admin
         </Link>
-
-        <nav className="admin-rail__nav" aria-label="Admin sections">
-          {ADMIN_SECTIONS.map((s, i) => (
-            <Fragment key={s.id}>
-              {i > 0 && ADMIN_SECTIONS[i - 1].group !== s.group && <span className="admin-rail__sep" aria-hidden="true" />}
-              <NavLink to={adminPath(s.id)} end className="admin-rail__item" aria-label={s.label}>
-                <AdminIcon name={s.icon} />
-                {badges[s.id] > 0 && <span className="admin-rail__badge">{badges[s.id]}</span>}
-                <span className="admin-rail__tip" aria-hidden="true">
-                  {s.label}
-                  {badges[s.id] > 0 && <small>{badgeText(s.id, badges[s.id])}</small>}
-                </span>
-              </NavLink>
-            </Fragment>
-          ))}
-        </nav>
-
-        <div className="admin-rail__foot">
-          <Link to="/home" className="admin-rail__item" aria-label="View site">
-            <AdminIcon name="site" />
-            <span className="admin-rail__tip" aria-hidden="true">View site</span>
-          </Link>
-          {/* Logging out leaves you on /admin, which then shows the admin login. */}
-          <button type="button" className="admin-rail__item" onClick={logout} aria-label="Log out">
-            <AdminIcon name="logout" />
-            <span className="admin-rail__tip" aria-hidden="true">
-              Log out<small>{user.email}</small>
-            </span>
-          </button>
-        </div>
+        {menu}
       </aside>
 
-      {/* Phone: the main sections as a bottom tab bar; the rest under "More". */}
-      <nav className="admin-tabs" aria-label="Admin sections">
-        {ADMIN_SECTIONS.filter((s) => s.tab).map((s) => (
-          <NavLink key={s.id} to={adminPath(s.id)} end className="admin-tabs__item" onClick={() => setMoreOpen(false)}>
-            <AdminIcon name={s.icon} size={23} />
-            {badges[s.id] > 0 && <span className="admin-rail__badge">{badges[s.id]}</span>}
-            {s.label}
-          </NavLink>
-        ))}
-        <button
-          type="button"
-          className={`admin-tabs__item${moreOpen || !current.tab ? ' active' : ''}`}
-          aria-expanded={moreOpen}
-          onClick={() => setMoreOpen((o) => !o)}
-        >
-          <AdminIcon name="more" size={23} />
-          More
+      {/* Phones: the logo and a Menu button; the menu slides in from the right. */}
+      <header className="admin-bar">
+        <Link to="/admin" className="admin-side__brand">
+          <img src="/images/logo-mark.png" alt="" />
+          Baanrai admin
+        </Link>
+        <button type="button" className="admin-bar__menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
+          Menu
+          {badges.overview > 0 && <em>{badges.overview}</em>}
         </button>
-      </nav>
-      {moreOpen && (
-        <div className="admin-more" onClick={() => setMoreOpen(false)}>
-          <div className="admin-more__sheet" onClick={(e) => e.stopPropagation()}>
-            {ADMIN_SECTIONS.filter((s) => !s.tab).map((s) => (
-              <NavLink key={s.id} to={adminPath(s.id)} end onClick={() => setMoreOpen(false)}>
-                <AdminIcon name={s.icon} />
-                {s.label}
-              </NavLink>
-            ))}
-            <Link to="/home">
-              <AdminIcon name="site" />
-              View site
-            </Link>
-            <button type="button" onClick={logout}>
-              <AdminIcon name="logout" />
-              Log out
+      </header>
+      {menuOpen && (
+        <div className="admin-sheet" onClick={() => setMenuOpen(false)}>
+          <div className="admin-sheet__panel" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="admin-sheet__close" onClick={() => setMenuOpen(false)}>
+              Close
             </button>
+            {menu}
           </div>
         </div>
       )}
 
       <section className="admin">
         <header className="admin__header">
-          <div>
-            <p className="admin__eyebrow">Admin dashboard</p>
-            <h1>{current.label}</h1>
-          </div>
+          <h1>{title}</h1>
         </header>
 
         {/* key={tab} remounts the panel so it refetches fresh data and replays
             its entrance animation each time you switch sections. */}
         <div className="admin__panel" key={tab}>
-          {tab === 'overview' && <Overview onJump={(id) => navigate(adminPath(id))} />}
+          {tab === 'overview' && <Today />}
           {tab === 'bookings' && <Bookings />}
           {tab === 'rooms' && <Listings kind="rooms" />}
           {tab === 'activities' && <Listings kind="activities" />}
@@ -264,572 +187,6 @@ function Status({ loading, error }) {
   if (error) return <p className="admin__error" role="alert">{error}</p>;
   if (loading) return <p className="admin__muted">Loading…</p>;
   return null;
-}
-
-// Go-live checklist for payments: what is set up in backend/.env.
-function PaymentSetup({ setup }) {
-  if (!setup) return null;
-  const items = [
-    setup.promptpay
-      ? `PromptPay QR: on${setup.promptpay_name ? ` (${setup.promptpay_name})` : ''}`
-      : 'PromptPay QR: not set - guests see a sample QR (add PROMPTPAY_ID)',
-    setup.slipok ? 'SlipOK: on - slips are checked automatically' : 'SlipOK: off - you check slips by hand',
-    setup.test_pay ? 'Test button (PassPay): on - turn off before going live' : 'Test button (PassPay): off',
-  ];
-  return (
-    <p className="admin__setup">
-      <strong>Payments</strong> {items.join(' · ')}
-    </p>
-  );
-}
-
-function Overview({ onJump }) {
-  const { data, error, loading } = useAdminData('/api/admin/stats');
-  const s = data?.stats;
-
-  const cards = s && [
-    { label: 'Slips to check', value: s.slips_to_review, tab: 'bookings' },
-    { label: 'Awaiting deposit', value: s.pending_bookings, tab: 'bookings' },
-    { label: 'Upcoming bookings', value: s.upcoming_bookings, tab: 'bookings' },
-    { label: 'Rooms occupied today', value: `${s.rooms_occupied_now} / ${s.rooms}`, tab: 'bookings' },
-    { label: 'Room revenue this month', value: formatBaht(s.room_revenue_this_month), tab: 'bookings' },
-    { label: 'Total bookings', value: s.bookings, tab: 'bookings' },
-    { label: 'Users', value: s.users, tab: 'users' },
-    { label: 'Rooms', value: s.rooms, tab: 'rooms' },
-    { label: 'Activities', value: s.activities, tab: 'activities' },
-    { label: 'Unread chat messages', value: s.unread_chats, tab: 'chat' },
-  ];
-
-  return (
-    <>
-      <Status loading={loading && !s} error={error} />
-      <PaymentSetup setup={data?.payment_setup} />
-      {cards && (
-        <div className="admin__stats">
-          {cards.map((c, i) => (
-            <button
-              key={c.label}
-              type="button"
-              className="admin__stat"
-              style={{ '--i': i }}
-              onClick={() => onJump(c.tab)}
-            >
-              <span className="admin__stat-value">{c.value}</span>
-              <span className="admin__stat-label">{c.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </>
-  );
-}
-
-const STATUS_LABELS = { pending: 'Awaiting deposit', confirmed: 'Confirmed', cancelled: 'Cancelled' };
-const REQUEST_LABELS = { bbq: 'BBQ / moo kata', extra_bed: 'Extra bed', pets: 'Pets' };
-
-function Bookings() {
-  const { data, error, loading, reload } = useAdminData('/api/admin/bookings');
-  const [filter, setFilter] = useState('upcoming');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [query, setQuery] = useState('');
-  const [actionError, setActionError] = useState(null);
-  const [deleting, setDeleting] = useState(null);
-  const [repricing, setRepricing] = useState(null);
-
-  const rows = useMemo(() => {
-    const now = Date.now();
-    const q = query.trim().toLowerCase();
-    return (data?.bookings ?? []).filter((b) => {
-      const end = new Date(b.booked_until || b.booked_for).getTime();
-      if (filter === 'upcoming' && end < now) return false;
-      if (filter === 'past' && end >= now) return false;
-      if (statusFilter !== 'all' && b.status !== statusFilter) return false;
-      if (!q) return true;
-      return [b.code, b.guest_name, b.guest_phone, b.guest_email, b.user_email, b.member_code, b.room_name, b.activity_name].some(
-        (v) => v?.toLowerCase().includes(q)
-      );
-    });
-  }, [data, filter, statusFilter, query]);
-
-  // Moves a booking to a new status (confirm once the deposit is in, cancel
-  // to free the room, or re-open a cancelled one).
-  async function setStatus(b, status, question) {
-    if (question && !window.confirm(question)) return;
-    setActionError(null);
-    try {
-      await api(`/api/admin/bookings/${b.id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
-      reload();
-    } catch (err) {
-      setActionError(err.message);
-    }
-  }
-
-  // Approves a slip waiting for a manual check: a deposit confirms the
-  // booking and the rooms booked with it; a balance marks the rest paid.
-  async function approveSlip(b, kind) {
-    const amount = kind === 'deposit' ? b.slip_expected : b.balance_slip_expected;
-    const rooms = kind === 'deposit' && b.slip_rooms > 1 ? ` for ${b.slip_rooms} rooms` : '';
-    const what = kind === 'deposit' ? 'confirm the booking' : 'mark the rest of the price paid';
-    if (!window.confirm(`Approve the slip and ${what}${rooms}? Check that ${formatBaht(amount)} reached your account.`)) return;
-    setActionError(null);
-    try {
-      await api(`/api/admin/slips/${kind === 'deposit' ? b.slip_id : b.balance_slip_id}/approve`, { method: 'POST' });
-      reload();
-    } catch (err) {
-      setActionError(err.message);
-    }
-  }
-
-  // Turns down a slip waiting for a manual check; the guest can send another.
-  async function rejectSlip(b, kind) {
-    const after = kind === 'deposit' ? 'The booking stays pending and' : '';
-    if (!window.confirm(`Reject the slip for ${b.code || `#${b.id}`}? ${after} The guest is asked for a new slip.`)) return;
-    setActionError(null);
-    try {
-      await api(`/api/admin/slips/${kind === 'deposit' ? b.slip_id : b.balance_slip_id}/reject`, { method: 'PATCH' });
-      reload();
-    } catch (err) {
-      setActionError(err.message);
-    }
-  }
-
-  // The other half of the price paid at the farm (or undo that mark).
-  async function markBalance(b, paid) {
-    const question = paid
-      ? `Mark the rest of the price for ${b.group_code || b.code || `#${b.id}`} as paid at the farm?`
-      : `Undo "paid at the farm" for ${b.group_code || b.code || `#${b.id}`}?`;
-    if (!window.confirm(question)) return;
-    setActionError(null);
-    try {
-      await api(`/api/admin/bookings/${b.id}/balance`, { method: 'PATCH', body: JSON.stringify({ paid }) });
-      reload();
-    } catch (err) {
-      setActionError(err.message);
-    }
-  }
-
-  const who = (b) => b.guest_name || b.user_email || 'guest';
-
-  return (
-    <>
-      {/* Which rooms are booked or free, night by night. */}
-      {data && <AdminCalendar bookings={data.bookings} />}
-
-      <div className="admin__toolbar">
-        <div className="admin__toolbar-group">
-          <div className="admin__segmented">
-            {['upcoming', 'past', 'all'].map((f) => (
-              <button
-                key={f}
-                type="button"
-                aria-pressed={filter === f}
-                className={filter === f ? 'is-active' : ''}
-                onClick={() => setFilter(f)}
-              >
-                {f[0].toUpperCase() + f.slice(1)}
-              </button>
-            ))}
-          </div>
-          <div className="admin__segmented">
-            {['all', 'pending', 'confirmed', 'cancelled'].map((s) => (
-              <button
-                key={s}
-                type="button"
-                aria-pressed={statusFilter === s}
-                className={statusFilter === s ? 'is-active' : ''}
-                onClick={() => setStatusFilter(s)}
-              >
-                {s === 'all' ? 'Any status' : STATUS_LABELS[s]}
-              </button>
-            ))}
-          </div>
-        </div>
-        <input
-          type="search"
-          className="admin__search"
-          placeholder="Search code, guest, phone or room"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-      <Status loading={loading && !data} error={error || actionError} />
-      {data && (
-        <div className="admin__table-wrap">
-          <table className="admin__table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Guest</th>
-                <th>Booked</th>
-                <th>Dates</th>
-                <th>Total / deposit</th>
-                <th>Status</th>
-                <th aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((b) => (
-                <tr key={b.id} className={b.status === 'cancelled' ? 'is-cancelled' : ''}>
-                  <td>
-                    <strong>{b.code || `#${b.id}`}</strong>
-                    <div className="admin__sub">{fmtDate(b.created_at)}</div>
-                    {/* Rooms booked together share the first room's code. */}
-                    {b.group_code && (
-                      <div className="admin__sub admin__sub--flag">
-                        Group {b.group_code} · {data.bookings.filter((x) => x.group_code === b.group_code).length} rooms
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <strong>{who(b)}</strong>
-                    {b.member_code && (
-                      <div className="admin__sub">
-                        {b.member_code} · {b.user_email}
-                      </div>
-                    )}
-                    {b.guest_phone && (
-                      <div className="admin__sub">
-                        <a href={`tel:${b.guest_phone}`}>{b.guest_phone}</a>
-                        {b.guests ? ` · ${b.guests} guests` : ''}
-                        {b.extra_guests > 0 ? ` (${b.extra_guests} extra)` : ''}
-                        {b.pets > 0 ? ` · ${b.pets} ${b.pets === 1 ? 'pet' : 'pets'}` : ''}
-                      </div>
-                    )}
-                    {(b.guest_email || b.guest_line) && (
-                      <div className="admin__sub">
-                        {[b.guest_email, b.guest_line && `LINE: ${b.guest_line}`].filter(Boolean).join(' · ')}
-                      </div>
-                    )}
-                    {b.requests?.length > 0 && (
-                      <div className="admin__sub admin__sub--flag">
-                        {b.requests.map((r) => REQUEST_LABELS[r] ?? r).join(', ')}
-                      </div>
-                    )}
-                    {b.note && <div className="admin__sub">“{b.note}”</div>}
-                  </td>
-                  <td>
-                    <span className={`admin__tag admin__tag--${b.room_id ? 'room' : 'activity'}`}>
-                      {b.room_id ? 'Room' : 'Activity'}
-                    </span>{' '}
-                    {b.room_name || b.activity_name}
-                  </td>
-                  <td className="admin__nowrap">
-                    {b.room_id ? (
-                      <>
-                        {fmtDate(b.booked_for)}
-                        <div className="admin__sub">→ {fmtDate(b.booked_until)}</div>
-                      </>
-                    ) : (
-                      fmtDateTime(b.booked_for)
-                    )}
-                  </td>
-                  <td>
-                    {b.total != null ? (
-                      <>
-                        {formatBaht(b.total)}
-                        <div className="admin__sub">Deposit {formatBaht(b.deposit)}</div>
-                        {/* The deposit slip, if the guest sent one (one slip can pay for a group). */}
-                        <SlipLine
-                          label={b.slip_rooms > 1 ? `Deposit (${b.slip_rooms} rooms)` : 'Deposit'}
-                          s={{ status: b.slip_status, reason: b.slip_reason, amount: b.slip_amount, file: b.slip_file, count: b.slip_count }}
-                          onApprove={b.status === 'pending' ? () => approveSlip(b, 'deposit') : null}
-                          onReject={() => rejectSlip(b, 'deposit')}
-                        />
-                        {/* The other half: paid online, at the farm, or still due. */}
-                        {b.room_id && b.status === 'confirmed' && Number(b.total) > Number(b.deposit) && (
-                          <div className={`admin__sub admin__balance${b.balance_paid_at ? ' is-paid' : ''}`}>
-                            {b.balance_paid_at
-                              ? `Balance ✓ ${b.balance_method === 'at_farm' ? 'paid at the farm' : 'paid online'}`
-                              : `Balance ${formatBaht(Number(b.total) - Number(b.deposit))} due`}
-                            {!b.balance_paid_at && (
-                              <button type="button" className="admin__btn" onClick={() => markBalance(b, true)}>
-                                Paid at farm
-                              </button>
-                            )}
-                            {b.balance_method === 'at_farm' && (
-                              <button type="button" className="admin__btn" onClick={() => markBalance(b, false)}>
-                                Undo
-                              </button>
-                            )}
-                          </div>
-                        )}
-                        <SlipLine
-                          label="Balance"
-                          s={{ status: b.balance_slip_status, reason: b.balance_slip_reason, amount: b.balance_slip_amount, file: b.balance_slip_file }}
-                          onApprove={b.status === 'confirmed' && !b.balance_paid_at ? () => approveSlip(b, 'balance') : null}
-                          onReject={() => rejectSlip(b, 'balance')}
-                        />
-                        {Number(b.discount) > 0 && (
-                          <div className="admin__sub admin__sub--flag">
-                            {b.promo_name || 'Promotion'}: −{formatBaht(b.discount)}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td>
-                    <span className={`admin__status admin__status--${b.status}`}>{STATUS_LABELS[b.status]}</span>
-                    {/* The room dashboard login created when the booking was confirmed. */}
-                    {b.stay_username && (
-                      <div className="admin__login">
-                        <span>Room login</span>
-                        <code>{b.stay_username}</code>
-                        <code>{b.stay_password}</code>
-                        <span>until {fmtDateTime(b.stay_expires_at)}</span>
-                      </div>
-                    )}
-                  </td>
-                  <td className="admin__actions admin__actions--stacked">
-                    {b.status === 'pending' && (
-                      <button
-                        type="button"
-                        className="admin__btn admin__btn--primary"
-                        onClick={() => setStatus(b, 'confirmed')}
-                        title="Deposit received - confirm and create the room login"
-                      >
-                        Confirm
-                      </button>
-                    )}
-                    {b.status !== 'cancelled' ? (
-                      <button
-                        type="button"
-                        className="admin__btn admin__btn--danger"
-                        onClick={() =>
-                          setStatus(b, 'cancelled', `Cancel booking ${b.code || `#${b.id}`} for ${who(b)}? The room's dates become available again.`)
-                        }
-                      >
-                        Cancel
-                      </button>
-                    ) : (
-                      <button type="button" className="admin__btn" onClick={() => setStatus(b, 'pending')}>
-                        Re-open
-                      </button>
-                    )}
-                    <button type="button" className="admin__btn" onClick={() => setRepricing(b)}>
-                      Edit price
-                    </button>
-                    <button type="button" className="admin__btn admin__btn--danger" onClick={() => setDeleting(b)}>
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {rows.length === 0 && <p className="admin__empty">No bookings match.</p>}
-        </div>
-      )}
-
-      {repricing && (
-        <EditPriceDialog
-          booking={repricing}
-          who={who(repricing)}
-          onClose={() => setRepricing(null)}
-          onSaved={() => {
-            setRepricing(null);
-            reload();
-          }}
-        />
-      )}
-
-      {deleting && (
-        <DeleteBookingDialog
-          booking={deleting}
-          who={who(deleting)}
-          onClose={() => setDeleting(null)}
-          onDeleted={() => {
-            setDeleting(null);
-            reload();
-          }}
-        />
-      )}
-    </>
-  );
-}
-
-// Lets the admin correct what a booking costs: the total and the deposit
-// are typed in directly (the deposit follows the total at 50% until it is
-// edited itself). The member who booked is told the new amounts in their chat.
-function EditPriceDialog({ booking: b, who, onClose, onSaved }) {
-  const dialogRef = useRef(null);
-  const [total, setTotal] = useState(b.total ?? '');
-  const [deposit, setDeposit] = useState(b.deposit ?? '');
-  const [depositTouched, setDepositTouched] = useState(false);
-  const [reason, setReason] = useState('');
-  const [error, setError] = useState(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    dialogRef.current?.showModal();
-  }, []);
-
-  function changeTotal(value) {
-    setTotal(value);
-    if (!depositTouched && value !== '') setDeposit(Math.round(Number(value) * 50) / 100);
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await api(`/api/admin/bookings/${b.id}/amount`, {
-        method: 'PATCH',
-        body: JSON.stringify({ total, deposit, reason }),
-      });
-      onSaved();
-    } catch (err) {
-      setError(err.message);
-      setBusy(false);
-    }
-  }
-
-  return (
-    <dialog ref={dialogRef} className="admin__dialog admin__dialog--edit" onClose={onClose}>
-      <form onSubmit={handleSubmit}>
-        <h2>Edit price</h2>
-        <p>
-          <strong>{b.code || `#${b.id}`}</strong> · {who}
-          <br />
-          {b.room_name || b.activity_name}
-          {b.total != null && ` · now ${formatBaht(b.total)} (deposit ${formatBaht(b.deposit)})`}
-        </p>
-        <div className="admin__dialog-fields">
-          <label>
-            <span>Total (฿)</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              required
-              autoFocus
-              value={total}
-              onChange={(e) => changeTotal(e.target.value)}
-            />
-          </label>
-          <label>
-            <span>Deposit (฿)</span>
-            <input
-              type="number"
-              min="0"
-              max={total === '' ? undefined : total}
-              step="0.01"
-              required
-              value={deposit}
-              onChange={(e) => {
-                setDepositTouched(true);
-                setDeposit(e.target.value);
-              }}
-            />
-          </label>
-        </div>
-        <label>
-          <span>Note for the guest (optional)</span>
-          <textarea
-            rows={2}
-            maxLength={500}
-            placeholder="e.g. Discount for the broken air conditioner"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-        </label>
-        <p className="admin__muted">
-          {b.user_email
-            ? `${b.user_email} is told the new amounts in their chat.`
-            : 'This booking has no account, so nobody is told automatically.'}
-        </p>
-        {error && <p className="admin__error" role="alert">{error}</p>}
-        <div className="admin__form-actions">
-          <button type="button" className="admin__btn" onClick={onClose} disabled={busy}>
-            Cancel
-          </button>
-          <button type="submit" className="admin__btn admin__btn--primary" disabled={busy}>
-            {busy ? 'Saving…' : 'Save price'}
-          </button>
-        </div>
-      </form>
-    </dialog>
-  );
-}
-
-// Confirmation for deleting a booking for good. The admin has to write the
-// reason, which is what the member who booked is shown (a notice on their
-// "My bookings" page and a chat message).
-function DeleteBookingDialog({ booking: b, who, onClose, onDeleted }) {
-  const dialogRef = useRef(null);
-  const [reason, setReason] = useState('');
-  const [error, setError] = useState(null);
-  const [busy, setBusy] = useState(false);
-
-  // showModal() gives the backdrop, focus trap and Escape-to-close.
-  useEffect(() => {
-    dialogRef.current?.showModal();
-  }, []);
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await api(`/api/admin/bookings/${b.id}`, { method: 'DELETE', body: JSON.stringify({ reason }) });
-      onDeleted();
-    } catch (err) {
-      setError(err.message);
-      setBusy(false);
-    }
-  }
-
-  return (
-    <dialog ref={dialogRef} className="admin__dialog" onClose={onClose}>
-      <form onSubmit={handleSubmit}>
-        <h2>Delete this booking?</h2>
-        <p>
-          <strong>{b.code || `#${b.id}`}</strong> · {who}
-          <br />
-          {b.room_name || b.activity_name} ·{' '}
-          {b.room_id ? `${fmtDate(b.booked_for)} → ${fmtDate(b.booked_until)}` : fmtDateTime(b.booked_for)}
-        </p>
-        <ul>
-          <li>This removes the booking for good. It can&apos;t be undone.</li>
-          {b.status !== 'cancelled' && b.room_id && <li>The room&apos;s dates become available again.</li>}
-          {b.stay_username && (
-            <li>
-              The room login <code>{b.stay_username}</code> is deleted too.
-            </li>
-          )}
-          <li>
-            {b.user_email
-              ? `${b.user_email} is told it was deleted, with your reason: on their My bookings page and in their chat.`
-              : `This booking has no account, so nobody is told automatically.${b.guest_phone ? ` Call ${b.guest_phone}.` : ''}`}
-          </li>
-        </ul>
-        <label>
-          <span>Reason for deleting (the guest sees this)</span>
-          <textarea
-            rows={3}
-            required
-            minLength={3}
-            maxLength={500}
-            autoFocus
-            placeholder="e.g. Deposit not received by the due date"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-        </label>
-        {error && <p className="admin__error" role="alert">{error}</p>}
-        <div className="admin__form-actions">
-          <button type="button" className="admin__btn" onClick={onClose} disabled={busy}>
-            Keep booking
-          </button>
-          <button type="submit" className="admin__btn admin__btn--delete" disabled={busy || reason.trim().length < 3}>
-            {busy ? 'Deleting…' : 'Delete booking'}
-          </button>
-        </div>
-      </form>
-    </dialog>
-  );
 }
 
 const LISTING_CONFIG = {
