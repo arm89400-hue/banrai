@@ -1,7 +1,7 @@
 // When each fruit in the orchard is ready to pick, for the Activities page
-// (season wheel and fruit stickers). Months are 1-12; a season can wrap
-// over the new year (e.g. rose apple Dec-Mar). The ranges are approximate
-// for Pak Chong - adjust them here when the farm confirms.
+// (fruit calendar) and Home (fruit ripe this month). Months are 1-12; a
+// season can wrap over the new year (e.g. rose apple Dec-Mar). The ranges
+// are approximate for Pak Chong - adjust them here when the farm confirms.
 // Each `id` is also the cut-out photo in public/images/fruit-cut/<id>.webp,
 // the full photo public/images/farm/fruit-<id>.jpg, and the keys
 // `fruits.<id>` (name) and `fruitInfo.<id>` (description) in i18n/strings.js.
@@ -20,12 +20,6 @@ export const FRUIT_SEASONS = [
   { id: 'rose-apple', from: 12, to: 3 },
 ];
 
-// The three Thai seasons, for the wheel's colours and legend.
-export const WEATHER_SEASONS = [
-  { id: 'hot', from: 3, to: 5 },
-  { id: 'rain', from: 6, to: 10 },
-  { id: 'cool', from: 11, to: 2 },
-];
 
 export const fruitImage = (id) => `/images/fruit-cut/${id}.webp`;
 // The fruit's full photo (with its surroundings), for the fruit cards.
@@ -38,11 +32,4 @@ export function inRange({ from, to }, month) {
 
 export function fruitsIn(month) {
   return FRUIT_SEASONS.filter((f) => inRange(f, month));
-}
-
-// The middle month of a season (as a fraction, e.g. 6.5), wrapping over
-// December - used to place each fruit around the wheel.
-export function seasonMiddle({ from, to }) {
-  const end = to < from ? to + 12 : to;
-  return (((from + end) / 2 - 1) % 12) + 1;
 }
