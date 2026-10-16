@@ -54,23 +54,6 @@ export default function Announcements({ source, className = "" }) {
               </div>
             )}
             <div className="announce__text">
-              <p className="announce__eyebrow">
-                <svg
-                  viewBox="0 0 24 24"
-                  width="16"
-                  height="16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z" />
-                  <path d="M16 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11" />
-                </svg>
-                {a.audience === "booked" ? t("ann.forGuests") : t("ann.label")}
-              </p>
               <h2>{pick(a.title, a.title_th)}</h2>
               {pick(a.body, a.body_th) && (
                 <p className="announce__body">{pick(a.body, a.body_th)}</p>

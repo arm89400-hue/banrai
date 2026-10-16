@@ -2,7 +2,7 @@
    the left, three link columns on the right, then a darker
    legal strip. */
 .footer {
-  --sun: hsl(44, 92%, 58%);
+  --sun: hsl(38, 48%, 64%);
   --on-dark: rgba(255, 255, 255, 0.8);
   --on-dark-muted: rgba(255, 255, 255, 0.55);
   color: var(--white);

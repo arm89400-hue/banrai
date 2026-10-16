@@ -55,8 +55,6 @@ export const BOOKING_SLIDES = [
 
 export const FARM_PHOTOS = { main: src('entrance'), inset: src('harvest') };
 
-export const SIGN_PHOTO = src('sign');
-
 // What grows in the orchard.
 export const FRUIT_PHOTOS = photos([
   'fruit-avocado',

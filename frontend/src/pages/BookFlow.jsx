@@ -6,15 +6,21 @@ import {
   MAX_GUESTS,
   MAX_PETS,
   REQUEST_OPTIONS,
+  addDays,
+  bookedNightSet,
   formatDay,
+  formatDayShort,
   formatStay,
   isISODate,
+  nearbyFreeStays,
+  nextFreeStart,
   nightsBetween,
   priceStay,
   promoFor,
   roomMaxGuests,
   roomNames,
   splitGuests,
+  toISODate,
 } from '../lib/booking';
 import { usePromotions } from '../lib/promotions';
 import { CHECK_IN_TIME, CHECK_OUT_TIME } from '../lib/site';
@@ -141,6 +147,30 @@ export default function BookFlow() {
 
   // Only rooms free for the whole stay are offered.
   const freeRooms = (rooms ?? []).filter((r) => availableIds?.has(r.id));
+  const taken = availableIds ? (rooms ?? []).filter((r) => !availableIds.has(r.id)) : [];
+
+  // Every room's booked nights (room id -> Set), loaded once a room turns
+  // out to be full, so full rooms can say when they're free again and a
+  // fully booked date can offer the nearest free ones.
+  const [booked, setBooked] = useState(null);
+  const needBooked = taken.length > 0 && !booked;
+  useEffect(() => {
+    if (!needBooked || !rooms) return;
+    Promise.all(rooms.map((r) => api(`/api/rooms/${r.id}/booked`).then((data) => [r.id, bookedNightSet(data.booked)])))
+      .then((pairs) => setBooked(new Map(pairs)))
+      .catch(() => {});
+  }, [needBooked, rooms]);
+  const freeAgain =
+    booked && nights
+      ? taken
+          .map((r) => nextFreeStart(booked.get(r.id) ?? new Set(), checkIn, nights))
+          .filter(Boolean)
+          .sort()[0]
+      : null;
+  const nearby =
+    booked && nights && freeRooms.length === 0
+      ? nearbyFreeStays(rooms, booked, checkIn, nights, guests, toISODate(new Date()))
+      : [];
 
   // If a chosen room turns out to be taken for these dates, drop it and
   // tell the guest.
@@ -301,7 +331,6 @@ export default function BookFlow() {
   }
 
   // ---------- Steps ----------
-  const taken = availableIds ? (rooms ?? []).filter((r) => !availableIds.has(r.id)) : [];
   const extraGuests = plans.reduce((sum, p) => sum + p.extraGuests, 0);
   const extraTotal = plans.reduce((sum, p) => sum + p.extraTotal, 0);
   const petTotal = plans.reduce((sum, p) => sum + p.petTotal, 0);
@@ -368,6 +397,7 @@ export default function BookFlow() {
           {current === 1 && (
             <>
               <StaySearch
+                className="stay-search--flat"
                 checkIn={checkIn}
                 checkOut={checkOut}
                 guests={guests}
@@ -382,7 +412,25 @@ export default function BookFlow() {
                   {t(roomNotice)}
                 </p>
               )}
-              {availableIds && freeRooms.length === 0 && <p className="flow-none">{t('flow.noneFree')}</p>}
+              {availableIds && freeRooms.length === 0 && (
+                <div className="flow-none">
+                  <p>
+                    <b>{t('flow.noneFreeTitle')}</b>
+                    <br />
+                    {nearby.length > 0 ? t('flow.nearbyLead', { n: nights }) : t('flow.noneFree')}
+                  </p>
+                  {nearby.length > 0 && (
+                    <div className="flow-nearby">
+                      {nearby.map((stay) => (
+                        <button type="button" key={stay.checkIn} onClick={() => handleDates(stay)}>
+                          {formatStay(stay.checkIn, stay.checkOut, locale, t('date.wd'))}
+                          <span>{t('flow.nearbyRooms', { n: stay.rooms.length })}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {availableIds && freeRooms.length > 0 && (
                 <>
@@ -403,9 +451,7 @@ export default function BookFlow() {
                       const roomPromo = promoFor(promotions, r.id, checkIn);
                       const picked = roomIds.includes(r.id);
                       const max = roomMaxGuests(r);
-                      const price = (room) => priceStay(room, nights, Math.min(roomMaxGuests(room), room.capacity ?? 1), fee, 0, 0, promoFor(promotions, room.id, checkIn)).total;
-                      const base = price(r);
-                      const cheapest = freeRooms.length > 1 && freeRooms.every((o) => price(o) >= base);
+                      const base = priceStay(r, nights, Math.min(max, r.capacity ?? 1), fee, 0, 0, roomPromo).total;
                       return (
                         <button
                           type="button"
@@ -415,28 +461,50 @@ export default function BookFlow() {
                           onClick={() => toggleRoom(r.id)}
                         >
                           <img src={roomCover(r)} alt="" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
-                          <span className="flow-tile__tick" aria-hidden="true">
-                            {picked && '✓'}
-                          </span>
                           <span className="flow-tile__row">
                             <strong>{names.title}</strong>
                             <b>{formatBaht(base)}</b>
                           </span>
+                          {/* The nights are already in the search bar above, so
+                              the card only says who fits and what's included,
+                              then the choose button. */}
                           <span className="flow-tile__facts">
-                            {r.capacity && max > r.capacity ? t('rooms.guestsRange', { from: r.capacity, to: max }) : t('rooms.guests', { n: r.capacity || max })}
-                            {cheapest && ` · ${t('flow.cheapest')}`}
-                            {' · '}
-                            {t('flow.nightsBreakfast', { n: nights })}
+                            <span>
+                              {r.capacity && max > r.capacity ? t('rooms.guestsRange', { from: r.capacity, to: max }) : t('rooms.guests', { n: r.capacity || max })}
+                              {' · '}
+                              {t('rooms.breakfast')}
+                            </span>
+                            <em className="flow-tile__pick">
+                              {picked && (
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                  <path d="M5 12.5l4.5 4.5L19 7.5" />
+                                </svg>
+                              )}
+                              {picked ? t('flow.picked') : t('flow.pickThis')}
+                            </em>
                           </span>
                           {roomPromo && <PromoTag promo={roomPromo} />}
                         </button>
                       );
                     })}
                   </div>
-                  {taken.length > 0 && (
-                    <p className="flow-taken">{t('flow.taken', { rooms: taken.map((r) => roomNames(r.name, lang).title).join(', ') })}</p>
-                  )}
                 </>
+              )}
+
+              {/* Full rooms in one line, with the soonest a full room is free
+                  again (same length of stay) as a shortcut to those dates. */}
+              {taken.length > 0 && (
+                <p className="flow-taken">
+                  {t('flow.takenLine', { rooms: taken.map((r) => roomNames(r.name, lang).title).join(', ') })}
+                  {freeAgain && (
+                    <>
+                      {' · '}
+                      <button type="button" onClick={() => handleDates({ checkIn: freeAgain, checkOut: addDays(freeAgain, nights) })}>
+                        {t('flow.freeAgain', { date: formatDayShort(freeAgain, locale, t('date.wd')) })} ›
+                      </button>
+                    </>
+                  )}
+                </p>
               )}
             </>
           )}
@@ -504,51 +572,89 @@ export default function BookFlow() {
           {current === 3 && plans.length > 0 && (
             <>
               <h1 className="flow__title">{t('flow.review')}</h1>
-              <dl className="flow-list">
-                <div>
-                  <dt>{t('sum.name')}</dt>
-                  <dd>{form.name}</dd>
-                </div>
-                <div>
-                  <dt>{t('sum.phone')}</dt>
-                  <dd>{form.phone}</dd>
-                </div>
-                {form.email.trim() && (
+              {/* Grouped the way the guest filled it in, each group with a
+                  way straight back to the step that changes it. */}
+              <section className="flow-review">
+                <h2>
+                  {t('review.stay')}
+                  <button type="button" onClick={() => goTo(1)}>
+                    {t('review.edit')}
+                  </button>
+                </h2>
+                <dl className="flow-list">
                   <div>
-                    <dt>{t('flow.emailShort')}</dt>
-                    <dd>{form.email}</dd>
+                    <dt>{t('review.room')}</dt>
+                    <dd>
+                      {plans.map((p) => roomNames(p.room.name, lang).title).join(', ')} · {t('sum.guestCount', { n: guests })}
+                    </dd>
                   </div>
-                )}
+                  <div>
+                    <dt>{t('sum.checkIn')}</dt>
+                    <dd>
+                      {formatDay(checkIn, locale)} · {CHECK_IN_TIME}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{t('sum.checkOut')}</dt>
+                    <dd>
+                      {formatDay(checkOut, locale)} · {CHECK_OUT_TIME}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+
+              <section className="flow-review">
+                <h2>
+                  {t('review.guest')}
+                  <button type="button" onClick={() => goTo(2)}>
+                    {t('review.edit')}
+                  </button>
+                </h2>
+                <dl className="flow-list">
+                  <div>
+                    <dt>{t('review.name')}</dt>
+                    <dd>{form.name}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('sum.phone')}</dt>
+                    <dd>{form.phone}</dd>
+                  </div>
+                  {form.email.trim() && (
+                    <div>
+                      <dt>{t('flow.emailShort')}</dt>
+                      <dd>{form.email}</dd>
+                    </div>
+                  )}
+                  {form.requests.length > 0 && (
+                    <div>
+                      <dt>{t('sum.requests')}</dt>
+                      <dd>{form.requests.map((r) => t(`req.${r}`)).join(', ')}</dd>
+                    </div>
+                  )}
+                  {form.pets > 0 && (
+                    <div>
+                      <dt>{t('sum.pets')}</dt>
+                      <dd>{t('price.petSaved', { n: form.pets })}</dd>
+                    </div>
+                  )}
+                  {form.note.trim() && (
+                    <div>
+                      <dt>{t('sum.note')}</dt>
+                      <dd>{form.note}</dd>
+                    </div>
+                  )}
+                </dl>
+              </section>
+
+              <dl className="flow-review flow-review__money">
                 <div>
-                  <dt>{t('sum.checkIn')}</dt>
-                  <dd>
-                    {formatDay(checkIn, locale)} · {CHECK_IN_TIME}
-                  </dd>
+                  <dt>{t('sum.total')}</dt>
+                  <dd>{formatBaht(grandTotal)}</dd>
                 </div>
-                <div>
-                  <dt>{t('sum.checkOut')}</dt>
-                  <dd>
-                    {formatDay(checkOut, locale)} · {CHECK_OUT_TIME}
-                  </dd>
+                <div className="flow-review__dep">
+                  <dt>{t('review.depositAfter')}</dt>
+                  <dd>{formatBaht(grandTotal / 2)}</dd>
                 </div>
-                {form.requests.length > 0 && (
-                  <div>
-                    <dt>{t('sum.requests')}</dt>
-                    <dd>{form.requests.map((r) => t(`req.${r}`)).join(', ')}</dd>
-                  </div>
-                )}
-                {form.pets > 0 && (
-                  <div>
-                    <dt>{t('sum.pets')}</dt>
-                    <dd>{t('price.petSaved', { n: form.pets })}</dd>
-                  </div>
-                )}
-                {form.note.trim() && (
-                  <div>
-                    <dt>{t('sum.note')}</dt>
-                    <dd>{form.note}</dd>
-                  </div>
-                )}
               </dl>
 
               <p className="flow__hint">{t('flow.depositInfo')}</p>
@@ -622,7 +728,7 @@ export default function BookFlow() {
             {nights ? t('stayBox.partyValue', { guests, nights }) : t('sum.guestCount', { n: guests })}
             {chosen.length > 0 && ` · ${t('flow.nRooms', { n: chosen.length })}`}
           </small>
-          <b>{plans.length > 0 && nights > 0 ? formatBaht(grandTotal) : t(STEPS[current - 1])}</b>
+          <b>{plans.length > 0 && nights > 0 ? formatBaht(grandTotal) : t(current === 1 ? 'flow.noRoomYet' : STEPS[current - 1])}</b>
         </span>
         {nextButton('flow-bar__go')}
       </div>

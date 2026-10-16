@@ -115,20 +115,77 @@
   margin: 0;
   color: var(--text-muted);
 }
-.flow-none,
+/* Every room full: what happened, then the nearest free dates to tap. */
+.flow-none {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.flow-none p {
+  margin: 0;
+  color: var(--text-muted);
+}
+.flow-none b {
+  color: var(--text-h);
+}
+.flow-nearby {
+  display: grid;
+  gap: 8px;
+}
+.flow-nearby button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: inset 0 0 0 1.5px var(--brand);
+  color: var(--brand-dark);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-fast);
+}
+.flow-nearby button:hover {
+  background: var(--brand-soft);
+}
+.flow-nearby span {
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+/* Full rooms: one quiet line, with when one is free again. */
 .flow-taken {
   margin: 0;
-  padding: 12px 16px;
-  border-radius: 10px;
-  box-shadow: inset 0 0 0 1.5px var(--border);
+  padding: 14px 0 0;
+  border-top: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 15px;
+  font-size: 14px;
+}
+.flow-taken button {
+  padding: 4px 0;
+  border: none;
+  background: none;
+  color: var(--brand);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 .flow-short {
   margin: 0;
   padding: 10px 14px;
   border-radius: 10px;
-  background: hsl(44, 92%, 90%);
+  background: hsl(38, 45%, 90%);
   color: hsl(35, 70%, 26%);
   font-size: 15px;
   font-weight: 600;
@@ -154,78 +211,76 @@
 .flow-tiles {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 28px 20px;
 }
+/* Photo first: no card around a room, just its photo, then its name and
+   price set in type, then who it fits and a small choose button. */
 .flow-tile {
-  position: relative;
   display: grid;
   align-content: start;
-  gap: 8px;
-  padding: 10px 10px 12px;
+  gap: 4px;
+  padding: 0;
   border: none;
-  border-radius: 16px;
-  background: var(--white);
-  box-shadow: 0 0 0 1px var(--border);
+  background: none;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: box-shadow var(--dur-fast);
-}
-.flow-tile:hover {
-  box-shadow: 0 0 0 1.5px var(--brand);
-}
-.flow-tile.is-on {
-  box-shadow: 0 0 0 2px var(--brand);
 }
 .flow-tile img {
   width: 100%;
-  aspect-ratio: 8 / 5;
-  border-radius: 10px;
+  aspect-ratio: 4 / 3;
+  margin-bottom: 6px;
+  border-radius: 12px;
   object-fit: cover;
-}
-/* A round tick in the photo's corner: empty, or green once chosen. */
-.flow-tile__tick {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.95), 0 1px 4px rgba(0, 0, 0, 0.25);
-  color: var(--white);
-  font-size: 15px;
-  font-weight: 700;
-}
-.flow-tile.is-on .flow-tile__tick {
-  background: var(--brand);
 }
 .flow-tile__row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  padding: 0 6px;
 }
 .flow-tile__row strong {
-  font-size: 19px;
+  font-family: var(--serif);
+  font-size: 22px;
   font-weight: 600;
 }
 .flow-tile__row b {
-  font-size: 17px;
+  font-size: 18px;
   font-variant-numeric: tabular-nums;
 }
 .flow-tile__facts {
-  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   font-size: 15px;
   color: var(--text-muted);
 }
+.flow-tile__pick {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1.5px var(--brand);
+  color: var(--brand);
+  font-style: normal;
+  font-size: 15px;
+  font-weight: 600;
+  transition: background-color var(--dur-fast), color var(--dur-fast);
+}
+.flow-tile:hover .flow-tile__pick {
+  background: var(--brand-soft);
+}
+.flow-tile.is-on .flow-tile__pick {
+  background: var(--brand);
+  color: var(--white);
+}
 .flow-tile .promo-tag {
   justify-self: start;
-  margin: 0 6px;
 }
 
 /* ---- The booking so far: a white card, the same as the room page's ---- */
@@ -235,9 +290,9 @@
   display: grid;
   gap: 12px;
   padding: 22px;
-  border-radius: 18px;
+  border-radius: 12px;
   background: var(--white);
-  box-shadow: 0 0 0 1px var(--border), 0 10px 28px -20px hsla(150, 30%, 10%, 0.45);
+  box-shadow: 0 0 0 1px var(--border);
 }
 .flow-stay h2 {
   margin: 0;
@@ -277,7 +332,7 @@
   margin: 0 -10px;
   padding: 8px 10px;
   border-radius: 10px;
-  background: hsl(44, 92%, 91%);
+  background: hsl(38, 45%, 91%);
   font-weight: 700;
 }
 .flow-stay__go,
@@ -286,7 +341,7 @@
   padding: 0 22px;
   border: none;
   border-radius: 999px;
-  background: hsl(44, 92%, 58%);
+  background: hsl(38, 48%, 64%);
   color: hsl(150, 38%, 13%);
   font: inherit;
   font-size: 17px;
@@ -296,7 +351,7 @@
 }
 .flow-stay__go:hover:not(:disabled),
 .flow-bar__go:hover:not(:disabled) {
-  background: hsl(44, 92%, 52%);
+  background: hsl(38, 48%, 58%);
 }
 .flow-stay__go:disabled {
   background: hsl(40, 20%, 94%);
@@ -357,21 +412,25 @@
   .flow-stay__go {
     display: none;
   }
+  /* The bottom bar shows the stay and the total on phones. */
+  .flow-stay {
+    display: none;
+  }
 
   .flow-bar {
     position: fixed;
-    left: 8px;
-    right: 8px;
-    bottom: 8px;
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 30;
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px 8px 8px 18px;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-    border-radius: 26px;
+    padding: 10px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
     background: var(--white);
-    box-shadow: 0 0 0 1px var(--border), 0 -10px 30px -14px rgba(30, 40, 30, 0.4);
+    box-shadow: 0 -6px 18px -14px rgba(30, 40, 30, 0.35);
   }
   .flow-bar__info {
     display: grid;
@@ -426,6 +485,64 @@
   margin: 0;
   text-align: right;
   overflow-wrap: anywhere;
+}
+
+/* ---- Step 3: review, grouped with an edit link per group ---- */
+.flow-review {
+  margin: 0;
+  padding: 4px 18px;
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.flow-review h2 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 0 6px;
+  font-size: 17px;
+  font-weight: 600;
+}
+.flow-review h2 button {
+  min-height: 32px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--brand);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.flow-review .flow-list {
+  margin: 0 0 12px;
+}
+.flow-review__money {
+  display: grid;
+  padding: 0 18px;
+  overflow: hidden;
+}
+.flow-review__money > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.flow-review__money dd {
+  margin: 0;
+  font-size: 18px;
+}
+.flow-review__dep {
+  margin: 0 -18px;
+  padding: 12px 18px !important;
+  background: hsl(38, 45%, 91%);
+  color: hsl(35, 70%, 24%);
 }
 
 /* ---- Step 2: details ---- */

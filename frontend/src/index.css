@@ -101,6 +101,17 @@ html {
   background: var(--brand);
 }
 
+/* Selected text and the typing cursor in the farm's green, not the
+   browser's blue and black. */
+::selection {
+  background: hsl(150, 35%, 84%);
+  color: hsl(150, 35%, 14%);
+}
+input,
+textarea {
+  caret-color: var(--brand);
+}
+
 body {
   margin: 0;
 }

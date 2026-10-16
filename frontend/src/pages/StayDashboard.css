@@ -4,19 +4,8 @@
   margin-bottom: 26px;
   animation: fade-up var(--dur-slow) var(--ease-out) both;
 }
-.stay__eyebrow {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--brand);
-}
-html:lang(th) .stay__eyebrow {
-  letter-spacing: 0.02em;
-}
 .stay__head h1 {
   font-size: 32px;
-  margin-top: 4px;
 }
 /* When the login stops working: the one thing this guest must know. */
 .stay__expiry {
@@ -24,7 +13,7 @@ html:lang(th) .stay__eyebrow {
   margin-top: 12px;
   padding: 8px 14px;
   border-radius: 999px;
-  background: hsl(44, 92%, 90%);
+  background: hsl(38, 45%, 90%);
   color: hsl(36, 70%, 25%);
   font-size: 14px;
   font-weight: 600;
@@ -135,22 +124,6 @@ html:lang(th) .stay__eyebrow {
 .stay-list dd {
   margin: 0;
   text-align: right;
-}
-
-.stay-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.stay-chips li {
-  padding: 6px 13px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg);
-  font-size: 14px;
 }
 
 .stay-rules {

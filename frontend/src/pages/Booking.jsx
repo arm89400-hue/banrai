@@ -29,7 +29,13 @@ function DeletedNotice({ notice, onDismiss }) {
   return (
     <div className="my-notice" role="alert">
       <div>
-        <p className="my-notice__title">{t('my.deletedTitle')}</p>
+        <p className="my-notice__title">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7.5v5.5M12 16.5v.01" />
+          </svg>
+          {t('my.deletedTitle')}
+        </p>
         <p className="my-notice__what">{what}</p>
         <p>
           <strong>{t('my.deletedReason')}</strong> {notice.reason}

@@ -66,6 +66,38 @@ export function rangeIsFree(bookedNights, checkIn, checkOut) {
   return true;
 }
 
+// When the chosen dates are full: stays of the same length that start up to
+// two weeks before or after (never before `today`) and still have room for
+// the party, closest first. `booked` maps room id -> bookedNightSet.
+// Returns [{ checkIn, checkOut, rooms }] with the rooms free for that stay.
+export function nearbyFreeStays(rooms, booked, checkIn, nights, guests, today) {
+  const span = 14;
+  const limit = 3;
+  const found = [];
+  for (let step = 1; step <= span && found.length < limit; step++) {
+    for (const shift of [-step, step]) {
+      const start = addDays(checkIn, shift);
+      if (start < today || found.length >= limit) continue;
+      const end = addDays(start, nights);
+      const free = rooms.filter((r) => rangeIsFree(booked.get(r.id) ?? new Set(), start, end));
+      if (free.length && free.reduce((sum, r) => sum + roomMaxGuests(r), 0) >= guests) {
+        found.push({ checkIn: start, checkOut: end, rooms: free });
+      }
+    }
+  }
+  return found;
+}
+
+// The first check-in after `checkIn` (within `span` days) when a room is
+// free for `nights` nights in a row, or null.
+export function nextFreeStart(bookedNights, checkIn, nights, span = 60) {
+  for (let shift = 1; shift <= span; shift++) {
+    const start = addDays(checkIn, shift);
+    if (rangeIsFree(bookedNights, start, addDays(start, nights))) return start;
+  }
+  return null;
+}
+
 // Room names are stored as "English name · Thai name". Returns the current
 // language's name as the title and the other as a subtitle.
 export function roomNames(name, lang) {
@@ -145,8 +177,11 @@ export function formatDayShort(iso, locale, wd) {
 // when both dates share it).
 export function formatStay(checkIn, checkOut, locale, wd) {
   if (!checkOut) return `${formatDayShort(checkIn, locale, wd)} – ?`;
+  // Two months need two month names: the weekdays go, so it still fits the
+  // search bar on a phone ("31 ธ.ค. – 1 ม.ค.").
   if (checkIn.slice(0, 7) !== checkOut.slice(0, 7)) {
-    return `${formatDayShort(checkIn, locale, wd)} – ${formatDayShort(checkOut, locale, wd)}`;
+    const day = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+    return `${day(checkIn)} – ${day(checkOut)}`;
   }
   const d = (iso) => new Date(`${iso}T00:00:00`);
   return `${wd[d(checkIn).getDay()]} ${d(checkIn).getDate()} – ${formatDayShort(checkOut, locale, wd)}`;

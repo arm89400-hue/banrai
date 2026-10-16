@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { FACEBOOK_URL, PHONES } from '../lib/site';
 import { useLang } from '../i18n/lang';
 import ChatThread from './ChatThread';
 import './ChatWidget.css';
@@ -19,7 +20,7 @@ const CLOSED_POLL_MS = 20000;
 // for admins.
 export default function ChatWidget() {
   const { user } = useAuth();
-  const { t, locale } = useLang();
+  const { t, lang, locale } = useLang();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [unread, setUnread] = useState(0);
@@ -75,11 +76,11 @@ export default function ChatWidget() {
   return (
     <div className="chat-widget">
       {open && (
-        <section className="chat-widget__panel" aria-label={t('chat.title')}>
+        <section className={`chat-widget__panel${enabled ? '' : ' chat-widget__panel--contact'}`} aria-label={t('chat.title')}>
           <header>
             <div>
-              <strong>{t('chat.title')}</strong>
-              <span>{t('chat.subtitle')}</span>
+              <strong>{enabled ? t('chat.title') : t('chat.visitorTitle')}</strong>
+              <span>{enabled ? t('chat.subtitle') : t('chat.visitorSub')}</span>
             </div>
             <button type="button" onClick={() => setOpen(false)} aria-label={t('chat.close')}>
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
@@ -97,15 +98,31 @@ export default function ChatWidget() {
               labels={{ empty: t('chat.empty'), placeholder: t('chat.placeholder'), send: t('chat.send') }}
             />
           ) : (
+            // Visitors: a question shouldn't need an account, so the phone
+            // lines and Facebook come first; website chat is for members.
             <div className="chat-widget__gate">
-              <p>{t('chat.loginFirst')}</p>
-              <Link
-                className="chat-widget__login"
-                to={`/login?next=${encodeURIComponent(pathname + search)}`}
-                onClick={() => setOpen(false)}
-              >
-                {t('chat.login')}
-              </Link>
+              {PHONES.map((p) => (
+                <a key={p.tel} className="chat-widget__contact" href={`tel:${p.tel}`}>
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z" />
+                  </svg>
+                  <b>{t('chat.call', { name: p.name[lang] })}</b>
+                  <span>{p.display}</span>
+                </a>
+              ))}
+              <a className="chat-widget__contact" href={FACEBOOK_URL} target="_blank" rel="noreferrer">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+                  <path d="M14 8h3V4h-3c-2.8 0-4 1.7-4 4.3V10H7v4h3v8h4v-8h3l1-4h-4V8.6c0-.4.3-.6.6-.6z" />
+                </svg>
+                <b>{t('chat.facebook')}</b>
+                <span aria-hidden="true">›</span>
+              </a>
+              <p>
+                {t('chat.haveAccount')}{' '}
+                <Link to={`/login?next=${encodeURIComponent(pathname + search)}`} onClick={() => setOpen(false)}>
+                  {t('chat.loginHere')}
+                </Link>
+              </p>
             </div>
           )}
         </section>

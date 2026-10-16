@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { formatStay, isISODate, roomNames } from '../lib/booking';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import PasswordInput from '../components/PasswordInput';
 import PhotoSlides from '../components/PhotoSlides';
-import { LOGIN_SLIDES } from '../lib/photos';
+import { LOGIN_SLIDES, roomCover } from '../lib/photos';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -31,19 +32,22 @@ const ERROR_KEYS = {
 // with their email; a room account signs in with the username generated
 // for its booking. Redirects away if already signed in.
 export default function Login() {
-  const [mode, setMode] = useState('login');
+  const [params] = useSearchParams();
+  // Only same-site paths are accepted as a return target.
+  const rawNext = params.get('next');
+  const next = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
+  // Sent here from the booking flow: most of these guests are new, so the
+  // sign-up form comes first and the stay they're booking stays in view.
+  const booking = Boolean(next?.startsWith('/book'));
+  const [mode, setMode] = useState(booking ? 'register' : 'login');
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const { user, login } = useAuth();
   const { lang, t } = useLang();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
   const googleButtonRef = useRef(null);
 
-  // Only same-site paths are accepted as a return target.
-  const rawNext = params.get('next');
-  const next = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
   const expired = params.get('expired') === '1';
 
   // Renders Google's real "Sign in with Google" button once the GIS script
@@ -130,9 +134,24 @@ export default function Login() {
     <section className="auth-screen">
       <PhotoSlides photos={LOGIN_SLIDES} />
       <div className="page auth-page">
+        {booking && <BookingInProgress next={next} />}
         <div className="auth-card">
-          <h1>{mode === 'login' ? t('login.title') : t('login.createTitle')}</h1>
-          {next?.startsWith('/book') && <p className="auth-page__lead">{t('login.toBook')}</p>}
+          {booking ? (
+            <>
+              <h1>{t('login.bookTitle')}</h1>
+              <p className="auth-page__lead">{t('login.bookLead')}</p>
+              <div className="auth-tabs">
+                <button type="button" aria-pressed={mode === 'register'} onClick={() => setMode('register')}>
+                  {t('login.tabNew')}
+                </button>
+                <button type="button" aria-pressed={mode === 'login'} onClick={() => setMode('login')}>
+                  {t('login.tabHave')}
+                </button>
+              </div>
+            </>
+          ) : (
+            <h1>{mode === 'login' ? t('login.title') : t('login.createTitle')}</h1>
+          )}
           {expired && !error && <p role="alert">{t('login.errExpired')}</p>}
 
           {GOOGLE_CLIENT_ID ? (
@@ -170,37 +189,87 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleSubmit}>
-            <input
-              // Text, not email: a room account's username isn't an email address.
-              type={mode === 'register' ? 'email' : 'text'}
-              autoComplete="username"
-              placeholder={mode === 'register' ? t('login.email') : t('login.idPlaceholder')}
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              required
-            />
-            <PasswordInput
-              label={t('login.holdToShow')}
-              autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-              placeholder={t('login.password')}
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              required
-            />
+            <label className="auth-field">
+              <span>{mode === 'register' ? t('login.email') : t('login.idPlaceholder')}</span>
+              <input
+                // Text, not email: a room account's username isn't an email address.
+                type={mode === 'register' ? 'email' : 'text'}
+                autoComplete="username"
+                placeholder={mode === 'register' ? 'name@email.com' : undefined}
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                required
+              />
+            </label>
+            <label className="auth-field">
+              <span>{mode === 'register' ? t('login.newPassword') : t('login.password')}</span>
+              <PasswordInput
+                label={t('login.holdToShow')}
+                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                required
+              />
+            </label>
             <button type="submit" disabled={submitting}>
-              {mode === 'login' ? t('login.submit') : t('login.signup')}
+              {booking
+                ? t(mode === 'login' ? 'login.loginAndBook' : 'login.signupAndBook')
+                : t(mode === 'login' ? 'login.submit' : 'login.signup')}
             </button>
             {error && <p role="alert">{error}</p>}
           </form>
-          <button
-            type="button"
-            className="link-button"
-            onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-          >
-            {mode === 'login' ? t('login.needAccount') : t('login.haveAccount')}
-          </button>
+          {!booking && (
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+            >
+              {mode === 'login' ? t('login.needAccount') : t('login.haveAccount')}
+            </button>
+          )}
         </div>
       </div>
     </section>
+  );
+}
+
+// The stay a guest was booking when they were sent here (rooms, dates and
+// guests from the `next` link), with a way back to change it.
+function BookingInProgress({ next }) {
+  const { lang, locale, t } = useLang();
+  const [rooms, setRooms] = useState([]);
+  useEffect(() => {
+    api('/api/rooms')
+      .then((data) => setRooms(data.rooms))
+      .catch(() => {});
+  }, []);
+
+  const query = new URLSearchParams(next.split('?')[1] ?? '');
+  const checkIn = query.get('in');
+  const checkOut = query.get('out');
+  const chosen = (query.get('rooms') ?? '')
+    .split(',')
+    .map((id) => rooms.find((r) => r.id === Number(id)))
+    .filter(Boolean);
+  const back = new URLSearchParams(query);
+  back.set('step', '1');
+
+  return (
+    <div className="auth-booking">
+      <Link to={`/book?${back}`} className="auth-booking__back">
+        ‹ {t('login.backToBooking')}
+      </Link>
+      {chosen.length > 0 && isISODate(checkIn) && isISODate(checkOut) && (
+        <div className="auth-booking__stay">
+          <img src={roomCover(chosen[0])} alt="" />
+          <span>
+            <strong>{chosen.map((r) => roomNames(r.name, lang).title).join(' + ')}</strong>
+            <small>
+              {formatStay(checkIn, checkOut, locale, t('date.wd'))} · {t('sum.guestCount', { n: query.get('guests') ?? 2 })}
+            </small>
+          </span>
+        </div>
+      )}
+    </div>
   );
 }

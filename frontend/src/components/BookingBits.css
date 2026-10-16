@@ -45,13 +45,13 @@
   border-color: var(--brand-hover);
 }
 .bk-btn--sun {
-  background: hsl(44, 92%, 58%);
-  border-color: hsl(44, 92%, 58%);
+  background: hsl(38, 48%, 64%);
+  border-color: hsl(38, 48%, 64%);
   color: var(--brand-dark);
 }
 .bk-btn--sun:hover:not(:disabled) {
-  background: hsl(44, 92%, 64%);
-  border-color: hsl(44, 92%, 64%);
+  background: hsl(38, 48%, 70%);
+  border-color: hsl(38, 48%, 70%);
 }
 .bk-btn--block {
   width: 100%;
@@ -143,7 +143,7 @@
 .price-rows__deposit {
   padding: 12px 14px;
   border-radius: 12px;
-  background: hsl(44, 92%, 90%);
+  background: hsl(38, 45%, 90%);
   color: hsl(36, 70%, 25%);
   font-weight: 700;
 }
@@ -162,7 +162,7 @@
   white-space: nowrap;
 }
 .status-badge--pending {
-  background: hsl(44, 92%, 90%);
+  background: hsl(38, 45%, 90%);
   color: hsl(36, 70%, 25%);
 }
 .status-badge--confirmed {
@@ -228,7 +228,7 @@
 .stay-login__badge {
   font-size: 13px;
   font-weight: 600;
-  color: hsl(44, 92%, 70%);
+  color: hsl(38, 48%, 74%);
 }
 .stay-login__title {
   margin-top: -6px;
@@ -278,7 +278,7 @@
   background: hsla(0, 0%, 100%, 0.14);
 }
 .stay-login__copy:focus-visible {
-  outline-color: hsl(44, 92%, 58%);
+  outline-color: hsl(38, 48%, 64%);
 }
 .stay-login__hint {
   font-size: 13px;

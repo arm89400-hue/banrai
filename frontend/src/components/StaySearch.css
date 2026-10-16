@@ -4,7 +4,7 @@
   align-items: stretch;
   gap: 8px;
   padding: 8px;
-  border-radius: 20px;
+  border-radius: 12px;
   background: var(--white);
   box-shadow: 0 0 0 1px var(--border), 0 10px 28px -18px hsla(150, 30%, 10%, 0.45);
 }
@@ -18,7 +18,7 @@
   align-items: center;
   gap: 6px;
   padding: 0 8px 0 14px;
-  border-radius: 14px;
+  border-radius: 8px;
   background: var(--bg);
 }
 .stay-search__guests svg {
@@ -61,6 +61,22 @@
   color: var(--text-muted);
 }
 
+/* Flat version (the booking page): no floating card, the two fields side
+   by side in one thin outline. */
+.stay-search--flat {
+  gap: 1px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--border);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.stay-search--flat .dates-field,
+.stay-search--flat .stay-search__guests {
+  border-radius: 0;
+  background: var(--white);
+}
+
 @media (max-width: 480px) {
   .stay-search {
     gap: 6px;
@@ -83,5 +99,9 @@
   }
   .stay-search__guests output {
     min-width: 40px;
+  }
+  .stay-search--flat {
+    gap: 1px;
+    padding: 0;
   }
 }

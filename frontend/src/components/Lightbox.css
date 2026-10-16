@@ -61,7 +61,7 @@
   background: rgba(255, 255, 255, 0.24);
 }
 .lightbox :focus-visible {
-  outline-color: hsl(44, 92%, 58%);
+  outline-color: hsl(38, 48%, 64%);
 }
 .lightbox__close {
   position: absolute;

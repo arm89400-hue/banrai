@@ -2,8 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
-import { FACEBOOK_URL } from '../lib/site';
-import FacebookIcon from './FacebookIcon';
 import './Navbar.css';
 
 // Past this scroll offset (and on every page other than Home, where there's
@@ -11,7 +9,7 @@ import './Navbar.css';
 // floating, frosted capsule so it stays readable over any content.
 const FLOAT_SCROLL_THRESHOLD = 24;
 
-// Below this width the links move into the full-screen menu sheet.
+// Below this width the links move into the drop-down menu card.
 const MOBILE_QUERY = '(max-width: 900px)';
 
 // `label` is a translation key (see i18n/strings.js).
@@ -45,12 +43,25 @@ function LangSwitch({ lang, setLang, label, className = '' }) {
   );
 }
 
+const Chevron = () => (
+  <svg className="navbar__chev" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+    <path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const PersonIcon = () => (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
+  </svg>
+);
+
 // Site-wide navigation (see App.jsx): brand, page links with a sliding
 // "you are here" pill, and actions - account and the primary
 // "Book a stay" call to action. An admin browsing the public site gets a
 // link back to the admin dashboard (a separate page, see Admin.jsx) in place
 // of the guest-only items (Book a stay, My bookings). On small screens
-// everything except the brand and the CTA moves into a full-screen menu.
+// everything except the brand and the CTA moves into a drop-down menu.
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(window.scrollY > FLOAT_SCROLL_THRESHOLD);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -243,8 +254,9 @@ export default function Navbar() {
 
           <LangSwitch lang={lang} setLang={setLang} label={t('nav.language')} className="navbar__desktop-only" />
 
-          {/* On Home the booking button lives in the hero's search bar instead. */}
-          {!isAdmin && !isStay && pathname !== '/home' && (
+          {/* Not on Home (the hero's search bar is the booking button there) or
+              on the booking page itself. */}
+          {!isAdmin && !isStay && pathname !== '/home' && pathname !== '/book' && (
             <Link to="/book" className="navbar__cta" onClick={closeMenus}>
               {t('nav.book')}
             </Link>
@@ -265,50 +277,75 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu. `inert` keeps it out of the tab order while closed. */}
+      {/* Phones: a white card dropping down under the bar; the page stays in
+          view behind a light shade that closes it when tapped. `inert`
+          keeps the card out of the tab order while closed. */}
+      <div className="navbar__shade" aria-hidden="true" onClick={closeMenus} />
       <div id="navbar-sheet" className="navbar__sheet" inert={!menuOpen}>
         <nav className="navbar__sheet-links" aria-label="Main">
-          {links.map((link, i) => (
-            <NavLink key={link.to} to={link.to} end onClick={closeMenus} style={{ '--i': i }}>
+          {links.map((link) => (
+            <NavLink key={link.to} to={link.to} end onClick={closeMenus}>
               {link.label}
+              <Chevron />
             </NavLink>
           ))}
         </nav>
 
-        <div className="navbar__sheet-footer" style={{ '--i': links.length }}>
-          {user ? (
-            <>
-              <p className="navbar__sheet-email">
-                {t('nav.signedInAs', { email: user.email })}
-                {!isStay && user.member_code && ` · ${t('member.code')} ${user.member_code}`}
-              </p>
-              <div className="navbar__sheet-row">
-                {isAdmin && (
-                  <Link to="/admin" onClick={closeMenus}>
-                    Admin dashboard
-                  </Link>
-                )}
-                {!isAdmin && !isStay && (
-                  <Link to="/booking" onClick={closeMenus}>
-                    {t('nav.myBookings')}
-                  </Link>
-                )}
-                <button type="button" onClick={handleLogout}>
-                  {t('nav.logout')}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="navbar__sheet-row">
-              <Link to="/login" onClick={closeMenus}>
-                {t('nav.login')}
-              </Link>
-            </div>
+        <div className="navbar__sheet-more">
+          {user && (
+            <p className="navbar__sheet-email">
+              {user.email}
+              {!isStay && user.member_code && ` · ${t('member.code')} ${user.member_code}`}
+            </p>
           )}
-          <a href={FACEBOOK_URL} target="_blank" rel="noopener noreferrer" className="navbar__sheet-social">
-            <FacebookIcon size={18} /> {t('nav.messageFb')}
-          </a>
-          <LangSwitch lang={lang} setLang={setLang} label={t('nav.language')} className="navbar__sheet-lang" />
+          {!user && (
+            <Link to="/login" onClick={closeMenus}>
+              <span>
+                <PersonIcon />
+                {t('nav.login')}
+              </span>
+              <Chevron />
+            </Link>
+          )}
+          {isAdmin && (
+            <Link to="/admin" onClick={closeMenus}>
+              <span>
+                <PersonIcon />
+                Admin dashboard
+              </span>
+              <Chevron />
+            </Link>
+          )}
+          {user && !isAdmin && !isStay && (
+            <Link to="/booking" onClick={closeMenus}>
+              <span>
+                <PersonIcon />
+                {t('nav.myBookings')}
+              </span>
+              <Chevron />
+            </Link>
+          )}
+          {/* One row that switches to the other language. */}
+          <button type="button" lang={lang === 'th' ? 'en' : 'th'} onClick={() => setLang(lang === 'th' ? 'en' : 'th')}>
+            <span>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
+              </svg>
+              {lang === 'th' ? 'English' : 'ภาษาไทย'}
+            </span>
+            <small>{t('nav.language')}</small>
+          </button>
+          {user && (
+            <button type="button" onClick={handleLogout}>
+              <span>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10" />
+                </svg>
+                {t('nav.logout')}
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </header>

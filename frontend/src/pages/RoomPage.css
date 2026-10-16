@@ -27,11 +27,12 @@
 
 /* ---------- Photos ---------- */
 .room-gallery {
+  position: relative;
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 10px;
   height: 410px;
-  border-radius: 20px;
+  border-radius: 12px;
   overflow: hidden;
 }
 /* Three or more photos: cover spans both rows, two stacked on the right. */
@@ -66,15 +67,29 @@ button.room-gallery__tile {
 button.room-gallery__tile:hover img {
   scale: 1.03;
 }
-.room-gallery__more {
+/* "All photos (n)": the corner of the gallery, over the photos. */
+.room-gallery__all {
   position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(15, 30, 20, 0.45);
-  color: var(--white);
-  font-size: 26px;
-  font-weight: 700;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: background-color var(--dur-fast);
+}
+.room-gallery__all:hover {
+  background: var(--brand-soft);
 }
 
 /* ---------- Details | booking card ---------- */
@@ -132,26 +147,15 @@ button.room-gallery__tile:hover img {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.room-page__line {
-  margin: 0;
-  color: var(--text-muted);
-}
+/* Around the house: each group's title, then its icons like the in-room list. */
 .room-amen {
   display: grid;
-  gap: 10px;
-  margin: 0;
+  gap: 22px;
 }
-.room-amen div {
-  display: grid;
-  grid-template-columns: 170px 1fr;
-  gap: 16px;
-}
-.room-amen dt {
+.room-amen h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
   font-weight: 600;
-}
-.room-amen dd {
-  margin: 0;
-  color: var(--text-muted);
 }
 
 /* Other rooms: small photo, name, who it sleeps and price. */
@@ -195,9 +199,9 @@ button.room-gallery__tile:hover img {
   display: grid;
   gap: 14px;
   padding: 24px;
-  border-radius: 20px;
+  border-radius: 12px;
   background: var(--white);
-  box-shadow: 0 0 0 1px var(--border), 0 10px 28px -20px hsla(150, 30%, 10%, 0.45);
+  box-shadow: 0 0 0 1px var(--border);
   scroll-margin-top: 96px;
 }
 .room-book__price {
@@ -216,7 +220,7 @@ button.room-gallery__tile:hover img {
   align-items: center;
   gap: 12px;
   padding: 10px 10px 10px 16px;
-  border-radius: 14px;
+  border-radius: 8px;
   background: var(--bg);
 }
 .room-book__guests svg {
@@ -263,7 +267,7 @@ button.room-gallery__tile:hover img {
 .room-book__free {
   margin: 0;
   padding: 8px 14px;
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--brand-soft);
   color: var(--brand-dark);
   font-size: 15px;
@@ -323,10 +327,6 @@ button.room-gallery__tile:hover img {
   .room-page__main h1 {
     font-size: 30px;
   }
-  .room-amen div {
-    grid-template-columns: 1fr;
-    gap: 2px;
-  }
   .room-others {
     grid-template-columns: 1fr;
   }
@@ -336,18 +336,18 @@ button.room-gallery__tile:hover img {
 
   .room-bar {
     position: fixed;
-    left: 8px;
-    right: 8px;
-    bottom: 8px;
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 30;
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px 8px 8px 18px;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-    border-radius: 26px;
+    padding: 10px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
     background: var(--white);
-    box-shadow: 0 0 0 1px var(--border), 0 -10px 30px -14px rgba(30, 40, 30, 0.4);
+    box-shadow: 0 -6px 18px -14px rgba(30, 40, 30, 0.35);
   }
   .room-bar__info {
     display: grid;
@@ -372,7 +372,7 @@ button.room-gallery__tile:hover img {
     padding: 0 22px;
     border: none;
     border-radius: 999px;
-    background: hsl(44, 92%, 58%);
+    background: hsl(38, 48%, 64%);
     color: hsl(150, 38%, 13%);
     font: inherit;
     font-size: 17px;

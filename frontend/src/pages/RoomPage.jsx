@@ -9,6 +9,7 @@ import { useLang } from '../i18n/lang';
 import DateRangePicker from '../components/DateRangePicker';
 import { PriceRows, PromoTag } from '../components/BookingBits';
 import Lightbox from '../components/Lightbox';
+import RoomAmenities from '../components/RoomAmenities';
 import { roomCover, roomPhotos } from '../lib/photos';
 import './RoomPage.css';
 
@@ -96,7 +97,7 @@ export default function RoomPage() {
   const promo = promoFor(promotions, room.id, dates.checkIn);
   const roomPromos = promosForRoom(promotions, room.id);
   const quote = priceStay(room, nights, shownGuests, fee, 0, 0, promo);
-  const [inRoom, ...aroundHouse] = t('amenities.groups');
+  const [, ...aroundHouse] = t('amenities.groups');
   const perNight = t('room.perNight');
 
   function reserve() {
@@ -116,11 +117,11 @@ export default function RoomPage() {
         ‹ {t('room.allRooms')}
       </Link>
 
-      {/* Cover big on the left, the next two stacked on the right; the
-          last tile says how many more there are. Any tile opens the viewer. */}
+      {/* Cover big on the left, the next two stacked on the right (phones:
+          the cover only). Any tile opens the viewer; so does the "all
+          photos" button, which says there are more to see. */}
       <div className={`room-gallery${gallery.length > 2 ? ' room-gallery--stack' : ''}`}>
         {gallery.slice(0, 3).map((photo, i) => {
-          const more = i === 2 ? gallery.length - 3 : 0;
           return (
             <button
               key={photo.id}
@@ -136,7 +137,6 @@ export default function RoomPage() {
                   e.currentTarget.style.display = 'none';
                 }}
               />
-              {more > 0 && <span className="room-gallery__more">+{more}</span>}
             </button>
           );
         })}
@@ -145,6 +145,17 @@ export default function RoomPage() {
           <div className={`room-gallery__tile${gallery.length === 0 ? ' room-gallery__tile--main' : ''}`}>
             <img src="/images/hero.jpg" alt={t('room.housePhoto')} />
           </div>
+        )}
+        {gallery.length > 1 && (
+          <button type="button" className="room-gallery__all" onClick={() => setViewing(0)}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7" rx="1.5" />
+              <rect x="14" y="3" width="7" height="7" rx="1.5" />
+              <rect x="3" y="14" width="7" height="7" rx="1.5" />
+              <rect x="14" y="14" width="7" height="7" rx="1.5" />
+            </svg>
+            {t('room.allPhotos', { n: gallery.length })}
+          </button>
         )}
       </div>
       {viewing !== null && (
@@ -201,19 +212,19 @@ export default function RoomPage() {
 
           <div className="room-page__block">
             <h2>{t('room.inRoom')}</h2>
-            <p className="room-page__line">{inRoom.items.map((item) => item.label).join(' · ')}</p>
+            <RoomAmenities />
           </div>
 
           <div className="room-page__block">
             <h2>{t('amenities.title')}</h2>
-            <dl className="room-amen">
-              {aroundHouse.map((group) => (
-                <div key={group.icon}>
-                  <dt>{group.title}</dt>
-                  <dd>{group.items.map((item) => item.label).join(' · ')}</dd>
-                </div>
+            <div className="room-amen">
+              {aroundHouse.map((group, i) => (
+                <section key={group.icon}>
+                  <h3>{group.title}</h3>
+                  <RoomAmenities group={i + 1} />
+                </section>
               ))}
-            </dl>
+            </div>
           </div>
 
           {others.length > 0 && (

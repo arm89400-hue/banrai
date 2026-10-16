@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import { StatusBadge } from '../components/BookingBits';
 import Announcements from '../components/Announcements';
+import RoomAmenities from '../components/RoomAmenities';
 import './StayDashboard.css';
 
 // The room dashboard: what a room account sees after logging in with the
@@ -52,12 +53,9 @@ export default function StayDashboard() {
   const checkIn = dayOf(stay.booked_for);
   const checkOut = dayOf(stay.booked_until);
   const names = roomNames(stay.room_name, lang);
-  const inRoom = t('amenities.groups')[0];
-
   return (
     <section className="bk-page stay">
       <header className="stay__head">
-        <p className="stay__eyebrow">{t('stay.title')}</p>
         <h1>{t('stay.welcome', { name: stay.guest_name || user.email })}</h1>
         <p className="stay__expiry">
           {t('stay.expires', { date: formatDay(checkOut, locale), time: CHECK_OUT_TIME })}
@@ -136,11 +134,7 @@ export default function StayDashboard() {
 
         <article className="stay-card">
           <h2>{t('room.inRoom')}</h2>
-          <ul className="stay-chips">
-            {inRoom.items.map((item) => (
-              <li key={item.label}>{item.label}</li>
-            ))}
-          </ul>
+          <RoomAmenities />
         </article>
 
         <article className="stay-card">

@@ -1,0 +1,45 @@
+/* Amenities: icon + word, as many columns as fit (4 on the room
+   page on a computer, 2 on a phone). Plain icons, no tiles behind them. */
+.room-amenities {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* Around the house: longer words, so wider columns (3 on the room page). */
+.room-amenities--wide {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+.room-amenities li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  line-height: 1.35;
+}
+.room-amenities li.is-wide {
+  grid-column: span 2;
+}
+.room-amenities svg {
+  flex: none;
+  color: var(--brand);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.room-amenities small {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 480px) {
+  .room-amenities {
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 16px;
+  }
+}

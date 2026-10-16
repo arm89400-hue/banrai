@@ -74,7 +74,7 @@
   color: hsl(205, 70%, 28%);
 }
 .ab-pill--wait {
-  background: hsl(44, 92%, 90%);
+  background: hsl(38, 45%, 90%);
   color: hsl(35, 70%, 26%);
 }
 .ab-pill--ok {
@@ -245,9 +245,9 @@
   color: var(--white);
 }
 .ab-bar--wait {
-  background: hsl(44, 92%, 90%);
+  background: hsl(38, 45%, 90%);
   color: hsl(35, 70%, 26%);
-  box-shadow: inset 0 0 0 1.5px hsl(44, 92%, 58%);
+  box-shadow: inset 0 0 0 1.5px hsl(38, 48%, 64%);
 }
 .ab-bar:hover {
   filter: brightness(1.08);
@@ -347,7 +347,7 @@
   margin-left: 6px;
   padding: 0 7px;
   border-radius: 999px;
-  background: hsl(44, 92%, 58%);
+  background: hsl(38, 48%, 64%);
   color: hsl(150, 38%, 13%);
   font-size: 12px;
   font-style: normal;

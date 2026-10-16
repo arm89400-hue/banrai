@@ -87,7 +87,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: hsl(44, 92%, 58%);
+  background: hsl(38, 48%, 64%);
 }
 
 /* ---- The fruit, as a big taped polaroid ---- */
@@ -110,7 +110,7 @@
   width: 96px;
   height: 24px;
   rotate: -4deg;
-  background: hsla(44, 92%, 70%, 0.75);
+  background: hsla(38, 48%, 74%, 0.75);
 }
 .fruit-viewer__photo {
   position: relative;
@@ -146,7 +146,7 @@
 .fruit-viewer__now {
   padding: 3px 12px;
   border-radius: 999px;
-  background: hsl(44, 92%, 58%);
+  background: hsl(38, 48%, 64%);
   color: var(--brand-dark);
   font-size: 12px;
   font-weight: 700;
@@ -183,7 +183,7 @@
   color: var(--white);
 }
 .fruit-viewer__months li.is-now {
-  outline: 2px solid hsl(44, 92%, 50%);
+  outline: 2px solid hsl(38, 48%, 56%);
   outline-offset: -2px;
 }
 .fruit-viewer__text {
@@ -215,7 +215,7 @@
   color: var(--white);
 }
 .fruit-viewer :focus-visible {
-  outline: 2px solid hsl(44, 92%, 50%);
+  outline: 2px solid hsl(38, 48%, 56%);
   outline-offset: 2px;
 }
 

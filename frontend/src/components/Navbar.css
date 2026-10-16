@@ -4,8 +4,8 @@
    The header itself ignores clicks so page content beside the capsule stays
    clickable; only the capsule (and the mobile sheet) take pointer events. */
 .navbar {
-  --sun: hsl(44, 92%, 58%);
-  --sun-hover: hsl(44, 92%, 64%);
+  --sun: hsl(38, 48%, 64%);
+  --sun-hover: hsl(38, 48%, 70%);
   --on-dark: rgba(255, 255, 255, 0.8);
 
   position: fixed;
@@ -365,8 +365,9 @@
 .navbar--menu-open .navbar__burger span:nth-child(2) { opacity: 0; }
 .navbar--menu-open .navbar__burger span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
 
-/* ---- Mobile sheet: grows out of the burger button as a circle ---- */
-.navbar__sheet {
+/* ---- Phone menu: a card that drops down under the bar ---- */
+.navbar__sheet,
+.navbar__shade {
   display: none;
 }
 
@@ -409,114 +410,120 @@
     font-size: 14px;
   }
 
-  /* While the sheet is open the capsule drops its own backing so the bar
-     reads as part of the sheet. */
+  /* While the menu is open the bar keeps its backing, even over the Home
+     hero, so the card below reads as coming out of it. */
   .navbar--menu-open .navbar__inner {
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    background: hsla(150, 35%, 16%, 0.94);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.5);
   }
 
-  .navbar__sheet {
+  /* The page behind the card, shaded; tapping it closes the menu. */
+  .navbar__shade {
+    display: block;
     position: fixed;
     inset: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: 32px;
-    padding: 110px 28px 36px;
-    overflow-y: auto;
-    background:
-      radial-gradient(circle at 85% 0%, hsla(44, 92%, 58%, 0.14), transparent 45%),
-      var(--brand-dark);
+    background: hsla(150, 30%, 8%, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur) var(--ease-out);
+  }
+  .navbar--menu-open .navbar__shade {
+    opacity: 1;
     pointer-events: auto;
-    clip-path: circle(0 at calc(100% - 47px) 43px);
+  }
+
+  /* The menu: a white card dropping down under the bar. */
+  .navbar__sheet {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 6px;
+    max-height: calc(100svh - 100px);
+    margin-top: 8px;
+    padding: 8px;
+    overflow-y: auto;
+    border-radius: 20px;
+    background: var(--white);
+    box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.5);
+    pointer-events: auto;
+    opacity: 0;
+    translate: 0 -8px;
     visibility: hidden;
-    transition: clip-path 0.6s var(--ease-out), visibility 0s linear 0.6s;
+    transition: opacity var(--dur-fast) var(--ease-out), translate var(--dur) var(--ease-out), visibility 0s linear var(--dur);
   }
   .navbar--menu-open .navbar__sheet {
-    clip-path: circle(150% at calc(100% - 47px) 43px);
-    visibility: visible;
-    transition: clip-path 0.6s var(--ease-out), visibility 0s;
-  }
-
-  .navbar__sheet-links {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .navbar__sheet-links a,
-  .navbar__sheet-footer {
-    opacity: 0;
-    translate: 0 16px;
-    transition: opacity var(--dur) var(--ease-out), translate var(--dur) var(--ease-out);
-  }
-  .navbar--menu-open .navbar__sheet-links a,
-  .navbar--menu-open .navbar__sheet-footer {
     opacity: 1;
     translate: 0 0;
-    transition-delay: calc(0.12s + var(--i, 0) * 60ms);
-  }
-  .navbar__sheet-links a {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 8px 0;
-    font-family: var(--serif);
-    font-size: 38px;
-    line-height: 1.15;
-    font-weight: 600;
-    color: var(--white);
-    text-decoration: none;
-  }
-  .navbar__sheet-links a.active {
-    color: var(--sun);
-  }
-  .navbar__sheet-links a.active::after {
-    content: '';
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--sun);
+    visibility: visible;
+    transition: opacity var(--dur-fast) var(--ease-out), translate var(--dur) var(--ease-out), visibility 0s;
   }
 
-  .navbar__sheet-footer {
+  .navbar__sheet-links,
+  .navbar__sheet-more {
+    display: grid;
+  }
+  .navbar__sheet-more {
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+  }
+  .navbar__sheet a,
+  .navbar__sheet-more button {
     display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding-top: 24px;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 50px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .navbar__sheet-links a {
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .navbar__sheet-links a.active {
+    background: var(--brand-soft);
+    color: var(--brand-dark);
+  }
+  .navbar__sheet-more a,
+  .navbar__sheet-more button {
+    min-height: 48px;
+    font-size: 16px;
+    font-weight: 500;
+  }
+  .navbar__sheet-more span {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .navbar__sheet-more svg {
+    flex: none;
+    color: var(--brand);
+  }
+  .navbar__sheet-more small {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .navbar__sheet a:hover,
+  .navbar__sheet-more button:hover {
+    background: hsl(40, 20%, 95%);
+  }
+  .navbar__chev {
+    flex: none;
+    color: var(--text-muted);
   }
   .navbar__sheet-email {
+    padding: 6px 14px 2px;
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-muted);
     overflow-wrap: anywhere;
-  }
-  .navbar__sheet-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .navbar__sheet-row a,
-  .navbar__sheet-row button {
-    padding: 10px 18px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 999px;
-    background: none;
-    color: var(--white);
-    font-family: var(--sans);
-    font-size: 15px;
-    text-decoration: none;
-  }
-  .navbar__sheet-social {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 15px;
-    color: var(--on-dark);
-    text-decoration: none;
   }
 }
 
