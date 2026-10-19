@@ -1,8 +1,3 @@
-/* Two states:
-   - over the Home hero (top of Home): transparent, full width
-   - floating (scrolled, or any other page): a frosted forest-green capsule
-   The header itself ignores clicks so page content beside the capsule stays
-   clickable; only the capsule (and the mobile sheet) take pointer events. */
 .navbar {
   --sun: var(--straw);
   --sun-hover: hsl(38, 48%, 70%);
@@ -16,13 +11,9 @@
   transition: padding var(--dur) var(--ease-out);
 }
 
-/* Soft shade behind the transparent bar so white text stays readable over
-   bright parts of the hero photo; fades out once the capsule has a backing. */
 .navbar::before {
   content: '';
   position: absolute;
-  /* A fixed height: the header box is much taller on phones (it holds the
-     closed menu), and the shade must not spill below a short photo. */
   inset: 0 0 auto;
   height: 140px;
   background: linear-gradient(to bottom, rgba(8, 18, 10, 0.55), transparent);
@@ -33,11 +24,6 @@
   opacity: 0;
 }
 
-/* Top of a page with no photo: the same full-width bar on a dark-green
-   band (where Home has its photo). */
-/* Drawn by ::before at the bar's own height: the header box itself is
-   much taller on phones (it holds the closed menu) and must not paint
-   over the page. */
 .navbar--band::before {
   height: 74px;
   background: var(--brand-dark);
@@ -47,8 +33,6 @@
   outline-color: var(--sun);
 }
 
-/* Three columns with equal outer tracks, so the page links sit in the
-   true center of the bar however wide the logo or the actions are. */
 .navbar__inner {
   position: relative;
   z-index: 1;
@@ -78,7 +62,6 @@
   -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 
-/* ---- Brand ---- */
 .navbar__brand {
   grid-column: 1;
   justify-self: start;
@@ -118,12 +101,9 @@
   color: var(--sun);
 }
 
-/* ---- Page links + sliding pill ---- */
 .navbar__links {
   grid-column: 2;
   position: relative;
-  /* Equal-width links: with an odd number of links the middle one sits
-     exactly on the page's center line, whatever the words' lengths. */
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
@@ -171,7 +151,6 @@
   opacity: 1;
 }
 
-/* ---- Actions ---- */
 .navbar__actions {
   grid-column: 3;
   justify-self: end;
@@ -195,7 +174,6 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
-/* ---- TH / EN switch ---- */
 .navbar__lang {
   display: inline-flex;
   padding: 3px;
@@ -221,8 +199,6 @@
   background: var(--white);
   color: var(--brand-dark);
 }
-/* In the bar (not the phone menu card): TH EN as text like the links, the
-   language in use white and underlined. */
 .navbar__actions .navbar__lang:not(.navbar__sheet-lang) {
   gap: 2px;
   padding: 0;
@@ -247,7 +223,6 @@
   align-self: flex-start;
 }
 
-/* The one accent-colored element: the primary action. */
 .navbar__cta {
   padding: 10px 20px;
   border-radius: 999px;
@@ -270,12 +245,9 @@
   transform: translateY(0) scale(0.97);
 }
 
-/* ---- Account menu ---- */
 .navbar__account {
   position: relative;
 }
-/* The account reads like the page links beside it: plain text, same size
-   and colour, a person icon in front. */
 .navbar__account-btn {
   display: flex;
   align-items: center;
@@ -309,9 +281,6 @@
   transform: rotate(180deg);
 }
 
-/* Account menu, the same way as the phone menu: who is signed in (plain
-   small text), the places as rows with an icon and a chevron, log out
-   under a line. */
 .navbar__dropdown {
   position: absolute;
   top: calc(100% + 12px);
@@ -406,7 +375,6 @@
   }
 }
 
-/* ---- Burger (mobile only) ---- */
 .navbar__burger {
   display: none;
   position: relative;
@@ -432,14 +400,11 @@
 .navbar--menu-open .navbar__burger span:nth-child(2) { opacity: 0; }
 .navbar--menu-open .navbar__burger span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
 
-/* ---- Phone menu: a card that drops down under the bar ---- */
 .navbar__sheet,
 .navbar__shade {
   display: none;
 }
 
-/* Medium screens: tighten spacing so logo, centered links and actions all
-   fit on one line without the link column losing its centering. */
 @media (max-width: 1180px) {
   .navbar__inner {
     gap: 12px;
@@ -480,15 +445,12 @@
     font-size: 14px;
   }
 
-  /* While the menu is open the bar keeps its backing, even over the Home
-     hero, so the card below reads as coming out of it. */
   .navbar--menu-open .navbar__inner {
     background: hsla(150, 35%, 16%, 0.94);
     border-color: rgba(255, 255, 255, 0.1);
     box-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.5);
   }
 
-  /* The page behind the card, shaded; tapping it closes the menu. */
   .navbar__shade {
     display: block;
     position: fixed;
@@ -503,7 +465,6 @@
     pointer-events: auto;
   }
 
-  /* The menu: a white card dropping down under the bar. */
   .navbar__sheet {
     position: relative;
     z-index: 1;

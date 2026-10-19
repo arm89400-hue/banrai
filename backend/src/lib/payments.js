@@ -1,42 +1,18 @@
-// What a guest owes and how it's paid. Shared by the guest routes
-// (routes/booking.js) and admin (routes/admin.js) so both follow one set of
-// rules.
-//
-// Two payments per stay:
-// - deposit: half the price, paid online to confirm the booking (required).
-// - balance: the other half (total - deposit), paid online before arriving
-//   or at the farm (the owner marks it in admin).
-// Or one: 'full', the whole price at once instead of the deposit - it
-// confirms the booking and pays the other half in the same go.
-// Rooms booked together (same group_code) are one payment: one QR for the
-// sum, one slip pays for all of them. The amount always comes from the
-// bookings in the database, never from the guest.
-
 import { logEvent } from './activityLog.js';
 import { ensureStayAccount } from './stayAccount.js';
 import { opnConfigured, opnTestMode } from './opn.js';
 import { satang, slipokConfigured } from './slipok.js';
 
-// Shows the "PassPay" test button that marks a payment as paid without real
-// money. On unless PAYMENT_TEST_MODE=false - turn it off before going live.
 export const PAYMENT_TEST_MODE = process.env.PAYMENT_TEST_MODE !== 'false';
 
-// Where the money goes: a 10-digit phone number, 13-digit citizen/tax ID or
-// 15-digit e-wallet ID. Until it is set, guests see a sample QR.
 const PROMPTPAY_ID = String(process.env.PROMPTPAY_ID ?? '').replace(/\D/g, '');
 const PROMPTPAY_OK = [10, 13, 15].includes(PROMPTPAY_ID.length);
-// The account name the guest's bank app shows, printed under the QR so they
-// can check it before paying.
 const PROMPTPAY_NAME = String(process.env.PROMPTPAY_NAME ?? '').trim().slice(0, 80);
 
 export const KINDS = ['deposit', 'balance', 'full'];
 
-// Whether a kind of payment confirms the booking (the first payment).
 export const confirms = (kind) => kind !== 'balance';
 
-// What the payment panel needs to know, sent with the guest's bookings.
-// qr_pay 'opn': the QR comes from Opn and the payment is confirmed by itself
-// (no slip); otherwise the PromptPay QR and a slip.
 export const paymentOptions = () => ({
   qr_pay: opnConfigured() ? 'opn' : null,
   test_pay: PAYMENT_TEST_MODE,
@@ -46,7 +22,6 @@ export const paymentOptions = () => ({
   promptpay_name: PROMPTPAY_OK ? PROMPTPAY_NAME || null : null,
 });
 
-// The admin's go-live checklist.
 export const paymentSetup = () => ({
   promptpay: PROMPTPAY_OK,
   promptpay_name: PROMPTPAY_NAME || null,
@@ -60,7 +35,6 @@ function opnMode() {
   return opnTestMode() ? 'test' : 'live';
 }
 
-// Whether one booking still owes this kind of payment.
 const owes = (b, kind) =>
   confirms(kind)
     ? b.status === 'pending'
@@ -73,12 +47,6 @@ const SHARES = {
 };
 const share = (b, kind) => SHARES[kind](b);
 
-// The bookings one payment covers: the booking itself plus the rooms booked
-// with it. Returns
-//   { target, due, amount, code }  - due: the bookings this payment pays for
-//   { error: 'NOT_FOUND' | 'NOT_DUE' }
-// `userId` limits it to that member's own bookings (admin passes null).
-// `lock` locks the rows (call inside a transaction).
 export async function paymentScope(db, bookingId, { kind, userId = null, lock = false }) {
   const { rows } = await db.query(
     `SELECT b.id, b.status, b.code, b.group_code, b.user_id, b.room_id, b.total, b.deposit,
@@ -106,11 +74,6 @@ export async function paymentScope(db, bookingId, { kind, userId = null, lock = 
   return { target, due, amount, code: target.group_code ?? target.code };
 }
 
-// Marks a payment as paid, inside the caller's transaction.
-// - deposit: the bookings become 'confirmed' and each gets its room
-//   dashboard login. Returns { [bookingId]: { stay_username, stay_password } }.
-// - balance: the other half is recorded as paid (`method` online | at_farm).
-// - full: both of the above.
 export async function settlePayment(client, ids, kind, method = 'online') {
   let stays = {};
   if (confirms(kind)) {
@@ -125,9 +88,6 @@ export async function settlePayment(client, ids, kind, method = 'online') {
   return stays;
 }
 
-// Writes a finished payment to the activity log: one "confirmed" entry per
-// room for a deposit (with its room login), one entry for a balance; a full
-// payment writes both.
 export async function logPayment(actor, scope, kind, stays, { paidWith, slipFile, method = 'online' }) {
   if (confirms(kind)) {
     for (const b of scope.due) {
@@ -168,7 +128,6 @@ export async function logPayment(actor, scope, kind, stays, { paidWith, slipFile
   });
 }
 
-// Records one slip upload (passed or not) for the owner to look at later.
 export async function recordSlip(db, { scope, kind, userId, status, reason, slip, slipFile, raw }) {
   const transAt = slip?.transTimestamp ? new Date(slip.transTimestamp) : null;
   const { rows } = await db.query(
@@ -198,9 +157,6 @@ export async function recordSlip(db, { scope, kind, userId, status, reason, slip
   return rows[0].id;
 }
 
-// SQL for the guest's view of a booking's payments (`b` = the booking row):
-// what is still owed for it and the rooms booked with it, and the latest
-// slip of each kind.
 export const PAYMENT_COLUMNS = `
   b.balance_paid_at, b.balance_method,
   CASE WHEN b.room_id IS NOT NULL THEN (

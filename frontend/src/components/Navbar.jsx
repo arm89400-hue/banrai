@@ -4,28 +4,18 @@ import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import './Navbar.css';
 
-// Every page starts with the full-width transparent bar that Home has; past
-// this scroll offset it condenses into a floating, frosted capsule so it
-// stays readable over any content.
 const FLOAT_SCROLL_THRESHOLD = 24;
 
-// Pages that open with a full-width photo for the transparent bar to sit on.
-// On the others the same full-width bar gets a dark-green band instead, so
-// its white text stays readable.
 const PHOTO_TOP = ['/home', '/activities', '/about', '/stay'];
 
-// Below this width the links move into the drop-down menu card.
 const MOBILE_QUERY = '(max-width: 900px)';
 
-// `label` is a translation key (see i18n/strings.js).
 const PRIMARY_LINKS = [
   { to: '/home', label: 'nav.home' },
   { to: '/activities', label: 'nav.activities' },
   { to: '/about', label: 'nav.about' },
 ];
 
-// TH / EN toggle. Two buttons rather than a dropdown: both options are
-// always visible and one tap switches.
 function LangSwitch({ lang, setLang, label, className = '' }) {
   return (
     <div className={`navbar__lang ${className}`} role="group" aria-label={label}>
@@ -48,7 +38,6 @@ function LangSwitch({ lang, setLang, label, className = '' }) {
   );
 }
 
-// A line icon for the account menu (24px grid, same stroke as the header's).
 const MenuIcon = ({ d }) => (
   <svg className="navbar__menu-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
     <path d={d} />
@@ -68,12 +57,6 @@ const PersonIcon = () => (
   </svg>
 );
 
-// Site-wide navigation (see App.jsx): brand, page links with a sliding
-// "you are here" pill, and actions - account and the primary
-// "Book a stay" call to action. An admin browsing the public site gets a
-// link back to the admin dashboard (a separate page, see Admin.jsx) in place
-// of the guest-only items (Book a stay, My bookings). On small screens
-// everything except the brand and the CTA moves into a drop-down menu.
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(window.scrollY > FLOAT_SCROLL_THRESHOLD);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -91,13 +74,10 @@ export default function Navbar() {
   const floating = scrolled;
   const band = !floating && !PHOTO_TOP.includes(pathname);
   const isAdmin = Boolean(user?.is_admin);
-  // A room account (the temporary login of a confirmed stay) only has its
-  // room dashboard: no booking button, no "My bookings".
   const isStay = Boolean(user?.is_stay);
   const memberLinks = isStay ? [{ to: '/stay', label: 'nav.myRoom' }, ...PRIMARY_LINKS.slice(1)] : PRIMARY_LINKS;
   const links = memberLinks.map((l) => ({ ...l, label: t(l.label) }));
 
-  // Tracks scroll position to switch between the over-hero and floating styles.
   useEffect(() => {
     function handleScroll() {
       setScrolled(window.scrollY > FLOAT_SCROLL_THRESHOLD);
@@ -106,10 +86,6 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Positions the sliding pill under the active page link. Re-measured on
-  // navigation and resize; hidden on pages that aren't in the main links.
-  // The very first placement skips the slide so the pill doesn't fly in from
-  // the left edge on page load.
   useLayoutEffect(() => {
     function measure() {
       const active = linksRef.current?.querySelector('a.active');
@@ -126,7 +102,6 @@ export default function Navbar() {
     return () => window.removeEventListener('resize', measure);
   }, [pathname, lang]);
 
-  // Account dropdown: closes on outside click or Escape.
   useEffect(() => {
     if (!accountOpen) return;
     function handlePointer(e) {
@@ -143,8 +118,6 @@ export default function Navbar() {
     };
   }, [accountOpen]);
 
-  // Mobile menu: locks page scroll while open, closes on Escape or when the
-  // window grows past the mobile breakpoint.
   useEffect(() => {
     if (!menuOpen) return;
     const previousOverflow = document.body.style.overflow;
@@ -170,13 +143,11 @@ export default function Navbar() {
     setAccountOpen(false);
   }
 
-  // Clears the session and sends the user back to the public Home page.
   function handleLogout() {
     closeMenus();
     logout();
     navigate('/home');
   }
-
 
   return (
     <header
@@ -235,7 +206,6 @@ export default function Navbar() {
               </button>
               {accountOpen && (
                 <div className="navbar__dropdown" id="navbar-account-menu">
-                  {/* Who is signed in, in plain small text. */}
                   <div className="navbar__dropdown-who">
                     <span>
                       <b>{user.email}</b>
@@ -282,9 +252,6 @@ export default function Navbar() {
 
           <LangSwitch lang={lang} setLang={setLang} label={t('nav.language')} className="navbar__desktop-only" />
 
-          {/* Not on Home (the hero's search bar is the booking button there),
-              on a room page (its own "book this room" button is the one gold
-              button there) or on the booking page itself. */}
           {!isAdmin && !isStay && pathname !== '/home' && !pathname.startsWith('/rooms/') && pathname !== '/book' && (
             <Link to="/book" className="navbar__cta" onClick={closeMenus}>
               {t('nav.book')}
@@ -306,9 +273,6 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Phones: a white card dropping down under the bar; the page stays in
-          view behind a light shade that closes it when tapped. `inert`
-          keeps the card out of the tab order while closed. */}
       <div className="navbar__shade" aria-hidden="true" onClick={closeMenus} />
       <div id="navbar-sheet" className="navbar__sheet" inert={!menuOpen}>
         <nav className="navbar__sheet-links" aria-label="Main">
@@ -354,7 +318,6 @@ export default function Navbar() {
               <Chevron />
             </Link>
           )}
-          {/* One row that switches to the other language. */}
           <button type="button" lang={lang === 'th' ? 'en' : 'th'} onClick={() => setLang(lang === 'th' ? 'en' : 'th')}>
             <span>
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">

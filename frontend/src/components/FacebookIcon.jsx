@@ -1,4 +1,3 @@
-// Facebook "f" logo, sized via `size`, colored by the surrounding text.
 export default function FacebookIcon({ size = 20 }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">

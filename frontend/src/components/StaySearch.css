@@ -1,4 +1,3 @@
-/* One white bar: dates field | guests − n + | optional action. */
 .stay-search {
   display: flex;
   align-items: stretch;
@@ -61,8 +60,6 @@
   color: var(--text-muted);
 }
 
-/* Flat version (the booking page): no floating card, the two fields side
-   by side in one thin outline. */
 .stay-search--flat {
   gap: 1px;
   padding: 0;

@@ -1,9 +1,6 @@
 import { api } from './api';
 import { shrinkImage } from './imageResize';
 
-// Uploads photos picked before the room/activity/announcement existed (the
-// `pending` list of a new form) to it, in order. Returns its photos, or
-// throws with the photos that did make it in `err.photos`.
 export async function uploadPending(kind, itemId, pending) {
   let photos = [];
   try {

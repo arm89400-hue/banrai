@@ -7,12 +7,6 @@ import { CHECK_IN_TIME, CHECK_OUT_TIME } from '../lib/site';
 import InlineCalendar from './InlineCalendar';
 import './DateRangePicker.css';
 
-// The dates field used in every search (Home, room page, booking): shows
-// the chosen stay and opens the calendar - a plain white box in the middle,
-// a sheet from the bottom on phones. The two date fields at the top show
-// the stay (the one the next tap sets is marked); the stay is a band across
-// the calendar. `bookedNights` crosses out
-// taken nights (a single room's page).
 export default function DateRangePicker({ checkIn, checkOut, onChange, bookedNights, className = '' }) {
   const { t, locale } = useLang();
   const [open, setOpen] = useState(false);
@@ -41,7 +35,6 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, bookedNig
     );
   }
 
-  // A tap sets the date of the active tab; after check-in, check-out is next.
   function pick(dates) {
     onChange(dates);
     setMode(dates.checkIn && !dates.checkOut ? 'out' : 'in');

@@ -9,15 +9,12 @@ import { logEvent } from '../lib/activityLog.js';
 
 export const authRouter = Router();
 
-// Express 4 doesn't catch rejected promises from async handlers - this
-// forwards them to the app's error handler instead of crashing the process.
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 const googleClient = process.env.GOOGLE_CLIENT_ID
   ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
   : null;
 
-// Records a successful sign-in in the admin activity log, by account kind.
 function logLogin(user, details = {}) {
   const pub = publicUser(user);
   const kind = pub.is_admin ? 'admin' : pub.is_stay ? 'room' : 'member';
@@ -28,14 +25,10 @@ function logLogin(user, details = {}) {
   });
 }
 
-// Builds a signed 7-day JWT identifying the given user id - this is the
-// token clients attach as "Authorization: Bearer <token>" on future requests.
 function signToken(userId) {
   return jwt.sign({ sub: userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
 
-// Creates a new account from an email + password. Rejects if the email is
-// already registered (unique constraint violation, Postgres code 23505).
 authRouter.post(
   '/register',
   wrap(async (req, res) => {
@@ -44,8 +37,6 @@ authRouter.post(
     if (!email || !password) {
       return res.status(400).json({ error: 'email and password are required' });
     }
-    // Accounts people create themselves must be real email addresses, which
-    // also keeps them from colliding with generated room usernames.
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ error: 'Enter a valid email address', reason: 'BAD_EMAIL' });
     }
@@ -71,9 +62,6 @@ authRouter.post(
   })
 );
 
-// Verifies an email (or a room account's username) + password against the
-// stored hash and, on success, returns a JWT plus the public user fields.
-// Expired accounts - a room account after its check-out - are refused.
 authRouter.post(
   '/login',
   wrap(async (req, res) => {
@@ -83,8 +71,6 @@ authRouter.post(
       return res.status(400).json({ error: 'email and password are required' });
     }
 
-    // Case-insensitive, so "Name@x.com" and "name@x.com" are the same login;
-    // an exact match wins if two accounts differ only by case.
     const { rows } = await pool.query(
       `SELECT ${USER_COLUMNS}, password_hash FROM users
        WHERE lower(email) = lower($1)
@@ -112,8 +98,6 @@ authRouter.post(
   })
 );
 
-// Signs in with a Google ID token from the frontend's "Login with Google"
-// button. A first-time Google user gets an account created automatically.
 authRouter.post(
   '/google',
   wrap(async (req, res) => {
@@ -141,17 +125,12 @@ authRouter.post(
       return res.status(401).json({ error: 'Google email is not verified' });
     }
 
-    // Google emails are lowercase; match case-insensitively so an account
-    // registered with different casing still resolves to the same user.
     let { rows } = await pool.query(
       `SELECT ${USER_COLUMNS} FROM users WHERE lower(email) = lower($1)`,
       [payload.email]
     );
     const isNew = !rows[0];
     if (isNew) {
-      // First Google sign-in for this email: create the account. It gets an
-      // unusable random password, so it can only be reached through Google
-      // (until the user registers a password via the normal sign-up).
       const unusablePassword = await bcrypt.hash(randomBytes(32).toString('hex'), 10);
       ({ rows } = await pool.query(
         `INSERT INTO users (email, password_hash) VALUES ($1, $2)

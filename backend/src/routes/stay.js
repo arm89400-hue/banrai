@@ -12,16 +12,8 @@ const STAY_COLUMNS = `
   r.capacity AS room_capacity, r.image_url AS room_image_url,
   ${photosJson('room_id', 'r.id')} AS room_photos`;
 
-// Check-out is 12:00 Thailand time; booked_until is UTC midnight of that day.
 const NOT_CHECKED_OUT = "b.booked_until + interval '5 hours' > now()";
 
-// The room dashboard's data: the stay that is signed in, with every room
-// booked together with it.
-// - A room account sees its own booking (requireAuth has already refused it
-//   past check-out).
-// - A member sees their next paid stay (deposit or full price paid, so the
-//   booking is confirmed) that hasn't checked out yet; 404 NO_STAY when
-//   they have none, and the page sends them to their bookings instead.
 stayRouter.get('/', requireAuth, async (req, res, next) => {
   if (req.user.is_admin) {
     return res.status(403).json({ error: 'This page is for guests', reason: 'ADMIN_ACCOUNT' });
@@ -43,7 +35,7 @@ stayRouter.get('/', requireAuth, async (req, res, next) => {
            ORDER BY b.id`,
           [req.user.id]
         );
-    if (!rows[0]) return res.status(404).json({ error: 'No paid stay', reason: 'NO_STAY' });
+    if (!rows[0]) return res.json({ stay: null, rooms: [] });
     const balance = rows
       .filter((b) => !b.balance_paid_at && b.total != null)
       .reduce((sum, b) => sum + Math.max(0, Number(b.total) - Number(b.deposit)), 0);

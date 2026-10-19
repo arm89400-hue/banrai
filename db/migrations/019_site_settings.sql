@@ -1,8 +1,3 @@
--- Settings the owner edits in admin and the website reads, one JSON value
--- per key. First key: 'contact' - the phone lines (with who answers), LINE,
--- Facebook and Google Maps shown in the footer, the chat panel and the
--- guest pages. Starts with the details that used to be written in the code.
--- Re-runnable.
 CREATE TABLE IF NOT EXISTS site_settings (
   key TEXT PRIMARY KEY,
   value JSONB NOT NULL,

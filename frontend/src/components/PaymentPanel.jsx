@@ -7,25 +7,10 @@ import { useLang } from '../i18n/lang';
 import { SAMPLE_QR_TEXT, errorKey } from '../lib/payments';
 import './PaymentPanel.css';
 
-const PAID_MS = 900; // how long "Payment complete" shows before the page updates
+const PAID_MS = 900;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// One payment for a room booking and the rooms booked with it:
-// - kind 'deposit': the 50% that confirms the booking.
-// - kind 'balance': the other half, paid online before arriving.
-// `amount` is what the server says is due; it is built into the QR, so the
-// guest's bank app fills it in. `booking` is the booking paid from.
-// - `fullAmount` (deposit only): the whole price. The guest then picks the
-//   50% deposit or the whole price at once (kind 'full'), and the QR and the
-//   slip check follow that choice.
-// - `promptpay` set: the real PromptPay QR. Not set: a sample QR marked
-//   "do not pay" in the same place, until the owner adds the PromptPay ID.
-// - `slipPay`: the guest uploads the transfer slip. `slipCheck` 'auto'
-//   (SlipOK) records a good slip straight away; 'manual' leaves it for the
-//   owner, and the panel says it is waiting.
-// - `testPay`: a "PassPay" link that pays without money (test mode).
-// onPaid receives the updated bookings (paid, or with the slip waiting).
 export default function PaymentPanel({
   booking,
   kind: givenKind = 'deposit',
@@ -43,17 +28,15 @@ export default function PaymentPanel({
   onPaid,
 }) {
   const { t } = useLang();
-  // The guest's choice when the whole price may be paid now.
   const canPayFull = givenKind === 'deposit' && fullAmount > givenAmount;
   const [payFull, setPayFull] = useState(false);
   const kind = canPayFull && payFull ? 'full' : givenKind;
   const amount = canPayFull && payFull ? fullAmount : givenAmount;
-  const [phase, setPhase] = useState('idle'); // idle | checking | paid
+  const [phase, setPhase] = useState('idle');
   const [error, setError] = useState(null);
   const [qrSrc, setQrSrc] = useState(null);
   const fileRef = useRef(null);
 
-  // Draw the QR: PromptPay with the amount filled in, or the sample.
   useEffect(() => {
     let live = true;
     const text = promptpay ? promptPayPayload(promptpay, amount) : SAMPLE_QR_TEXT;
@@ -73,7 +56,6 @@ export default function PaymentPanel({
     onPaid(updated(data));
   }
 
-  // Test mode: pay without money.
   async function testPayNow() {
     if (phase !== 'idle') return;
     setPhase('checking');
@@ -86,7 +68,6 @@ export default function PaymentPanel({
     }
   }
 
-  // Real payment: send the transfer slip to be checked.
   async function uploadSlip(e) {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -100,7 +81,6 @@ export default function PaymentPanel({
         headers: { 'Content-Type': file.type || 'application/octet-stream' },
       });
       if (data.review) {
-        // Saved for the owner to check: no "paid" yet.
         setPhase('idle');
         onPaid(updated(data));
       } else {
@@ -115,8 +95,6 @@ export default function PaymentPanel({
   const waiting = slipStatus === 'review';
   const turnedDown = slipStatus === 'rejected' && slipReason === 'MANUAL_REJECT';
   const title = { deposit: t('pay.title'), full: t('pay.titleFull'), balance: t('pay.titleBalance') }[kind];
-  // On a phone the QR can't be scanned from its own screen: save it, then
-  // pick it from the photos in the bank app.
   const steps = promptpay
     ? [t('pay.howSave'), t('pay.step1'), slipCheck === 'auto' ? t('pay.step2') : t('pay.step2Manual')]
     : [t('pay.step1NoQr'), slipCheck === 'auto' ? t('pay.step2') : t('pay.step2Manual')];

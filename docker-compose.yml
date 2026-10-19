@@ -8,14 +8,9 @@ services:
       POSTGRES_DB: test_y4
     volumes:
       - db-data:/var/lib/postgresql/data
-      # Official postgres image auto-runs any .sql dropped here, in name
-      # order, but only against a brand-new (empty) data volume.
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
     ports:
-      # Host port 5433, not 5432 - avoids clashing with a native Postgres
-      # install already listening on 5432. Internal traffic (backend -> db)
-      # goes over the compose network regardless, on the container's 5432.
       - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -29,15 +24,10 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # Overrides the localhost value from backend/.env - inside the
-      # compose network the database is reachable at the service name.
       DATABASE_URL: postgresql://postgres:postgres@db:5432/test_y4
     ports:
-      # Host port 4001, not 4000 - avoids clashing with other local
-      # projects already publishing 4000. The container still listens on 4000.
       - "4001:4000"
     volumes:
-      # Room/activity photos uploaded in admin - kept across rebuilds.
       - uploads:/app/uploads
     depends_on:
       db:
@@ -47,13 +37,7 @@ services:
     build:
       context: ./frontend
       args:
-        # The browser (not the container) calls this URL, so it must be
-        # reachable from the host - the backend's published port, not the
-        # internal service name.
         VITE_API_URL: http://localhost:4001
-        # Google sign-in button. Read from GOOGLE_CLIENT_ID in the .env file
-        # next to this compose file (must match backend/.env's value).
-        # Baked in at build time: after changing it, rebuild the frontend.
         VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     restart: unless-stopped
     ports:

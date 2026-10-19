@@ -1,14 +1,7 @@
-/* Room dashboard (/stay): tiles under the photo stage (StayStage).
-   Computer: every tile at once, the chat down the right.
-   Phone: tabs (Booking / Chat / Activities) show one subject at a time,
-   so the page fits the screen. */
 .bk-page.stay {
   padding-top: 24px;
 }
 
-/* Chat closed: the tiles use the full width (the chat column is 0 wide
-   and the grid takes back its gap). Chat open: that column grows and the
-   tiles slide left to make room. */
 .stay-dash {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr) 0px;
@@ -27,7 +20,6 @@
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr) 360px;
   margin-right: 0;
 }
-/* The full-width farm row would reach into the hidden gap: hold it back. */
 .stay-dash > .stay-tile--farm {
   margin-right: 16px;
   transition: margin-right var(--dur-4) var(--ease-standard);
@@ -51,7 +43,6 @@
   border-radius: 16px;
   background: var(--white);
 }
-/* Every tile heading: green icon + dark label, same size everywhere. */
 .stay-tile h2 {
   display: flex;
   align-items: center;
@@ -85,8 +76,6 @@
   color: hsl(36, 70%, 25%);
 }
 
-/* Only what the guest acts on is boxed (money, chat). Dates, rooms,
-   the way there and the notes sit on the page under a thin rule. */
 .stay-tile--when,
 .stay-tile--rooms,
 .stay-tile--go,
@@ -105,7 +94,6 @@
   box-shadow: var(--shadow);
 }
 
-/* Press feedback: buttons and tabs give way under the finger at once. */
 .stay-go,
 .stay-tile__btn,
 .stay-tabs button {
@@ -117,14 +105,12 @@
   transform: scale(0.97);
 }
 
-/* Text guests read and follow: looped Thai. */
 .stay-know,
 .stay-chat .chat-thread,
 .stay-tile__farm {
   font-family: var(--looped);
 }
 
-/* Dates: check-in and check-out as two ends of one line. */
 .stay-line {
   display: grid;
   grid-template-columns: auto minmax(40px, 1fr) auto;
@@ -172,7 +158,6 @@
   right: 0;
 }
 
-/* Money: the amount left, big, with how much is paid as a bar. */
 .stay-money {
   font-size: 36px;
   font-weight: 700;
@@ -212,7 +197,6 @@
   text-align: center;
 }
 
-/* Rooms. */
 .stay-rooms {
   display: grid;
   gap: 10px;
@@ -243,7 +227,6 @@
   color: var(--text-h);
 }
 
-/* Getting there: two big buttons. */
 .stay-tile--go {
   grid-area: go;
   justify-content: center;
@@ -291,7 +274,6 @@
   background: var(--brand-hover);
 }
 
-/* Before you come: three short lines side by side on computers. */
 .stay-know {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -305,14 +287,12 @@
   color: var(--brand);
 }
 
-/* Chat: as tall as the tiles beside it; messages scroll inside. */
 .stay-chat {
   grid-area: chat;
   padding: 0;
   gap: 0;
   overflow: hidden;
   contain: size;
-  /* Closed: out of sight, a little to the right. */
   visibility: hidden;
   opacity: 0;
   transform: translateX(24px);
@@ -356,7 +336,6 @@
   color: var(--text-h);
 }
 
-/* The chat button (computers): bottom right, where a chat is expected. */
 .stay-chat-toggle {
   position: fixed;
   right: 24px;
@@ -405,7 +384,6 @@
   color: var(--text-muted);
 }
 
-/* Activities: the ripe fruit in the heading row, then photos. */
 .stay__row {
   display: flex;
   flex-wrap: wrap;
@@ -474,7 +452,6 @@
   color: var(--brand);
 }
 
-/* Tabs: phones only. */
 .stay-tabs {
   display: none;
 }
@@ -553,7 +530,6 @@
     font-weight: 600;
     cursor: pointer;
   }
-  /* The open tab: filled green, so it reads at a glance. */
   .stay-tabs button.is-on {
     background: var(--brand);
     color: var(--white);
@@ -571,8 +547,6 @@
       'go    go';
     gap: 10px;
   }
-  /* Chat and Activities tabs: a plain column (chat first, then what to
-     know), so hidden tiles leave no empty rows. */
   .stay-dash[data-tab='chat'],
   .stay-dash[data-tab='farm'] {
     display: flex;
@@ -585,13 +559,11 @@
     padding: 0;
     gap: 0;
   }
-  /* Only the chosen tab's tiles. */
   .stay-dash[data-tab='stay'] > :not([data-for='stay']),
   .stay-dash[data-tab='chat'] > :not([data-for='chat']),
   .stay-dash[data-tab='farm'] > :not([data-for='farm']) {
     display: none;
   }
-  /* What to know before coming sits with the chat on phones. */
   .stay-dash[data-tab='stay'] > .stay-tile--know {
     display: none;
   }

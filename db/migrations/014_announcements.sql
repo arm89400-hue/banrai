@@ -1,11 +1,3 @@
--- Announcements, written in the admin dashboard. Each one has English and/or
--- Thai text, an optional picture, who sees it and when:
---   audience 'home'   - everyone, on the Home page
---            'booked' - only guests with a booking (on "My bookings" and the
---                       room dashboard)
---            'both'   - both of the above
---   shown from starts_at until ends_at (NULL = no end), while active.
--- Re-runnable.
 CREATE TABLE IF NOT EXISTS announcements (
   id SERIAL PRIMARY KEY,
   title TEXT,

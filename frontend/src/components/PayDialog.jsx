@@ -11,21 +11,6 @@ import { CHECK_IN_TIME, CHECK_OUT_TIME, THAI_NAME } from '../lib/site';
 import { useLang } from '../i18n/lang';
 import './PayDialog.css';
 
-// The pop-up that opens when a booking request is sent. Two screens in one
-// box of the same size:
-// 1. Pay: the booking at the top, a big QR, the price (50% deposit or the
-//    whole price), and "paid? upload your slip".
-// 2. Done (the slip passed): a big tick, "Home" and "Save confirmation",
-//    which saves the booking as a picture.
-// How the payment is confirmed:
-// - Opn on (pay.qrPay 'opn'): the QR comes from Opn; the guest scans, pays
-//   and just waits - the page asks every few seconds and turns to the tick
-//   once Opn has the money. No slip.
-// - Otherwise: the PromptPay QR made here, and "paid? upload your slip",
-//   checked by SlipOK. A slip SlipOK can't check stays on screen 1 with
-//   "waiting for us".
-// There is no way past screen 1 until the payment is confirmed: no close
-// button, Escape does nothing.
 export default function PayDialog({ bookings, pay, onPaid }) {
   const { t, lang, locale } = useLang();
   const navigate = useNavigate();
@@ -35,7 +20,7 @@ export default function PayDialog({ bookings, pay, onPaid }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [qrSrc, setQrSrc] = useState(null);
-  const [paid, setPaid] = useState(null); // { amount, kind } once the slip passed
+  const [paid, setPaid] = useState(null);
   const fileRef = useRef(null);
 
   const deposit = Number(lead?.deposit_due ?? stay?.deposit ?? 0);
@@ -60,7 +45,6 @@ export default function PayDialog({ bookings, pay, onPaid }) {
   const nights = stay ? nightsBetween(stay.checkIn, stay.checkOut) : 0;
   const sub = `${code} · ${rooms} · ${t('pay.dlgNights', { n: nights })}`;
 
-  // The QR (without Opn): PromptPay with the amount filled in, or the sample.
   useEffect(() => {
     if (opn) return undefined;
     let live = true;
@@ -73,7 +57,6 @@ export default function PayDialog({ bookings, pay, onPaid }) {
     };
   }, [opn, pay.promptpay, amount]);
 
-  // Once paid, Escape closes; the page behind doesn't scroll while it's open.
   useEffect(() => {
     const onKey = (e) => done && e.key === 'Escape' && navigate('/booking');
     document.addEventListener('keydown', onKey);
@@ -84,7 +67,6 @@ export default function PayDialog({ bookings, pay, onPaid }) {
     };
   }, [navigate, done]);
 
-  // Sends the slip to be checked.
   async function send(path, init) {
     if (busy || !lead) return;
     setBusy(true);
@@ -132,7 +114,6 @@ export default function PayDialog({ bookings, pay, onPaid }) {
   const qrGone = opn && ['expired', 'failed'].includes(opnCharge.charge?.status);
   const shownError = opn ? opnCharge.error : error;
 
-  // On <body>, so nothing on the page (menu, bottom bar) can sit above it.
   return createPortal(
     <div className="pay-dialog" role="dialog" aria-modal="true" aria-labelledby="pay-dialog-title">
       <div className="pay-dialog__box">
@@ -148,12 +129,8 @@ export default function PayDialog({ bookings, pay, onPaid }) {
           )}
         </header>
 
-        {/* Both screens sit in the same grid cell, so the box keeps the size
-            of the pay screen when it turns into the tick. */}
         <div className="pay-dialog__body">
           <div className="pay-dialog__pay" aria-hidden={done} inert={done}>
-            {/* The QR card: like the receive-money QR a bank app makes - the
-                QR (with the farm's logo), whose account, how much. */}
             <div className="pay-dialog__card">
               <p className="pay-dialog__bar">PromptPay</p>
               <div className={`pay-dialog__qr${sample ? ' is-sample' : ''}${qrGone ? ' is-gone' : ''}`}>
@@ -166,8 +143,6 @@ export default function PayDialog({ bookings, pay, onPaid }) {
                   ? t('pay.forFull', { n: liveRooms.length })
                   : t('pay.forDeposit', { n: liveRooms.length, total: formatBaht(full) })}
               </p>
-              {/* More than one room: what each costs, so the one QR amount
-                  is easy to check against the booking. */}
               {liveRooms.length > 1 && (
                 <dl className="pay-dialog__rooms">
                   {liveRooms.map((b) => (
@@ -188,8 +163,6 @@ export default function PayDialog({ bookings, pay, onPaid }) {
                   </div>
                 </dl>
               )}
-              {/* On a phone the QR can't be scanned from its own screen: save
-                  it, then pick it from the photos in the bank app. */}
               {qrShown && !sample && !qrGone && (
                 <a className="pay-dialog__saveqr" href={qrShown} download={`baanrai-qr-${code}.png`} target="_blank" rel="noreferrer">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -277,9 +250,6 @@ export default function PayDialog({ bookings, pay, onPaid }) {
   );
 }
 
-// Under the price while paying through Opn: "making the QR", "pay and wait
-// here" (with a spinner: the page is checking), or "expired" with a button
-// for a new QR.
 function OpnStatus({ making, gone, failed, onNew }) {
   const { t } = useLang();
   if (gone || failed) {
@@ -300,12 +270,9 @@ function OpnStatus({ making, gone, failed, onNew }) {
   );
 }
 
-// Asks the server for an Opn QR for this payment (again when the choice
-// changes or the guest asks for a new one), then every few seconds whether
-// it has been paid. onPaid gets the server's answer with the bookings.
 const POLL_MS = 3000;
 function useOpnCharge({ bookingId, kind, enabled, onPaid }) {
-  const [charge, setCharge] = useState(null); // { id, qr, status }
+  const [charge, setCharge] = useState(null);
   const [making, setMaking] = useState(false);
   const [error, setError] = useState(null);
   const [round, setRound] = useState(0);
@@ -343,7 +310,6 @@ function useOpnCharge({ bookingId, kind, enabled, onPaid }) {
           setCharge((c) => ({ ...c, status: data.status }));
         }
       } catch {
-        /* a missed check; the next one tries again */
       }
     }, POLL_MS);
     return () => clearInterval(timer);
@@ -352,10 +318,6 @@ function useOpnCharge({ bookingId, kind, enabled, onPaid }) {
   return { charge, making, error, renew: () => setRound((n) => n + 1) };
 }
 
-// The PromptPay QR with the farm's logo in the middle, as a PNG (so "Save
-// QR" saves it with the logo). Made with the highest error correction (H,
-// about 30% may be covered) and the logo covers well under that, so bank
-// apps still read it.
 const LOGO_SRC = '/images/logo-mark.png';
 async function qrWithLogo(text) {
   const canvas = document.createElement('canvas');
@@ -380,8 +342,6 @@ async function qrWithLogo(text) {
   return canvas.toDataURL('image/png');
 }
 
-// Draws the confirmation as a picture and downloads it (works offline, no
-// server needed): the farm's name, a tick, the booking code and the rows.
 function drawConfirmation({ code, rows, title, status }) {
   const W = 720;
   const H = 300 + rows.length * 64;
@@ -398,7 +358,6 @@ function drawConfirmation({ code, rows, title, status }) {
   c.font = `600 30px ${font}`;
   c.fillText(title, 40, 60);
 
-  // The tick.
   c.fillStyle = '#e4f0ea';
   c.beginPath();
   c.arc(78, 168, 38, 0, Math.PI * 2);

@@ -17,13 +17,11 @@ import AdminPhotos, { MAX_PHOTOS } from './AdminPhotos';
 import { uploadPending } from '../lib/uploadPending';
 import './Admin.css';
 
-// Dates in the admin's language (pass useLang().locale).
 const fmtDate = (d, locale) =>
   d ? new Date(d).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
 const fmtDateTime = (d, locale) =>
   d ? new Date(d).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) : '-';
 
-// Loads `path` on mount and exposes { data, error, loading, reload }.
 function useAdminData(path) {
   const [state, setState] = useState({ data: null, error: null, loading: true });
 
@@ -38,9 +36,6 @@ function useAdminData(path) {
   return { ...state, reload };
 }
 
-// The numbers on the menu: Today = bookings that need you (the same list
-// as on the Today page); Chat = unread messages. Re-checked every 8 seconds and whenever the
-// section changes (opening a conversation in Chat marks it read).
 function useAdminBadges(enabled, tab) {
   const [badges, setBadges] = useState({});
 
@@ -67,14 +62,6 @@ function useAdminBadges(enabled, tab) {
   return badges;
 }
 
-// Admin dashboard: a page of its own, outside the public site's navbar and
-// footer (see App.jsx). Only reachable for accounts listed in the backend's
-// ADMIN_EMAILS. There is no separate admin login: signed-out visitors go to
-// the site's normal /login (which sends admins back here), and signed-in
-// non-admins go to the Home page. The server enforces this on every
-// /api/admin call - the check here just picks where to send people.
-// The current section comes from the URL (/admin/:section/:tab). Computers get a
-// side menu with names; phones a bar on top with a Menu button.
 export default function Admin() {
   const { user, logout } = useAuth();
   const { t, lang, setLang, locale } = useLang();
@@ -93,11 +80,9 @@ export default function Admin() {
     return <Navigate to="/home" replace />;
   }
 
-  // Old links from before the menu was grouped (/admin/rooms, /admin/log...).
   if (OLD_SECTIONS[id]) {
     return <Navigate to={adminPath(...OLD_SECTIONS[id])} replace />;
   }
-  // Unknown section in the URL - go back to Today.
   if (!current) {
     return <Navigate to="/admin" replace />;
   }
@@ -154,7 +139,6 @@ export default function Admin() {
         {menu}
       </aside>
 
-      {/* Phones: the logo and a Menu button; the menu slides in from the right. */}
       <header className="admin-bar">
         {brand}
         <button type="button" className="admin-bar__menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
@@ -174,7 +158,6 @@ export default function Admin() {
       )}
 
       <section className="admin">
-        {/* The overview draws its own heading (the month and its arrows). */}
         {id !== 'overview' && (
           <header className="admin__header">
             <h1>{title}</h1>
@@ -192,8 +175,6 @@ export default function Admin() {
           </nav>
         )}
 
-        {/* key remounts the panel so it refetches fresh data and replays
-            its entrance animation each time you switch sections. */}
         <div className="admin__panel" key={panel}>
           {panel === 'overview' && <Today />}
           {panel === 'bookings' && <Bookings />}
@@ -237,21 +218,18 @@ const EMPTY_FORM = {
   image_url: '',
 };
 
-// The form's values for an existing room or activity.
 const formFor = (item) =>
   Object.fromEntries(Object.keys(EMPTY_FORM).map((key) => [key, item[key] ?? EMPTY_FORM[key]]));
 
-// Shared create/edit/delete manager for rooms and activities, with each
-// one's photos (up to 6, see AdminPhotos). Text keys: adm.list.<kind>.*.
 function Listings({ kind }) {
   const { t, lang } = useLang();
   const cfg = LISTING_CONFIG[kind];
   const k = (key, vars) => t(`adm.list.${kind}.${key}`, vars);
   const { data, error, loading, reload } = useAdminData(cfg.listPath);
-  const [editing, setEditing] = useState(null); // null | 'new' | item id
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [photos, setPhotos] = useState([]); // the edited item's photos
-  const [pending, setPending] = useState([]); // photos picked for a new item, uploaded on Save
+  const [photos, setPhotos] = useState([]);
+  const [pending, setPending] = useState([]);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
   const [savedNote, setSavedNote] = useState(null);
@@ -276,7 +254,6 @@ function Listings({ kind }) {
         body: JSON.stringify(form),
       });
       if (isNew) {
-        // Upload the photos picked on the new form, then stay on the item.
         const created = data.room ?? data.activity;
         setEditing(created.id);
         setForm(formFor(created));
@@ -320,9 +297,7 @@ function Listings({ kind }) {
     onChange: (e) => setForm({ ...form, [key]: e.target.value }),
   });
 
-  // Rooms in family order (father first, which is also price order), as on the site.
   const items = cfg.roomFields ? [...(data?.rooms ?? [])].sort((a, b) => b.price - a.price) : (data?.[cfg.listKey] ?? []);
-  // No empty column when nothing in the list has a description.
   const hasDesc = items.some((i) => i.description || i.description_th);
   const nameParts = (item) => {
     if (item.name_th && item.name_th !== item.name) return lang === 'th' ? [item.name_th, item.name] : [item.name, item.name_th];
@@ -453,7 +428,6 @@ function Listings({ kind }) {
                     </button>
                   </td>
                   <td>
-                    {/* Names are stored "English · Thai": the admin's language first. */}
                     <strong>{nameParts(item)[0]}</strong>
                     {nameParts(item)[1] && <div className="admin__muted">{nameParts(item)[1]}</div>}
                   </td>
@@ -528,8 +502,6 @@ function Users() {
   );
 }
 
-// Which filter group and tag colour each activity_log `type` belongs to;
-// its name is the text key adm.log.<type>.
 const LOG_TYPES = {
   'booking.requested': { group: 'bookings', tone: 'pending' },
   'booking.confirmed': { group: 'bookings', tone: 'confirmed' },
@@ -552,14 +524,12 @@ const LOG_TYPES = {
 };
 const LOG_FILTERS = ['all', 'bookings', 'accounts', 'logins'];
 
-// A log type's name in the admin's language (the type itself if it is new).
 function logLabel(t, type) {
   const key = `adm.log.${type}`;
   const text = t(key);
   return text === key ? type : text;
 }
 
-// The human-readable part of a log row, built from its `details`.
 function LogDetails({ entry }) {
   const { t, locale } = useLang();
   const d = entry.details ?? {};
@@ -599,7 +569,6 @@ function LogDetails({ entry }) {
       {d.room_login_removed && <div className="admin__sub">{t('adm.logd.loginRemoved', { user: d.room_login_removed })}</div>}
       {d.expired_at && <div className="admin__sub">{t('adm.logd.expired', { when: fmtDateTime(d.expired_at, locale) })}</div>}
       {d.phones != null && <div className="admin__sub">{t('adm.logd.phones', { n: d.phones })}</div>}
-      {/* The room dashboard login generated when the booking was confirmed. */}
       {d.room_username && (
         <div className="admin__login">
           <span>{t('adm.panel.login')}</span>
@@ -612,8 +581,6 @@ function LogDetails({ entry }) {
   );
 }
 
-// Everything that has happened, newest first: booking requests, confirmations
-// (with the room login that was created), cancellations, sign-ups and logins.
 function ActivityLog() {
   const { t, locale } = useLang();
   const { data, error, loading, reload } = useAdminData('/api/admin/log');

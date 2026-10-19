@@ -7,14 +7,6 @@ export const MAX_PHOTOS = 6;
 
 const isImage = (f) => f.type.startsWith('image/') || /\.(jpe?g|png|webp|heic)$/i.test(f.name);
 
-// Photo manager for one room, activity or announcement in admin: up to 6
-// photos, the first is the cover. Upload (several at once, shrunk in the
-// browser first), delete, and move left/right. `photos` is [{ id, file }];
-// every change reports the new list through onChange.
-// Before the item is saved (`itemId` null) the same grid works on `pending`
-// - picked files [{ key, file, url }] kept in the browser and reported
-// through onPendingChange - which the form uploads with uploadPending()
-// right after it creates the item (lib/uploadPending.js).
 export default function AdminPhotos({ kind, itemId, photos, onChange, pending, onPendingChange }) {
   if (itemId == null) return <PendingPhotos pending={pending} onChange={onPendingChange} />;
   return <SavedPhotos kind={kind} itemId={itemId} photos={photos} onChange={onChange} />;
@@ -61,7 +53,7 @@ function PendingPhotos({ pending, onChange }) {
 
 function SavedPhotos({ kind, itemId, photos, onChange }) {
   const { t } = useLang();
-  const [busy, setBusy] = useState(null); // status text while working
+  const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
   const [note, setNote] = useState(null);
   const free = MAX_PHOTOS - photos.length;
@@ -74,7 +66,6 @@ function SavedPhotos({ kind, itemId, photos, onChange }) {
     setNote(skipped > 0 ? t('adm.photos.skipped', { free, max: MAX_PHOTOS, skipped }) : null);
     const batch = files.slice(0, free);
     try {
-      // One at a time, in the order picked, so the limit and order hold.
       for (let i = 0; i < batch.length; i++) {
         setBusy(t('adm.photos.uploading', { n: i + 1, total: batch.length }));
         const body = await shrinkImage(batch[i]);
@@ -138,7 +129,6 @@ function SavedPhotos({ kind, itemId, photos, onChange }) {
   );
 }
 
-// The 6-slot grid both modes share: tiles with ← → ✕, then an "Add" tile.
 function PhotoGrid({ items, onAdd, onRemove, onMove, busy = null, hint = null, note = null, error = null }) {
   const { t } = useLang();
   const free = MAX_PHOTOS - items.length;

@@ -19,8 +19,6 @@ const CHAT_POLL_MS = 5000;
 const ACTIVITY_COUNT = 4;
 const DAY_MS = 86_400_000;
 
-// One outline icon set for the dashboard: same 24px grid, same stroke, so
-// every tile heading, button and tab looks alike.
 const ICONS = {
   calendar: 'M4 7h16v13H4zM4 11h16M8 3v4M16 3v4',
   bed: 'M3 18V8M3 14h18v4M21 18v-6a3 3 0 0 0-3-3h-7v5M7 11.5a1.5 1.5 0 1 0 0-.01',
@@ -40,7 +38,6 @@ function Icon({ name }) {
   );
 }
 
-// Whole days from today to `iso` (negative once it has passed).
 function daysUntil(iso) {
   const today = new Date(`${toISODate(new Date())}T00:00:00`);
   return Math.round((new Date(`${iso}T00:00:00`) - today) / DAY_MS);
@@ -48,11 +45,6 @@ function daysUntil(iso) {
 
 const UNREAD_POLL_MS = 20000;
 
-// The conversation with the owners. On computers it slides in from the
-// right when the guest opens it (the page's own chat button; the site's
-// floating one is hidden here, see ChatWidget.jsx); on phones it is the
-// Chat tab. It only loads - and so marks messages read - while `active`.
-// An empty chat offers the questions guests usually ask before they come.
 function StayChat({ active, onClose }) {
   const { t, lang, locale } = useLang();
   const contact = useContact();
@@ -127,15 +119,6 @@ function StayChat({ active, onClose }) {
   );
 }
 
-// The room dashboard (/stay): what a guest needs between paying and going
-// home, in the order they need it - when and where, what is paid and what
-// is left, a chat with the owners, then what there is to do on the farm.
-// Two kinds of account see it:
-// - members (email or Google) once a booking is confirmed by paying the
-//   deposit or the full price; with no such stay they go to My bookings;
-// - room accounts (the username/password made when a booking is
-//   confirmed), which stop working at check-out - the API then answers
-//   ACCOUNT_EXPIRED and lib/api.js signs the session out.
 export default function StayDashboard() {
   const { user } = useAuth();
   const { t, lang, locale } = useLang();
@@ -153,15 +136,13 @@ export default function StayDashboard() {
   useEffect(() => {
     if (!isGuest) return;
     api('/api/stay')
-      .then(setData)
-      .catch((err) => setError(err.reason === 'NO_STAY' ? 'none' : 'load'));
+      .then((res) => (res.stay ? setData(res) : setError('none')))
+      .catch(() => setError('load'));
     api('/api/activities')
       .then((res) => setActivities(res.activities))
       .catch(() => {});
   }, [isGuest]);
 
-  // While the chat is closed: how many of the owners' messages are unread,
-  // for the badge on the chat button and the Chat tab.
   useEffect(() => {
     if (!isGuest || chatActive) {
       setUnread(0);
@@ -203,8 +184,6 @@ export default function StayDashboard() {
   const fruits = fruitsIn(Number(checkIn.slice(5, 7)));
   const fruitNames = t('fruits');
   const phone = contact.phones[0];
-  // The stage's photos: the booked rooms, the fruit ripe that month and the
-  // activities, taken in turn so the show mixes them; at most 12.
   const roomSlides = rooms.flatMap((r) =>
     roomPhotos({ id: r.room_id, image_url: r.room_image_url, photos: r.room_photos })
       .slice(0, 3)
@@ -254,8 +233,6 @@ export default function StayDashboard() {
       <section className="bk-page stay">
         <Announcements source="/api/announcements/mine" className="page-news" />
 
-        {/* Phones: one subject at a time, so the page fits the screen.
-            Computers show every tile at once and hide these tabs. */}
         <div className="stay-tabs" role="tablist" aria-label={t('stay.tabsLabel')}>
           {tabs.map((x) => (
             <button
@@ -273,7 +250,6 @@ export default function StayDashboard() {
           ))}
         </div>
 
-        {/* The dashboard: each tile one thing the guest looks up. */}
         <div className={`stay-dash${chatOpen ? ' is-chat-open' : ''}`} data-tab={tab}>
           <article className="stay-tile stay-tile--when" data-for="stay">
             <h2>{t('stay.whenTitle', { n: nights })}</h2>
@@ -420,7 +396,6 @@ export default function StayDashboard() {
           )}
         </div>
 
-        {/* Computers: opens the chat beside the dashboard. */}
         {!chatOpen && (
           <button type="button" className="stay-chat-toggle" onClick={() => setChatOpen(true)}>
             <Icon name="chat" />

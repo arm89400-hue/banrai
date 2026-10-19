@@ -1,5 +1,3 @@
-/* Amenities: icon + word, as many columns as fit (4 on the room
-   page on a computer, 2 on a phone). Plain icons, no tiles behind them. */
 .room-amenities {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -8,7 +6,6 @@
   padding: 0;
   list-style: none;
 }
-/* Around the house: longer words, so wider columns (3 on the room page). */
 .room-amenities--wide {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 }

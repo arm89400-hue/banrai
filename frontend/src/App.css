@@ -29,8 +29,6 @@ main {
   text-align: left;
 }
 
-/* Login: a white card over a looping slideshow of the property, darkened
-   so the card stands out whichever photo is showing. */
 .auth-screen {
   position: relative;
   display: flex;
@@ -48,8 +46,6 @@ main {
   z-index: 1;
   flex: 1;
   min-height: 0;
-  /* Clear the floating header: the "back to booking" link sat under it
-     when the card is tall (booking summary + form + a message). */
   padding: 112px 16px 40px;
 }
 @media (max-width: 640px) {
@@ -115,7 +111,6 @@ main {
 .auth-page form {
   max-width: 320px;
 }
-/* Each field's name sits above it, so it stays visible while typing. */
 .auth-field {
   display: grid;
   gap: 6px;
@@ -127,7 +122,6 @@ main {
   font-weight: 400;
 }
 
-/* Arriving from the booking flow: new guest / have an account. */
 .auth-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -157,7 +151,6 @@ main {
   box-shadow: 0 1px 3px hsla(0, 0%, 0%, 0.14);
 }
 
-/* The stay being booked, above the card, with the way back to it. */
 .auth-booking {
   display: grid;
   gap: 10px;
@@ -198,8 +191,6 @@ main {
   font-size: 14px;
   color: var(--text-muted);
 }
-/* The log-in button spans the form, the same width as the Google button
-   above it, so the two choices line up. */
 .auth-page form button[type='submit'] {
   align-self: stretch;
   padding: 12px 26px;
@@ -313,11 +304,6 @@ main {
   }
 }
 
-/* ---- Moving between pages (see components/PageShift.jsx) ----
-   The page swaps at once (no whole-page fade). The cards on screen are
-   named card-0, card-1... on both pages, so each one changes size and
-   place into the matching card of the new page; the top photo morphs into
-   the new page's top photo. The header stays still. */
 ::view-transition-old(root) {
   display: none;
 }
@@ -335,7 +321,6 @@ main {
   display: none;
 }
 
-/* The photo at the top of each page is one element moving between pages. */
 .hero,
 .acts-top,
 .about-hero,
@@ -343,15 +328,10 @@ main {
   view-transition-name: page-hero;
 }
 
-/* Home's booking bar sits over the bottom of the top photo: it has its own
-   layer, drawn above the photo, and does not move - it is simply there. */
 .home-search {
   view-transition-name: home-search;
 }
 
-/* Every moving card and the top photo: size and place glide over 0.4 s.
-   No crossfade (it showed the white page through, half way): the box
-   shows its new content straight away, cropped to the moving box. */
 ::view-transition-group(*) {
   animation-duration: var(--dur-4);
   animation-timing-function: var(--ease-standard);
@@ -365,8 +345,6 @@ main {
   height: 100%;
   object-fit: cover;
 }
-/* A box with no partner: an old one goes at once; a new one rises a little
-   into place (no fade). */
 ::view-transition-old(*):only-child {
   display: none;
 }
@@ -379,8 +357,6 @@ main {
   }
 }
 
-/* During a shift the pop-ups skip their own fade-in: the photo growing
-   into place is the motion. */
 :root.is-shifting :is(.lightbox__figure img, .fruit-viewer__panel, .date-sheet__panel) {
   animation: none;
 }

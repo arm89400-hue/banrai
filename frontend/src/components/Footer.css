@@ -1,6 +1,3 @@
-/* Forest-green footer in columns: brand (logo, tagline, phone tiles) on
-   the left, three link columns on the right, then a darker
-   legal strip. */
 .footer {
   --sun: var(--straw);
   --on-dark: rgba(255, 255, 255, 0.8);
@@ -24,7 +21,6 @@
   color: var(--white);
 }
 
-/* ---- Brand column ---- */
 .footer__brand {
   display: flex;
   flex-direction: column;
@@ -37,7 +33,6 @@
   color: inherit;
   text-decoration: none;
 }
-/* Same treatment as the navbar logo (.navbar__logo), so the two match. */
 .footer__logo img {
   width: 48px;
   height: 48px;
@@ -74,8 +69,6 @@
   color: var(--on-dark);
 }
 
-/* Phone lines: plain links like the other columns, with a small phone
-   icon and whose line it is. */
 .footer__col .footer__phone {
   display: flex;
   align-items: center;
@@ -92,7 +85,6 @@
   color: var(--on-dark);
 }
 
-/* ---- Link columns ---- */
 .footer__col {
   display: flex;
   flex-direction: column;
@@ -112,7 +104,6 @@
   text-underline-offset: 3px;
 }
 
-/* Facebook / Maps as small outlined pills under the tagline. */
 .footer__social {
   display: flex;
   flex-wrap: wrap;
@@ -151,7 +142,6 @@
   background: #ea4335;
 }
 
-/* ---- Legal strip ---- */
 .footer__legal {
   display: flex;
   flex-direction: column;
@@ -175,8 +165,6 @@
   outline-offset: 4px;
 }
 
-/* Below this the four columns get cramped: the brand takes its own row
-   above the other three. */
 @media (max-width: 1080px) {
   .footer__main {
     grid-template-columns: repeat(3, minmax(0, 1fr));

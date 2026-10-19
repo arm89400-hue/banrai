@@ -1,4 +1,3 @@
-/* Full-screen photo viewer (see Lightbox.jsx). Sits above the navbar. */
 .lightbox {
   position: fixed;
   inset: 0;
@@ -20,9 +19,6 @@
   margin: 0;
   min-width: 0;
 }
-/* The photo is fitted into the whole area between the buttons and above the
-   caption, scaling small photos up. The shadow is a filter so it follows
-   the photo itself, not the (larger) box it is fitted into. */
 .lightbox__figure img {
   width: 100%;
   height: calc(100svh - 110px);

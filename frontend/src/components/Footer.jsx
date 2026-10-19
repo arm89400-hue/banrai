@@ -18,10 +18,6 @@ function Icon({ children, size = 20 }) {
 const CHAT_PATH = 'M4 5h16v11H9l-5 4z';
 const PHONE_PATH = 'M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z';
 
-// Site-wide footer (see App.jsx), laid out like a travel site's in four
-// columns: brand (logo, tagline, Facebook / Maps), explore, your stay, and
-// contact (the phone lines as tiles), then a legal strip. It's the single place for contact details,
-// so they aren't repeated elsewhere on the page.
 export default function Footer() {
   const { user } = useAuth();
   const { t, lang } = useLang();

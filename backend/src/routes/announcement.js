@@ -3,22 +3,14 @@ import { pool } from '../db/pool.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
 import { photosJson, removeUploads } from '../lib/photos.js';
 
-// Announcements (see db/migrations/014_announcements.sql): written in admin,
-// shown on the Home page and/or to guests who have a booking, between their
-// start and end times. Each has up to 6 photos (the first is the cover),
-// uploaded through the shared admin photo routes in admin.js.
-
-// Express 4 doesn't catch rejected promises from async handlers.
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 const PUBLIC_COLUMNS = `id, title, title_th, body, body_th, audience, starts_at, ends_at,
   ${photosJson('announcement_id', 'announcements.id')} AS photos`;
 const SHOWING_NOW = 'active AND starts_at <= now() AND (ends_at IS NULL OR ends_at > now())';
 
-// ---- Public ----
 export const announcementRouter = Router();
 
-// For the Home page: announcements for everyone, showing right now.
 announcementRouter.get(
   '/home',
   wrap(async (_req, res) => {
@@ -31,10 +23,6 @@ announcementRouter.get(
   })
 );
 
-// For guests with a booking ("My bookings" and the room dashboard): the
-// announcements meant for booked guests, showing right now. A booked guest
-// is a room account (only valid until its check-out) or a member with a
-// booking that isn't cancelled and hasn't ended yet. Anyone else gets none.
 announcementRouter.get(
   '/mine',
   requireAuth,
@@ -60,14 +48,12 @@ announcementRouter.get(
   })
 );
 
-// ---- Admin (mounted at /api/admin/announcements) ----
 export const adminAnnouncementRouter = Router();
 adminAnnouncementRouter.use(requireAuth, requireAdmin);
 
 const ADMIN_COLUMNS = `${PUBLIC_COLUMNS}, active, created_at`;
 const AUDIENCES = ['home', 'booked', 'both'];
 
-// Validates the form; returns { error } or { values }.
 function readBody(body) {
   const text = (key, max) => String(body[key] ?? '').trim().slice(0, max) || null;
   const values = {

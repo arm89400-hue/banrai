@@ -1,6 +1,3 @@
-/* "My bookings" (/booking): the stay that needs you now in full (see
-   components/StayView), then the other bookings as short rows. Lines up
-   with the header's edges. */
 .my-page {
   display: grid;
   align-content: start;
@@ -27,7 +24,6 @@
   color: var(--text-muted);
 }
 
-/* Other bookings: photo, rooms and code, dates, status, one button. */
 .my-others {
   display: grid;
   gap: 12px;
@@ -116,7 +112,6 @@
   }
 }
 
-/* "The property deleted your booking" notice, above the booking cards. */
 .my-notice {
   display: flex;
   align-items: flex-start;
@@ -152,7 +147,6 @@
   color: var(--text-muted);
 }
 
-/* Way into the room dashboard once a stay is paid. */
 .my-room-link {
   display: flex;
   justify-content: space-between;

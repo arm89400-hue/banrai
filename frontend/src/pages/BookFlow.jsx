@@ -39,7 +39,6 @@ const EMPTY_FORM = { name: '', phone: '', email: '', line: '', requests: [], pet
 
 const digits = (value) => value.replace(/\D/g, '');
 
-// Checks the guest details step; returns { field: translationKey }.
 function validateForm(form) {
   const errors = {};
   if (form.name.trim().length < 2) errors.name = 'flow.errName';
@@ -51,30 +50,18 @@ function validateForm(form) {
   return errors;
 }
 
-// Step-by-step room booking: choose rooms (with the dates and guests at
-// the top) -> guest details -> review & send. Anyone can browse dates and
-// rooms; from the details step on the guest must be logged in (they're sent
-// to /login and brought back). Sending the request opens a pop-up with the
-// QR: the guest pays the 50% deposit or the whole price and uploads the slip.
-// A party too big for one room picks several rooms; they are booked
-// together (one booking per room, sharing a group code). A dark green box
-// keeps the stay, the price and the next button in view on every step.
-// The room page links here with ?room=&in=&out=&guests=&step=2 to skip
-// straight to the details step; ?rooms=1,2 selects several.
 export default function BookFlow() {
   const { t, lang, locale } = useLang();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
 
-  // Initial state comes from the URL once; after that the URL follows state.
   const [checkIn, setCheckIn] = useState(() => (isISODate(params.get('in')) ? params.get('in') : ''));
   const [checkOut, setCheckOut] = useState(() => (isISODate(params.get('out')) ? params.get('out') : ''));
   const [guests, setGuests] = useState(() => {
     const n = Number.parseInt(params.get('guests'), 10);
     return Number.isInteger(n) ? Math.min(MAX_GUESTS, Math.max(1, n)) : 2;
   });
-  // The chosen rooms, in the order picked.
   const [roomIds, setRoomIds] = useState(() =>
     (params.get('rooms') ?? params.get('room') ?? '')
       .split(',')
@@ -84,8 +71,8 @@ export default function BookFlow() {
   const [step, setStep] = useState(() => Number.parseInt(params.get('step'), 10) || 1);
 
   const [rooms, setRooms] = useState(null);
-  const [fee, setFee] = useState(0); // Baht per extra guest per night
-  const [petRule, setPetRule] = useState({ fee: 0, maxKg: 0 }); // Baht per pet per night, weight limit
+  const [fee, setFee] = useState(0);
+  const [petRule, setPetRule] = useState({ fee: 0, maxKg: 0 });
   const [availableIds, setAvailableIds] = useState(null);
   const [loadError, setLoadError] = useState(false);
   const [form, setForm] = useState(() => ({ ...EMPTY_FORM, email: user?.email?.includes('@') ? user.email : '' }));
@@ -94,17 +81,14 @@ export default function BookFlow() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [roomNotice, setRoomNotice] = useState(null);
-  const [done, setDone] = useState(null); // the created bookings (one per room)
-  const [pay, setPay] = useState(payOptions(null)); // how the deposit can be paid
+  const [done, setDone] = useState(null);
+  const [pay, setPay] = useState(payOptions(null));
 
   const nights = nightsBetween(checkIn, checkOut);
   const chosen = roomIds.map((id) => rooms?.find((r) => r.id === id)).filter(Boolean);
-  // The promotion (if any) each room gets for the chosen check-in day.
   const promotions = usePromotions();
-  // How many guests sleep in each chosen room (null: not enough places yet).
   const split = splitGuests(chosen, guests);
   const capacity = chosen.reduce((sum, r) => sum + roomMaxGuests(r), 0);
-  // Each chosen room priced on its own; pets go with the first room.
   const plans = split
     ? chosen.map((r, i) => {
         const promo = promoFor(promotions, r.id, checkIn);
@@ -119,7 +103,6 @@ export default function BookFlow() {
     : [];
   const grandTotal = plans.reduce((sum, p) => sum + p.total, 0);
 
-  // Loads every room once (for names/prices), generation order = price order.
   useEffect(() => {
     api('/api/rooms')
       .then((data) => {
@@ -130,7 +113,6 @@ export default function BookFlow() {
       .catch(() => setLoadError(true));
   }, []);
 
-  // Re-checks which rooms are free whenever the dates change.
   useEffect(() => {
     if (!nights) {
       setAvailableIds(null);
@@ -146,13 +128,9 @@ export default function BookFlow() {
     };
   }, [checkIn, checkOut, nights]);
 
-  // Only rooms free for the whole stay are offered.
   const freeRooms = (rooms ?? []).filter((r) => availableIds?.has(r.id));
   const taken = availableIds ? (rooms ?? []).filter((r) => !availableIds.has(r.id)) : [];
 
-  // Every room's booked nights (room id -> Set), loaded once a room turns
-  // out to be full, so full rooms can say when they're free again and a
-  // fully booked date can offer the nearest free ones.
   const [booked, setBooked] = useState(null);
   const needBooked = taken.length > 0 && !booked;
   useEffect(() => {
@@ -173,8 +151,6 @@ export default function BookFlow() {
       ? nearbyFreeStays(rooms, booked, checkIn, nights, guests, toISODate(new Date()))
       : [];
 
-  // If a chosen room turns out to be taken for these dates, drop it and
-  // tell the guest.
   useEffect(() => {
     if (!rooms || !availableIds || roomIds.length === 0) return;
     const stillFree = roomIds.filter((id) => availableIds.has(id) && rooms.some((r) => r.id === id));
@@ -194,20 +170,15 @@ export default function BookFlow() {
     );
   }
 
-  // The furthest step the guest may be on given what's been chosen so far.
   let allowed = 1;
   if (nights && split) allowed = 2;
   if (allowed === 2 && Object.keys(validateForm(form)).length === 0) allowed = 3;
   const current = Math.min(Math.max(step, 1), allowed);
 
-  // From the details step on, a guest who isn't logged in is sent to /login.
   const needsLogin = !user && current >= 2;
 
-  // Room accounts only have their room dashboard, so they're sent there.
   const isStay = Boolean(user?.is_stay);
 
-  // Keeps the URL in sync so refresh / back / sharing keep the selection.
-  // (Skipped while redirecting away, or it would undo that redirect.)
   useEffect(() => {
     if (done || needsLogin || isStay) return;
     const next = new URLSearchParams();
@@ -217,19 +188,13 @@ export default function BookFlow() {
     if (roomIds.length) next.set('rooms', roomIds.join(','));
     next.set('step', String(current));
     if (next.toString() !== params.toString()) setParams(next, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkIn, checkOut, guests, roomIds, current, done, needsLogin, isStay]);
 
-  // The phone's bottom bar is in the chat button's corner: lift the chat
-  // button above it while booking.
   useEffect(() => {
     document.body.classList.add('has-bottom-bar');
     return () => document.body.classList.remove('has-bottom-bar');
   }, []);
 
-  // Only what every step has - the steps bar and the stay summary - moves;
-  // the step's own content (a form, a review) is simply there. Pairing a
-  // form with a review box made them stretch oddly.
   function goTo(nextStep) {
     shift(
       () => {
@@ -291,7 +256,6 @@ export default function BookFlow() {
       );
     } catch (err) {
       if (err.reason === 'ROOM_TAKEN') {
-        // Someone else got there first: back to the room list with fresh availability.
         setRoomNotice('flow.errRoomTaken');
         setAvailableIds(null);
         api(`/api/rooms?checkIn=${checkIn}&checkOut=${checkOut}`)
@@ -311,8 +275,6 @@ export default function BookFlow() {
     onChange: (e) => setForm({ ...form, [key]: e.target.value }),
   });
 
-  // Booking needs an account: from the details step on, send guests who
-  // aren't logged in to /login, which brings them back to this exact step.
   if (!done && needsLogin) {
     const back = new URLSearchParams({
       in: checkIn,
@@ -325,12 +287,10 @@ export default function BookFlow() {
   }
   if (isStay) return <Navigate to="/stay" replace />;
 
-  // ---------- Steps ----------
   const extraGuests = plans.reduce((sum, p) => sum + p.extraGuests, 0);
   const extraTotal = plans.reduce((sum, p) => sum + p.extraTotal, 0);
   const petTotal = plans.reduce((sum, p) => sum + p.petTotal, 0);
 
-  // The one button for this step (in the green box, and the phone's bottom bar).
   let next;
   if (current === 1) {
     if (!nights) next = { label: t('flow.needDates'), disabled: true };
@@ -350,8 +310,6 @@ export default function BookFlow() {
       onClick: handleSubmit,
     };
   }
-  // key={current}: a new button per step, so the click that moves to the
-  // details step can't also submit the details form that replaces it.
   const nextButton = (className) => (
     <button
       key={current}
@@ -399,8 +357,6 @@ export default function BookFlow() {
             </p>
           )}
 
-          {/* Step 1: dates and guests at the top, then the free rooms as
-              photo cards; tap a card to choose it (several for a big party). */}
           {current === 1 && (
             <>
               <StaySearch
@@ -476,9 +432,6 @@ export default function BookFlow() {
                             <strong>{names.title}</strong>
                             <b>{formatBaht(base)}</b>
                           </span>
-                          {/* The nights are already in the search bar above, so
-                              the card only says who fits and what's included,
-                              then the choose button. */}
                           <span className="flow-tile__facts">
                             <span>
                               {r.capacity && max > r.capacity
@@ -514,8 +467,6 @@ export default function BookFlow() {
                 </>
               )}
 
-              {/* Full rooms in one line, with the soonest a full room is free
-                  again (same length of stay) as a shortcut to those dates. */}
               {taken.length > 0 && (
                 <p className="flow-taken">
                   {t('flow.takenLine', { rooms: taken.map((r) => roomNames(r.name, lang).title).join(', ') })}
@@ -579,7 +530,6 @@ export default function BookFlow() {
                     <small>{t(`req.${option}.note`)}</small>
                   </label>
                 ))}
-                {/* Pets are counted rather than ticked: each one is charged per night. */}
                 <div className={`flow__pets${form.pets > 0 ? ' is-on' : ''}`}>
                   <span>
                     {t('req.pets')}
@@ -618,8 +568,6 @@ export default function BookFlow() {
           {current === 3 && plans.length > 0 && (
             <>
               <h1 className="flow__title">{t('flow.review')}</h1>
-              {/* Grouped the way the guest filled it in, each group with a
-                  way straight back to the step that changes it. */}
               <section className="flow-review">
                 <h2>
                   {t('review.stay')}
@@ -718,7 +666,6 @@ export default function BookFlow() {
           )}
         </div>
 
-        {/* The stay so far, in the footer's green: the same box on every step. */}
         <aside className="flow-stay">
           <h2>{t('stayBox.title')}</h2>
           <dl className="flow-stay__rows">
@@ -766,7 +713,6 @@ export default function BookFlow() {
         </aside>
       </div>
 
-      {/* Phones: the total and the same button, always in reach. */}
       <div className="flow-bar">
         <span className="flow-bar__info">
           <small>

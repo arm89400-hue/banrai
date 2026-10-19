@@ -5,10 +5,6 @@ import { useLang } from '../i18n/lang';
 import PaymentPanel from './PaymentPanel';
 import './PaymentPanel.css';
 
-// The other half of the price, once the deposit is paid. The guest can pay
-// it online now (a QR fixed to the amount left) or at the farm, where the
-// owner marks it paid in admin. Shown once per group of rooms booked
-// together (`rooms` = how many it covers).
 export default function BalancePay({ booking, rooms = 1, pay, onPaid }) {
   const { t } = useLang();
   const [open, setOpen] = useState(booking.balance_slip_status === 'review');
@@ -46,7 +42,6 @@ export default function BalancePay({ booking, rooms = 1, pay, onPaid }) {
   );
 }
 
-// "Paid in full" once the other half is in.
 export function BalancePaid({ booking }) {
   const { t } = useLang();
   if (!booking.balance_paid_at) return null;

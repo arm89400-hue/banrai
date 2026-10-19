@@ -5,12 +5,10 @@ import { roomNames } from '../lib/booking';
 import ChatThread from '../components/ChatThread';
 import './AdminChat.css';
 
-// How often the conversation list and the open conversation are refreshed.
 const POLL_MS = 4000;
 
 const fmtWhen = (d, locale) => new Date(d).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' });
 
-// A room account is shown by its guest and room; a member by their email.
 function chatName(c) {
   return c.stay_booking_id ? c.guest_name || c.email : c.email;
 }
@@ -20,9 +18,6 @@ function chatSub(c, t, lang) {
   return `${t('adm.panel.login')} ${c.email}${room}`;
 }
 
-// Admin "Chat" section: every account on the left (unread and most recent
-// first), the chosen account's conversation on the right. Both refresh every
-// few seconds, so replies show up without reloading the page.
 export default function AdminChat() {
   const { t, lang, locale } = useLang();
   const labels = { empty: t('adm.chat.empty'), placeholder: t('adm.chat.placeholder'), send: t('adm.chat.send') };
@@ -47,8 +42,6 @@ export default function AdminChat() {
     return () => clearInterval(timer);
   }, [loadChats]);
 
-  // Loads the open conversation and keeps it fresh. `cancelled` drops a
-  // response that arrives after switching to another conversation.
   useEffect(() => {
     if (activeId == null) return undefined;
     let cancelled = false;
@@ -111,7 +104,6 @@ export default function AdminChat() {
               >
                 <span className="achat__name">
                   {chatName(c)}
-                  {/* The open conversation is being read right now. */}
                   {c.unread > 0 && c.user_id !== activeId && <span className="achat__badge">{c.unread}</span>}
                 </span>
                 <span className="achat__sub">{chatSub(c, t, lang)}</span>

@@ -1,5 +1,3 @@
-/* Announcements from admin: one card each, picture beside the text (above
-   it on phones). Used on Home and on the booked-guest pages. */
 .announce {
   display: grid;
   gap: 18px;
@@ -15,8 +13,6 @@
 .announce__card--text {
   grid-template-columns: minmax(0, 1fr);
 }
-/* The picture fills the card's height (set by the text, at least 240px),
-   rather than its own height stretching the card. */
 .announce__photo {
   position: relative;
   min-height: 240px;
@@ -44,7 +40,6 @@
   font-size: 16px;
   line-height: 1.6;
   color: var(--text-muted);
-  /* Keeps the line breaks typed in admin. */
   white-space: pre-line;
 }
 .announce__until {
@@ -58,18 +53,14 @@
   font-weight: 700;
 }
 
-/* On the Home page: its own band between the hero and the rooms. The top
-   padding clears the search bar that hangs over the hero's bottom edge. */
 .home-news {
   padding: 110px max(24px, calc((100% - 1160px) / 2)) 0;
   background: var(--bg);
 }
-/* With announcements above, the rooms no longer need room for the search bar. */
 .home-news + .rooms-section {
   padding-top: 64px;
 }
 
-/* On "My bookings" and the room dashboard: above the page's own content. */
 .page-news {
   margin-bottom: 28px;
 }

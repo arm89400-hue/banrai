@@ -1,5 +1,3 @@
-/* Shared pieces of the booking screens: buttons, fields, price rows, status. */
-
 .bk-page {
   padding: 96px max(20px, calc((100% - 1100px) / 2)) 80px;
   background: var(--bg);
@@ -95,7 +93,6 @@
   color: var(--error);
 }
 
-/* Guests stepper */
 .bk-counter {
   display: inline-flex;
   align-items: center;
@@ -124,7 +121,6 @@
   text-align: center;
 }
 
-/* Price breakdown */
 .price-rows {
   display: grid;
   gap: 10px;
@@ -152,7 +148,6 @@
   color: var(--text-muted);
 }
 
-/* Status pill */
 .status-badge {
   display: inline-block;
   padding: 4px 12px;
@@ -180,8 +175,6 @@
   }
 }
 
-/* Promotion: the discount line in a price breakdown, and the tag that
-   announces a promotion on room cards and pages. */
 .price-rows__promo {
   color: var(--error);
   font-weight: 600;
@@ -199,7 +192,6 @@
   line-height: 1.3;
   text-align: left;
 }
-/* Doubled class: wins over the page styles for <strong> inside price blocks. */
 .promo-tag.promo-tag strong {
   font-size: 12px;
   padding: 2px 9px;
@@ -209,13 +201,10 @@
   font-weight: 700;
   white-space: nowrap;
 }
-/* Amounts stay on one line; the label beside them wraps instead. */
 .price-rows__row > span:last-child:not(:only-child) {
   white-space: nowrap;
 }
 
-/* Room-dashboard login after the deposit is paid: dark green like the
-   booking-done header, each value in a light box with a copy button. */
 .stay-login {
   display: grid;
   gap: 10px;

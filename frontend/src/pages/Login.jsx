@@ -10,18 +10,12 @@ import { LOGIN_SLIDES, roomCover } from '../lib/photos';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-// Where to land after signing in: admins go to their dashboard, room
-// accounts to their room dashboard, and everyone else back to where they
-// were heading (`next`, e.g. the booking they were in the middle of) or to
-// their room dashboard (which sends them on to their bookings when they
-// have no paid stay yet).
 function homeFor(user, next) {
   if (user?.is_admin) return '/admin';
   if (user?.is_stay) return '/stay';
   return next || '/stay';
 }
 
-// Server `reason` codes -> translated messages.
 const ERROR_KEYS = {
   BAD_CREDENTIALS: 'login.errBad',
   ACCOUNT_EXPIRED: 'login.errExpired',
@@ -29,16 +23,10 @@ const ERROR_KEYS = {
   BAD_EMAIL: 'login.errBadEmail',
 };
 
-// Combined login/register page, plus "Login with Google". Members sign in
-// with their email; a room account signs in with the username generated
-// for its booking. Redirects away if already signed in.
 export default function Login() {
   const [params] = useSearchParams();
-  // Only same-site paths are accepted as a return target.
   const rawNext = params.get('next');
   const next = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
-  // Sent here from the booking flow: most of these guests are new, so the
-  // sign-up form comes first and the stay they're booking stays in view.
   const booking = Boolean(next?.startsWith('/book'));
   const [mode, setMode] = useState(booking ? 'register' : 'login');
   const [form, setForm] = useState({ email: '', password: '' });
@@ -52,15 +40,9 @@ export default function Login() {
   const expired = params.get('expired') === '1';
   const sessionEnded = params.get('session') === '1';
 
-  // Renders Google's real "Sign in with Google" button once the GIS script
-  // and a Client ID are both available, and wires its callback to our
-  // backend. No-ops entirely (and the placeholder button renders instead -
-  // see below) when VITE_GOOGLE_CLIENT_ID isn't configured.
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || user) return;
 
-    // Exchanges the Google ID token for our own JWT via the backend, then
-    // logs the user in the same way the email/password form does.
     async function handleCredential(response) {
       setError(null);
       try {
@@ -75,8 +57,6 @@ export default function Login() {
       }
     }
 
-    // The Google script loads with async/defer, so it may not be on
-    // window yet when this effect first runs - poll briefly until it is.
     let cancelled = false;
     const interval = setInterval(() => {
       if (cancelled || !window.google?.accounts?.id || !googleButtonRef.current) return;
@@ -89,7 +69,6 @@ export default function Login() {
       window.google.accounts.id.renderButton(googleButtonRef.current, {
         theme: 'outline',
         size: 'large',
-        // Google wants a pixel width; fit narrow phone cards.
         width: Math.min(320, googleButtonRef.current.offsetWidth || 320),
         locale: lang,
       });
@@ -99,21 +78,16 @@ export default function Login() {
       cancelled = true;
       clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   if (user) {
     return <Navigate to={homeFor(user, next)} replace />;
   }
 
-  // Stand-in for the real Google button when no Client ID is configured -
-  // looks the same but just explains it isn't wired up yet.
   function handleGoogleClickPlaceholder() {
     setError(t('login.googleSoon'));
   }
 
-  // Handles both modes: in "register" mode it creates the account first,
-  // then either way logs in and redirects (see homeFor above).
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
@@ -195,7 +169,6 @@ export default function Login() {
             <label className="auth-field">
               <span>{mode === 'register' ? t('login.email') : t('login.idPlaceholder')}</span>
               <input
-                // Text, not email: a room account's username isn't an email address.
                 type={mode === 'register' ? 'email' : 'text'}
                 autoComplete="username"
                 placeholder={mode === 'register' ? 'name@email.com' : undefined}
@@ -236,8 +209,6 @@ export default function Login() {
   );
 }
 
-// The stay a guest was booking when they were sent here (rooms, dates and
-// guests from the `next` link), with a way back to change it.
 function BookingInProgress({ next }) {
   const { lang, locale, t } = useLang();
   const [rooms, setRooms] = useState([]);

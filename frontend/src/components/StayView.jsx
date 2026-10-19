@@ -9,11 +9,6 @@ import PaymentPanel from './PaymentPanel';
 import BalancePay, { BalancePaid } from './BalancePay';
 import './StayView.css';
 
-// One stay (a room booking, or rooms booked together) as the guest follows
-// it: where it is (sent -> deposit -> confirmed -> the rest), what to do now
-// on the left (pay the deposit by QR, or the room logins and the rest of the
-// price), and the booking itself in the footer-green box on the right.
-// Used on "My bookings" and right after sending a request.
 export default function StayView({ stay, pay, onPaid }) {
   const { t, lang, locale } = useLang();
   const contact = useContact();
@@ -26,7 +21,6 @@ export default function StayView({ stay, pay, onPaid }) {
   const nights = nightsBetween(stay.checkIn, stay.checkOut);
   const wd = t('date.wd');
 
-  // Where the stay is.
   const track = [
     { key: 'sent', state: 'done' },
     { key: 'deposit', state: confirmed ? 'done' : lead.slip_status === 'review' ? 'wait' : 'now' },

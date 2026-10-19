@@ -4,12 +4,6 @@ import { useLang } from "../i18n/lang";
 import PhotoSlides from "./PhotoSlides";
 import "./Announcements.css";
 
-// Announcements written in admin (Admin -> Announcements), each with up to
-// 6 photos. `source` is the
-// API to read: '/api/announcements/home' (everyone, Home page) or
-// '/api/announcements/mine' (guests with a booking). Renders nothing at all
-// while loading, on error, or when there's nothing to announce - so the space
-// it would take simply isn't there.
 export default function Announcements({ source, className = "" }) {
   const { t, lang, locale } = useLang();
   const [list, setList] = useState([]);
@@ -43,7 +37,6 @@ export default function Announcements({ source, className = "" }) {
             key={a.id}
             className={`announce__card${photos.length ? "" : " announce__card--text"}`}
           >
-            {/* One photo as is; several cross-fade one after another. */}
             {photos.length > 0 && (
               <div className="announce__photo">
                 {photos.length === 1 ? (

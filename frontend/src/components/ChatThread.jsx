@@ -1,12 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import './ChatThread.css';
 
-// The message list + composer shared by the guest's chat window
-// (ChatWidget.jsx) and the admin's Chat section (AdminChat.jsx).
-// `mine(message)` says which messages sit on the right; `onSend(text)`
-// resolves once the message is stored. `labels` holds the visible strings:
-// { empty, placeholder, send }. `starters` (optional): ready questions shown
-// while the conversation is empty; tapping one puts it in the box to edit.
 export default function ChatThread({ messages, mine, onSend, labels, locale, starters }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -14,7 +8,6 @@ export default function ChatThread({ messages, mine, onSend, labels, locale, sta
   const listRef = useRef(null);
   const count = messages.length;
 
-  // Keeps the newest message in view when one arrives.
   useEffect(() => {
     const list = listRef.current;
     if (list) list.scrollTop = list.scrollHeight;
@@ -36,7 +29,6 @@ export default function ChatThread({ messages, mine, onSend, labels, locale, sta
     }
   }
 
-  // Enter sends; Shift+Enter makes a new line.
   function handleKeyDown(e) {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       handleSubmit(e);

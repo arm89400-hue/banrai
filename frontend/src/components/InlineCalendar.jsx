@@ -5,15 +5,6 @@ import './InlineCalendar.css';
 
 const NO_NIGHTS = new Set();
 
-// Month calendar for picking a stay. The stay shows as one soft band from
-// check-in to check-out, with the two ends in solid green.
-// - Without `mode`: the first tap sets check-in, the next (later) tap sets
-//   check-out.
-// - `mode` 'in' / 'out' (the date sheet's tabs): the tap sets that date.
-// `bookedNights` (a Set of "YYYY-MM-DD") crosses out nights that are already
-// taken; a range can't span a taken night, though it may end on one (you
-// check out that morning, the next guest arrives that afternoon).
-// `compact` gives the same calendar in a smaller size.
 export default function InlineCalendar({ checkIn, checkOut, onChange, bookedNights = NO_NIGHTS, compact = false, mode }) {
   const { t, locale } = useLang();
   const [viewMonth, setViewMonth] = useState(() => {
@@ -22,27 +13,24 @@ export default function InlineCalendar({ checkIn, checkOut, onChange, bookedNigh
   });
 
   const today = toISODate(new Date());
-  // Is the next tap setting check-out?
   const picking = Boolean(checkIn && (mode ? mode === 'out' : !checkOut));
   const hasBooked = bookedNights.size > 0;
 
   const year = viewMonth.getFullYear();
   const month = viewMonth.getMonth();
-  const offset = (new Date(year, month, 1).getDay() + 6) % 7; // Monday first
+  const offset = (new Date(year, month, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells = [
     ...Array.from({ length: offset }, () => null),
     ...Array.from({ length: daysInMonth }, (_, i) => toISODate(new Date(year, month, i + 1))),
   ];
 
-  // Can this day complete the range that's being picked?
   const canBeCheckOut = (day) => picking && day > checkIn && rangeIsFree(bookedNights, checkIn, day);
 
   function handlePick(day) {
     if (canBeCheckOut(day)) {
       onChange({ checkIn, checkOut: day });
     } else if (!bookedNights.has(day)) {
-      // Start (or restart) the range from this day.
       onChange({ checkIn: day, checkOut: '' });
     }
   }
@@ -84,7 +72,6 @@ export default function InlineCalendar({ checkIn, checkOut, onChange, bookedNigh
 
           const classes = ['inline-cal__day'];
           if (isIn || isOut) classes.push('is-edge');
-          // The band runs out of check-in and into check-out.
           if (isIn && checkOut) classes.push('is-first');
           if (isOut) classes.push('is-last');
           if (inRange) classes.push('in-range');

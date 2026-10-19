@@ -1,5 +1,3 @@
-/* Admin "Chat" section (see AdminChat.jsx): accounts on the left, the open
-   conversation on the right, in one card that fills the window's height. */
 .achat {
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr);
@@ -98,7 +96,6 @@
   display: block;
   font-size: 19px;
 }
-/* Only needed on small screens, where one pane shows at a time. */
 .achat .achat__back {
   display: none;
 }
@@ -106,7 +103,6 @@
   margin: auto;
 }
 
-/* Small screens: one pane at a time - the list, or the open conversation. */
 @media (max-width: 900px) {
   .achat {
     grid-template-columns: minmax(0, 1fr);

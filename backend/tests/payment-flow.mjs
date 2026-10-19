@@ -1,22 +1,3 @@
-// Payment test: runs every payment case through the real backend (Docker,
-// http://localhost:4001) without real money.
-//
-//   node backend/tests/payment-flow.mjs        (from the repo root, Docker running)
-//
-// 1. Manual phase - SlipOK off: slips wait for the owner; admin approves,
-//    rejects and marks "paid at farm"; PassPay test button.
-// 2. SlipOK phase - the backend is pointed at a pretend SlipOK
-//    (tests/slipok-mock.mjs) that answers like the real one: good slip, wrong
-//    amount, no QR, slip used twice, SlipOK quota/key problems, bank delay,
-//    two rooms paid with one slip, the balance paid online.
-// 3. Opn phase - the backend is pointed at a pretend Opn
-//    (tests/opn-mock.mjs): QR made for the exact amount, the guest waits,
-//    the payment is confirmed when Opn says it is paid (asked by the page,
-//    or Opn's webhook) - no slip.
-// It makes its own test accounts and bookings (dates in 2029), deletes them
-// and their slip images afterwards, and puts the normal backend back.
-// Prints PASS/FAIL per check; exits 1 if anything failed.
-
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -32,7 +13,6 @@ const OTHER = `pay-test-${STAMP}-other@example.test`;
 const ADMIN = `pay-test-${STAMP}-admin@example.test`;
 const EMAILS = [GUEST, OTHER, ADMIN];
 const PASSWORD = 'pay-test-password-1';
-// A 1x1 PNG: passes the backend's image check; the pretend SlipOK ignores it.
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   'base64'
@@ -40,7 +20,6 @@ const PNG = Buffer.from(
 
 const realAdmins = (readFileSync(join(ROOT, 'backend/.env'), 'utf8').match(/^ADMIN_EMAILS=(.*)$/m)?.[1] ?? '').trim();
 
-// ---------- Docker ----------
 const COMPOSE = 'docker compose -f docker-compose.yml -f backend/tests/docker-compose.payment-test.yml';
 function sh(cmd, env = {}, input) {
   return execSync(cmd, { cwd: ROOT, env: { ...process.env, ...env }, input, stdio: ['pipe', 'pipe', 'pipe'] }).toString();
@@ -52,7 +31,6 @@ async function waitFor(url) {
     try {
       if ((await fetch(url)).ok) return;
     } catch {
-      /* not up yet */
     }
     await new Promise((r) => setTimeout(r, 1000));
   }
@@ -76,7 +54,6 @@ function restoreBackend() {
   sh('docker compose up -d backend');
 }
 
-// ---------- HTTP ----------
 async function call(method, path, { token, body, image } = {}) {
   const headers = {};
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -102,7 +79,6 @@ async function account(email) {
 const mockNext = (answer = {}) => fetch(`${MOCK}/__next`, { method: 'POST', body: JSON.stringify(answer) });
 const mockCalls = async () => (await (await fetch(`${MOCK}/__calls`)).json()).calls;
 
-// Each booking gets its own nights in 2029 so test bookings never overlap.
 let day = Date.UTC(2029, 1, 1);
 function nextDates() {
   const iso = (t) => new Date(t).toISOString().slice(0, 10);
@@ -140,7 +116,6 @@ async function adminRow(adminToken, id) {
   return r.data.bookings.find((b) => b.id === id);
 }
 
-// ---------- Checks ----------
 const results = [];
 function check(name, ok, detail = '') {
   results.push({ name, ok: Boolean(ok) });
@@ -154,7 +129,6 @@ async function manualPhase(g, other, admin) {
   const stats = await call('GET', '/api/admin/stats', { token: admin });
   check('admin sees payment setup: SlipOK off', stats.data?.payment_setup?.slipok === false, JSON.stringify(stats.data?.payment_setup));
 
-  // M1: one room, slip waits, admin approves.
   const [m1] = await book(g, 1);
   check('new booking owes 50% deposit', money(m1.deposit_due) === money(m1.deposit) && money(m1.deposit) * 2 === money(m1.total), `${m1.deposit_due} / ${m1.total}`);
   let r = await slip(g, m1.id);
@@ -170,7 +144,6 @@ async function manualPhase(g, other, admin) {
   check('approved -> confirmed with room login', m1.after.status === 'confirmed' && Boolean(m1.after.stay_username));
   check('balance now due = other half', money(m1.after.balance_due) === money(m1.total) - money(m1.deposit), m1.after.balance_due);
 
-  // M4: balance paid at the farm, undo, mark again.
   r = await call('PATCH', `/api/admin/bookings/${m1.id}/balance`, { token: admin, body: { paid: true } });
   [m1.after] = await mine(g, [m1.id]);
   check('admin "paid at farm" -> balance paid, method at_farm', r.status === 200 && m1.after.balance_method === 'at_farm' && !m1.after.balance_due);
@@ -180,7 +153,6 @@ async function manualPhase(g, other, admin) {
   r = await slip(g, m1.id, 'deposit');
   check('deposit slip on a paid booking -> 409 NOT_PENDING', r.status === 409 && r.data.reason === 'NOT_PENDING', show(r));
 
-  // M3: admin rejects, guest sends again.
   const [m3] = await book(g, 1);
   await slip(g, m3.id);
   row = await adminRow(admin, m3.id);
@@ -190,7 +162,6 @@ async function manualPhase(g, other, admin) {
   r = await slip(g, m3.id);
   check('guest can send a new slip after a reject', r.status === 202, show(r));
 
-  // M2 + M5: two rooms, one slip for both; then the balance for both.
   const group = await book(g, 2);
   const sum = group.reduce((n, b) => n + money(b.deposit), 0);
   check('2 rooms: each shows the group deposit (one QR)', group.every((b) => money(b.deposit_due) === sum), group.map((b) => b.deposit_due).join(', '));
@@ -209,7 +180,6 @@ async function manualPhase(g, other, admin) {
   after = await mine(g, group.map((b) => b.id));
   check('approve -> both rooms paid in full (online)', after.every((b) => b.balance_method === 'online' && !b.balance_due));
 
-  // M6: PassPay test button, deposit then balance.
   const [m6] = await book(g, 1);
   r = await call('POST', `/api/bookings/${m6.id}/pass-pay?kind=deposit`, { token: g });
   check('PassPay deposit -> confirmed', r.status === 200 && r.data.booking.status === 'confirmed', show(r));
@@ -218,7 +188,6 @@ async function manualPhase(g, other, admin) {
   r = await call('POST', `/api/bookings/${m6.id}/pass-pay?kind=balance`, { token: g });
   check('pay balance twice -> 409 BALANCE_NOT_DUE', r.status === 409 && r.data.reason === 'BALANCE_NOT_DUE', show(r));
 
-  // M7: the whole price at once instead of the deposit.
   const [m7] = await book(g, 1);
   check('new booking can be paid in full (full_due = total)', money(m7.full_due) === money(m7.total), `${m7.full_due} / ${m7.total}`);
   r = await slip(g, m7.id, 'full');
@@ -247,7 +216,6 @@ async function slipokPhase(g, admin) {
   const stats = await call('GET', '/api/admin/stats', { token: admin });
   check('admin sees payment setup: SlipOK on', stats.data?.payment_setup?.slipok === true, JSON.stringify(stats.data?.payment_setup));
 
-  // A1: good slip -> confirmed at once.
   const calls0 = await mockCalls();
   const [a1] = await book(g, 1);
   await mockNext({ transRef: `REF-${STAMP}-A1` });
@@ -255,7 +223,6 @@ async function slipokPhase(g, admin) {
   check('good slip -> confirmed straight away', r.status === 200 && r.data.booking.status === 'confirmed' && r.data.booking.stay_username, show(r));
   check('backend really asked SlipOK', (await mockCalls()) > calls0);
 
-  // A2: wrong amount, from SlipOK (1013) and from our own check.
   const [a2] = await book(g, 1);
   await mockNext({ code: 1013 });
   r = await slip(g, a2.id);
@@ -266,12 +233,10 @@ async function slipokPhase(g, admin) {
   const [a2after] = await mine(g, [a2.id]);
   check('wrong amount never confirms the booking', a2after.status === 'pending');
 
-  // A3: no QR in the picture.
   await mockNext({ code: 1007 });
   r = await slip(g, a2.id);
   check('picture without a slip QR -> 422 SLIP_UNREADABLE', r.status === 422 && r.data.reason === 'SLIP_UNREADABLE', show(r));
 
-  // A4: the same transfer used for a second booking.
   await mockNext({ transRef: `REF-${STAMP}-A1` });
   r = await slip(g, a2.id);
   check('same transfer used twice -> 422 SLIP_DUPLICATE', r.status === 422 && r.data.reason === 'SLIP_DUPLICATE', show(r));
@@ -279,8 +244,6 @@ async function slipokPhase(g, admin) {
   r = await slip(g, a2.id);
   check('SlipOK says used before -> 422 SLIP_DUPLICATE', r.status === 422 && r.data.reason === 'SLIP_DUPLICATE', show(r));
 
-  // A5: SlipOK account problems and bank delay -> owner checks by hand.
-  // (A new booking: each booking takes at most 8 slips an hour.)
   const [a5] = await book(g, 1);
   for (const [code, reason] of [
     [1004, 'SLIPOK_PACKAGE'],
@@ -300,14 +263,12 @@ async function slipokPhase(g, admin) {
   const slipsLeft = await call('GET', '/api/admin/stats', { token: admin });
   check('older slips for the same payment are closed', (await adminRow(admin, a5.id)).slip_status === 'verified' && slipsLeft.status === 200);
 
-  // A7: two rooms, one slip.
   const group = await book(g, 2);
   await mockNext({});
   r = await slip(g, group[0].id);
   const after = await mine(g, group.map((b) => b.id));
   check('2 rooms paid with one slip -> both confirmed', r.status === 200 && after.every((b) => b.status === 'confirmed' && b.stay_username), show(r));
 
-  // A8/A9: the other half online, single room and group.
   await mockNext({});
   r = await slip(g, a1.id, 'balance');
   check('balance slip -> paid in full (online)', r.status === 200 && r.data.booking.balance_method === 'online' && r.data.booking.status === 'confirmed', show(r));
@@ -318,7 +279,6 @@ async function slipokPhase(g, admin) {
   r = await slip(g, group[1].id, 'balance');
   check('group balance slip -> both rooms paid', r.status === 200 && r.data.bookings.every((b) => b.balance_method === 'online'), show(r));
 
-  // A10: the whole price at once, checked by SlipOK.
   const [f1] = await book(g, 1);
   await mockNext({ amount: Number(f1.deposit) });
   r = await slip(g, f1.id, 'full');
@@ -344,7 +304,6 @@ async function opnPhase(g, other, admin) {
   const stats = await call('GET', '/api/admin/stats', { token: admin });
   check('admin sees payment setup: Opn test', stats.data?.payment_setup?.opn === 'test', JSON.stringify(stats.data?.payment_setup));
 
-  // O1: deposit QR, guest waits, paid -> confirmed.
   const [o1] = await book(g, 1);
   let r = await call('POST', `/api/pay/${o1.id}/qr?kind=deposit`, { token: g });
   check('QR made for the deposit', r.status === 201 && r.data.charge?.startsWith('chrg_') && r.data.qr && money(r.data.amount) === money(o1.deposit), show(r));
@@ -366,7 +325,6 @@ async function opnPhase(g, other, admin) {
   r = await call('POST', `/api/pay/${o1.id}/qr?kind=deposit`, { token: g });
   check('no deposit QR once paid -> 409 NOT_PENDING', r.status === 409 && r.data.reason === 'NOT_PENDING', show(r));
 
-  // O2: pay in full through the webhook (the page never asks).
   const [o2] = await book(g, 1);
   r = await call('POST', `/api/pay/${o2.id}/qr?kind=full`, { token: g });
   check('QR made for the whole price', r.status === 201 && money(r.data.amount) === money(o2.total), show(r));
@@ -381,7 +339,6 @@ async function opnPhase(g, other, admin) {
   r = await call('POST', '/api/pay/opn-webhook', { body: { key: 'charge.complete', data: { id: 'chrg_made_up' } } });
   check('webhook for an unknown charge is ignored', r.status === 200);
 
-  // O3: balance QR; expired QR; two rooms.
   r = await call('POST', `/api/pay/${o1.id}/qr?kind=balance`, { token: g });
   const c3 = r.data.charge;
   check('QR for the rest = other half', r.status === 201 && money(r.data.amount) === money(o1.total) - money(o1.deposit), show(r));

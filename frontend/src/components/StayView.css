@@ -1,11 +1,8 @@
-/* One stay: progress line, then what to do (left) beside the booking in
-   footer green (right). */
 .stay-view {
   display: grid;
   gap: 28px;
 }
 
-/* Sent -> deposit -> confirmed -> the rest: a bar per step. */
 .stay-track {
   display: flex;
   margin: 0;
@@ -66,8 +63,6 @@
   color: hsl(0, 60%, 32%);
 }
 
-/* The booking: a white card, the same as on the room page and the
-   booking steps. */
 .stay-box {
   position: sticky;
   top: 96px;
@@ -145,8 +140,6 @@
   }
 }
 
-/* The room login sits beside the green booking box: a light card here so
-   the two don't read as one dark block. */
 .stay-view .stay-login {
   background: var(--white);
   color: var(--text);

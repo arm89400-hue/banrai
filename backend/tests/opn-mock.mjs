@@ -1,17 +1,3 @@
-// A pretend Opn (Omise) for the payment test (tests/payment-flow.mjs) and
-// for trying the QR pop-up without an Opn account. It answers the two calls
-// the site makes, the way https://docs.omise.co/promptpay shows:
-//   POST /charges          (source[type]=promptpay) -> a pending charge with a QR picture
-//   GET  /charges/:id      -> the charge, with its current status
-// The test (or a person) "pays" a charge with:
-//   POST /__pay/:id        -> status 'successful'
-//   POST /__expire/:id     -> status 'expired'
-//   GET  /__charges        -> every charge made so far
-// QR pictures are served at /qr/:id.svg on MOCK_PUBLIC_URL (what the
-// browser can reach).
-//
-// Run: node opn-mock.mjs   (listens on MOCK_PORT, default 4011)
-
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 
@@ -27,8 +13,6 @@ const send = (res, status, body, type = 'application/json') => {
 };
 const error = (res, status, code, message) => send(res, status, { object: 'error', code, message });
 
-// A picture that looks like a QR (a pattern from the charge id), with the
-// amount under it - enough to see it on screen; it is not scannable.
 function qrSvg(charge) {
   const bits = Buffer.from(charge.id).toString('hex');
   let cells = '';
@@ -68,7 +52,6 @@ createServer((req, res) => {
     const url = new URL(req.url, 'http://mock');
     const path = url.pathname;
 
-    // Test controls and QR pictures (no key needed).
     let m;
     if (req.method === 'GET' && path === '/__charges') return send(res, 200, { charges: [...charges.values()].map(chargeView) });
     if (req.method === 'POST' && (m = /^\/__(pay|expire)\/([\w]+)$/.exec(path))) {
@@ -82,7 +65,6 @@ createServer((req, res) => {
       return c ? send(res, 200, qrSvg(c), 'image/svg+xml') : send(res, 404, 'not found', 'text/plain');
     }
 
-    // The Opn API: secret key as the Basic auth user name.
     const auth = Buffer.from((req.headers.authorization ?? '').replace(/^Basic /, ''), 'base64').toString();
     if (auth !== `${SECRET_KEY}:`) return error(res, 401, 'authentication_failure', 'authentication failed');
 

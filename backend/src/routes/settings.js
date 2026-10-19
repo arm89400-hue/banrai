@@ -3,17 +3,12 @@ import { pool } from '../db/pool.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { logEvent } from '../lib/activityLog.js';
 
-// Settings the owner edits in admin and the website reads (table
-// site_settings, migrations/019). Only 'contact' so far: the phone lines,
-// LINE, Facebook and Google Maps shown in the footer, chat and guest pages.
-
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 const MAX_PHONES = 6;
 const text = (v, max) => String(v ?? '').trim().slice(0, max);
 const isUrl = (v) => /^https?:\/\/\S+$/i.test(v);
 
-// Checks and tidies a contact form; returns { value } or { error }.
 function readContact(body) {
   const phones = (Array.isArray(body.phones) ? body.phones : [])
     .map((p) => ({ name_th: text(p?.name_th, 40), name_en: text(p?.name_en, 40), number: text(p?.number, 30) }))
@@ -40,7 +35,6 @@ async function readSetting(key) {
   return rows[0]?.value ?? null;
 }
 
-// Public: what the website shows.
 export const settingsRouter = Router();
 
 settingsRouter.get(
@@ -50,7 +44,6 @@ settingsRouter.get(
   })
 );
 
-// Admin: change it.
 export const adminSettingsRouter = Router();
 adminSettingsRouter.use(requireAuth, requireAdmin);
 

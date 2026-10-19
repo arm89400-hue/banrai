@@ -1,5 +1,3 @@
-/* Home: photos with the stay search, the rooms, a day at the farm, the
-   house rules. Content lines up with the header's edges (--home-w). */
 .home {
   padding-bottom: 1px;
   background: var(--bg);
@@ -10,7 +8,6 @@
   --home-w: min(1110px, calc(100% - 40px));
 }
 
-/* ---------- Photos (the header floats over them) ---------- */
 .hero {
   position: relative;
   display: flex;
@@ -56,7 +53,6 @@
   text-wrap: balance;
 }
 
-/* The fruit ripe this month. */
 .hero-season {
   display: inline-flex;
   align-items: center;
@@ -84,7 +80,6 @@
   margin-left: 0;
 }
 
-/* ---------- The search, over the bottom edge of the photos ---------- */
 .home-search {
   position: relative;
   z-index: 2;
@@ -114,7 +109,6 @@
   margin: 48px auto 0;
 }
 
-/* ---------- Sections ---------- */
 .home-sec {
   display: grid;
   gap: 24px;
@@ -151,7 +145,6 @@
   color: var(--text-muted);
 }
 
-/* ---------- Rooms: two big (they take up to 4), three smaller ---------- */
 .room-cards {
   display: grid;
   gap: 32px;
@@ -223,7 +216,6 @@
   border-radius: 12px;
 }
 
-/* ---------- A day at the farm ---------- */
 .day-grid {
   display: grid;
   grid-template-columns: 1.35fr 1fr 1fr;
@@ -255,7 +247,6 @@
   color: var(--text-h);
 }
 
-/* ---------- House rules: one row ---------- */
 .rules {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -282,7 +273,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------- Tablet ---------- */
 @media (max-width: 1024px) {
   .rules {
     grid-template-columns: repeat(3, 1fr);
@@ -295,14 +285,12 @@
   }
 }
 
-/* ---------- Phone ---------- */
 @media (max-width: 760px) {
   .hero,
   .home-search,
   .home-sec {
     --home-w: calc(100% - 32px);
   }
-  /* A shorter photo on phones, so the search and the rooms come sooner. */
   .hero {
     height: 360px;
     min-height: 0;
@@ -347,7 +335,6 @@
     font-size: 24px;
   }
 
-  /* Rooms: a row of photos to swipe through. */
   .room-cards {
     display: flex;
     gap: 12px;

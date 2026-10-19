@@ -7,20 +7,11 @@ import { createPromptPay, getCharge, opnConfigured } from '../lib/opn.js';
 import { satang } from '../lib/slipok.js';
 import { paidResponse } from './booking.js';
 
-// Paying by PromptPay QR through Opn (lib/opn.js): no slip, the guest scans
-// and waits.
-//   POST /api/pay/:bookingId/qr?kind=deposit|full|balance  -> a QR for what is due
-//   GET  /api/pay/charges/:chargeId                         -> paid yet? (the page asks every few seconds)
-//   POST /api/pay/opn-webhook                                -> Opn says a charge finished
-// The amount always comes from the bookings in the database. A charge is
-// recorded on the bookings once only (opn_charges.settled_at).
 export const opnRouter = Router();
 
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 const kindOf = (req) => (KINDS.includes(req.query.kind) ? req.query.kind : 'deposit');
 
-// Records a paid charge on its bookings, once. Returns true when the
-// bookings were updated now or before.
 async function settleCharge(chargeId, actor) {
   const client = await pool.connect();
   let row;
@@ -34,8 +25,6 @@ async function settleCharge(chargeId, actor) {
       return Boolean(row);
     }
     scope = await paymentScope(client, row.booking_id, { kind: row.kind, lock: true });
-    // Paid, but nothing (or a different amount) is owed any more - paid
-    // twice, cancelled or re-priced meanwhile. Kept for the owner to sort out.
     if (scope.error || satang(scope.amount) !== satang(row.amount)) {
       await client.query("UPDATE opn_charges SET status = 'successful', settled_at = now() WHERE id = $1", [chargeId]);
       await client.query('COMMIT');
@@ -59,7 +48,6 @@ async function settleCharge(chargeId, actor) {
   return true;
 }
 
-// Asks Opn about a charge, stores its status and records it if paid.
 async function refreshCharge(chargeId, actor) {
   const charge = await getCharge(chargeId);
   await pool.query('UPDATE opn_charges SET status = $2 WHERE id = $1 AND settled_at IS NULL', [chargeId, charge.status]);
@@ -67,9 +55,6 @@ async function refreshCharge(chargeId, actor) {
   return charge.status;
 }
 
-// A QR for what is due on one of the member's own room bookings (and the
-// rooms booked with it). An unpaid QR for the same payment and amount that
-// is still good for a few minutes is shown again instead of a new one.
 opnRouter.post(
   '/:id/qr',
   requireAuth,
@@ -113,8 +98,6 @@ opnRouter.post(
   })
 );
 
-// Paid yet? The page asks every few seconds while the guest waits.
-// { status: 'pending' | 'successful' | 'failed' | 'expired', bookings? }
 opnRouter.get(
   '/charges/:chargeId',
   requireAuth,
@@ -133,7 +116,6 @@ opnRouter.get(
       try {
         status = await refreshCharge(row.id, req.user.email);
       } catch (err) {
-        // Opn didn't answer this time; the page simply asks again.
         console.error(err.message);
       }
     }
@@ -142,9 +124,6 @@ opnRouter.get(
   })
 );
 
-// Opn's webhook (set it in the Opn dashboard to https://<site>/api/pay/opn-webhook).
-// The message itself is not trusted: the charge is fetched from Opn with
-// the secret key before anything is recorded.
 opnRouter.post(
   '/opn-webhook',
   wrap(async (req, res) => {

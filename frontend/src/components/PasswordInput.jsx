@@ -1,10 +1,6 @@
 import { useState } from 'react';
 import './PasswordInput.css';
 
-// A password field with an eye button: the password is shown only while the
-// button is held down (mouse, touch, or Space/Enter) and hidden again on
-// release. `label` is the button's accessible name; every other prop goes to
-// the <input>.
 export default function PasswordInput({ label = 'Hold to show password', ...inputProps }) {
   const [visible, setVisible] = useState(false);
   const hide = () => setVisible(false);
@@ -19,14 +15,12 @@ export default function PasswordInput({ label = 'Hold to show password', ...inpu
         title={label}
         aria-pressed={visible}
         onPointerDown={(e) => {
-          // Keeps the cursor in the password field instead of moving focus here.
           e.preventDefault();
           setVisible(true);
         }}
         onPointerUp={hide}
         onPointerLeave={hide}
         onPointerCancel={hide}
-        // A long press on touch screens would otherwise open the context menu.
         onContextMenu={(e) => e.preventDefault()}
         onKeyDown={(e) => {
           if (e.key === ' ' || e.key === 'Enter') {

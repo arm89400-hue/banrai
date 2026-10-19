@@ -3,16 +3,12 @@ import './About.css';
 
 const ABOUT_PHOTOS = ['hero-house', 'around-orchard', 'table-breakfast'];
 
-// One small drawn icon per highlight (i18n `farm.highlights[].icon`).
 const HIGHLIGHT_ICONS = {
   leaf: <path d="M5 19c0-8 6-13 14-14-1 8-6 14-14 14zM5 19l7-7" />,
   egg: <path d="M12 3c-4 0-7 6-7 10a7 7 0 0 0 14 0c0-4-3-10-7-10z" />,
   bowl: <path d="M3 11h18a9 9 0 0 1-18 0zM8 7c0-1 1-1 1-2M12 7c0-1 1-1 1-2M16 7c0-1 1-1 1-2" />,
 };
 
-// Static public page introducing the property: the farm in a few lines,
-// what's special about it, and photos. No booking button
-// of its own - the header's "จองห้องพัก" is on every page.
 export default function About() {
   const { t } = useLang();
   const captions = t('photos');

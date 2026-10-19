@@ -13,9 +13,6 @@ function readStoredLang() {
   }
 }
 
-// Holds the visitor's language (Thai by default), remembers their choice in
-// localStorage, and keeps <html lang> in sync so the browser and the
-// Thai-specific CSS (see index.css) know which language is showing.
 export default function LanguageProvider({ children }) {
   const [lang, setLangState] = useState(readStoredLang);
 
@@ -25,7 +22,6 @@ export default function LanguageProvider({ children }) {
     try {
       localStorage.setItem(STORAGE_KEY, next);
     } catch {
-      // Storage unavailable (private mode) - the choice just won't persist.
     }
   }, []);
 

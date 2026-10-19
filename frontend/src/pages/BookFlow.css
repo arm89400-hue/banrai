@@ -1,6 +1,3 @@
-/* Step-by-step booking (/book): three steps (rooms, details, review), the
-   step content on the left and the stay in a footer-green box on the right.
-   Lines up with the header's edges. Shared pieces live in BookingBits.css. */
 .flow-page {
   min-height: 80vh;
   padding: 92px max(20px, calc((100% - 1110px) / 2)) 96px;
@@ -8,7 +5,6 @@
   color: var(--text);
 }
 
-/* ---- Back + the three steps ---- */
 .flow-top {
   display: flex;
   flex-wrap: wrap;
@@ -92,15 +88,12 @@
   color: var(--brand);
 }
 
-/* ---- Layout: step content + the stay box ---- */
 .flow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 400px;
   gap: 56px;
   align-items: start;
 }
-/* No entrance animation: each booking step shows at once, so the guest
-   can read and tap straight away. */
 .flow__main {
   display: grid;
   gap: 18px;
@@ -116,7 +109,6 @@
   margin: 0;
   color: var(--text-muted);
 }
-/* Every room full: what happened, then the nearest free dates to tap. */
 .flow-none {
   display: grid;
   gap: 12px;
@@ -162,7 +154,6 @@
   font-weight: 400;
 }
 
-/* Full rooms: one quiet line, with when one is free again. */
 .flow-taken {
   margin: 0;
   padding: 14px 0 0;
@@ -192,7 +183,6 @@
   font-weight: 600;
 }
 
-/* ---- Step 1: the free rooms as photo cards ---- */
 .flow__label {
   display: flex;
   align-items: baseline;
@@ -214,8 +204,6 @@
   grid-template-columns: 1fr 1fr;
   gap: 28px 20px;
 }
-/* Photo first: no card around a room, just its photo, then its name and
-   price set in type, then who it fits and a small choose button. */
 .flow-tile {
   display: grid;
   align-content: start;
@@ -284,7 +272,6 @@
   justify-self: start;
 }
 
-/* ---- The booking so far: a white card, the same as the room page's ---- */
 .flow-stay {
   position: sticky;
   top: 96px;
@@ -366,7 +353,6 @@
   text-align: center;
 }
 
-/* The phone's bottom bar (hidden on larger screens). */
 .flow-bar {
   display: none;
 }
@@ -392,7 +378,6 @@
     gap: 10px 14px;
     margin-bottom: 20px;
   }
-  /* Only the current step's name fits on a phone. */
   .flow-steps li:not(.is-now) button {
     font-size: 0;
   }
@@ -413,7 +398,6 @@
   .flow-stay__go {
     display: none;
   }
-  /* The bottom bar shows the stay and the total on phones. */
   .flow-stay {
     display: none;
   }
@@ -466,7 +450,6 @@
   }
 }
 
-/* ---- Lists (review, finished) ---- */
 .flow-list {
   display: grid;
   gap: 10px;
@@ -488,7 +471,6 @@
   overflow-wrap: anywhere;
 }
 
-/* ---- Step 3: review, grouped with an edit link per group ---- */
 .flow-review {
   margin: 0;
   padding: 4px 18px;
@@ -546,7 +528,6 @@
   color: hsl(35, 70%, 24%);
 }
 
-/* ---- Step 2: details ---- */
 #flow-details {
   display: grid;
   gap: 18px;
@@ -592,7 +573,6 @@
   flex: none;
   accent-color: var(--brand);
 }
-/* Pets: a row like the checkboxes, with a counter instead of a tick. */
 .flow__pets {
   display: flex;
   align-items: center;
@@ -627,7 +607,6 @@
   white-space: nowrap;
 }
 
-/* ---- Step 3: review ---- */
 .flow__accept {
   display: flex;
   gap: 10px;

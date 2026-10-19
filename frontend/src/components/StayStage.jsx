@@ -4,12 +4,6 @@ import './StayStage.css';
 
 const SLIDE_MS = 6000;
 
-// The top of the room dashboard: the guest's own stay as a slow slideshow -
-// their room(s), the fruit ripe the month they come, the farm's activities -
-// each photo named in the corner, the countdown and dates over it. The
-// photos only crossfade: no zoom.
-// `slides` = [{ src, caption }]; `children` = the text on top. It plays by
-// itself unless the visitor asked for reduced motion, and can be paused.
 export default function StayStage({ slides, children }) {
   const { t } = useLang();
   const [index, setIndex] = useState(0);

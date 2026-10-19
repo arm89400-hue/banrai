@@ -3,9 +3,6 @@ import { MAX_GUESTS } from '../lib/booking';
 import DateRangePicker from './DateRangePicker';
 import './StaySearch.css';
 
-// The search row used on Home, the room page and the booking steps: the
-// dates field (opens the calendar) and the number of guests with − / +.
-// `children` adds an action at the end (Home's "see free rooms" button).
 export default function StaySearch({ checkIn, checkOut, guests, onDates, onGuests, maxGuests = MAX_GUESTS, bookedNights, children, className = '' }) {
   const { t } = useLang();
   return (

@@ -7,17 +7,9 @@ import { useLang } from '../i18n/lang';
 import ChatThread from './ChatThread';
 import './ChatWidget.css';
 
-// How often the open chat is refreshed, and how often the unread badge is
-// while the chat is closed.
 const OPEN_POLL_MS = 4000;
 const CLOSED_POLL_MS = 20000;
 
-// Floating "chat with us" button on the public site. Signed-in members and
-// room accounts get a small window with their conversation with the
-// property (which answers from the admin dashboard's Chat section).
-// Visitors who aren't signed in see the same button, and are asked to log
-// in first - a conversation has to belong to an account. Renders nothing
-// for admins.
 export default function ChatWidget() {
   const { user } = useAuth();
   const { t, lang, locale } = useLang();
@@ -26,12 +18,9 @@ export default function ChatWidget() {
   const [messages, setMessages] = useState([]);
   const [unread, setUnread] = useState(0);
   const { pathname, search } = useLocation();
-  // Has a conversation: any signed-in account except an admin.
   const enabled = Boolean(user) && !user.is_admin;
   const userId = user?.id;
 
-  // Closed: only the unread count. Open: the conversation itself, which
-  // also marks the property's messages as read.
   useEffect(() => {
     if (!enabled) return undefined;
     let cancelled = false;
@@ -58,7 +47,6 @@ export default function ChatWidget() {
     };
   }, [enabled, open, userId]);
 
-  // Another account signing in must not see the previous one's messages.
   useEffect(() => {
     setOpen(false);
     setMessages([]);
@@ -66,9 +54,7 @@ export default function ChatWidget() {
   }, [userId]);
 
   if (user?.is_admin) return null;
-  // The login page is already where a visitor would be sent.
   if (!user && pathname === '/login') return null;
-  // The room dashboard has the conversation open on the page itself.
   if (user && pathname === '/stay') return null;
 
   async function send(body) {
@@ -101,8 +87,6 @@ export default function ChatWidget() {
               labels={{ empty: t('chat.empty'), placeholder: t('chat.placeholder'), send: t('chat.send') }}
             />
           ) : (
-            // Visitors: a question shouldn't need an account, so the phone
-            // lines and Facebook come first; website chat is for members.
             <div className="chat-widget__gate">
               {contact.phones.map((p) => (
                 <a key={p.tel} className="chat-widget__contact" href={`tel:${p.tel}`}>

@@ -22,28 +22,21 @@ import { roomCover, roomPhotos } from '../lib/photos';
 import { shift } from '../lib/motion';
 import './RoomPage.css';
 
-// One room's own page: photos, what it costs and what's in it, and a
-// booking card (dates, guests, the price worked out). The calendar crosses
-// out the nights this room is already taken, so a chosen stay is always
-// free. "Book this room" hands the dates to the booking flow's details step.
-// On phones a bar at the bottom keeps the price and the button in reach.
 export default function RoomPage() {
   const { id } = useParams();
   const { t, lang } = useLang();
   const navigate = useNavigate();
 
   const [room, setRoom] = useState(null);
-  const [fee, setFee] = useState(0); // Baht per extra guest per night
+  const [fee, setFee] = useState(0);
   const [petRule, setPetRule] = useState({ fee: 0, maxKg: 0 });
   const [others, setOthers] = useState([]);
   const [booked, setBooked] = useState([]);
   const [missing, setMissing] = useState(false);
   const [dates, setDates] = useState({ checkIn: '', checkOut: '' });
   const [guests, setGuests] = useState(2);
-  const [viewing, setViewing] = useState(null); // index of the photo open in the viewer
+  const [viewing, setViewing] = useState(null);
 
-  // Loads this room, its taken dates and the other rooms. Resets the
-  // selection when moving from one room's page to another.
   useEffect(() => {
     let stale = false;
     setRoom(null);
@@ -79,8 +72,6 @@ export default function RoomPage() {
   const bookedNights = useMemo(() => bookedNightSet(booked), [booked]);
   const nights = nightsBetween(dates.checkIn, dates.checkOut);
 
-  // The phone's bottom bar is in the chat button's corner: lift the chat
-  // button above it while this page is open.
   useEffect(() => {
     document.body.classList.add('has-bottom-bar');
     return () => document.body.classList.remove('has-bottom-bar');
@@ -102,7 +93,6 @@ export default function RoomPage() {
   const gallery = roomPhotos(room).map((p) => ({ ...p, caption: names.title }));
   const maxGuests = roomMaxGuests(room);
   const shownGuests = Math.min(guests, maxGuests);
-  // The promotion for the chosen check-in day, and every one this room has.
   const promo = promoFor(promotions, room.id, dates.checkIn);
   const roomPromos = promosForRoom(promotions, room.id);
   const quote = priceStay(room, nights, shownGuests, fee, 0, 0, promo);
@@ -126,9 +116,6 @@ export default function RoomPage() {
         ‹ {t('room.allRooms')}
       </Link>
 
-      {/* Cover big on the left, the next two stacked on the right (phones:
-          the cover only). Any tile opens the viewer; so does the "all
-          photos" button, which says there are more to see. */}
       <div className={`room-gallery${gallery.length > 2 ? ' room-gallery--stack' : ''}`}>
         {gallery.slice(0, 3).map((photo, i) => {
           return (
@@ -152,7 +139,6 @@ export default function RoomPage() {
           );
         })}
         {gallery.length <= 1 && (
-          // No photos yet (all removed in admin) or just one: the house fills in.
           <div className={`room-gallery__tile${gallery.length === 0 ? ' room-gallery__tile--main' : ''}`}>
             <img src="/images/hero.jpg" alt={t('room.housePhoto')} />
           </div>
@@ -206,7 +192,6 @@ export default function RoomPage() {
             </div>
           )}
 
-          {/* What it costs, one fact per line, amounts on the right. */}
           <ul className="room-facts">
             <li>
               <span>{t('room.factBase', { n: room.capacity || maxGuests })}</span>
@@ -350,7 +335,6 @@ export default function RoomPage() {
         </aside>
       </div>
 
-      {/* Phones: price and the one button, always in reach. */}
       <div className="room-bar">
         <span className="room-bar__info">
           <small>{nights > 0 ? `${names.title} · ${t('flow.nights', { n: nights })}` : names.title}</small>

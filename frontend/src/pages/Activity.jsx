@@ -9,8 +9,6 @@ import FruitViewer from '../components/FruitViewer';
 import Lightbox from '../components/Lightbox';
 import './Activity.css';
 
-// Used only if the activity list can't be loaded: the farm's activities as
-// they were before they moved into admin (ids match `activities.items`).
 const FALLBACK_PHOTOS = {
   fruit: '/images/farm/harvest.jpg',
   cook: '/images/farm/booking-cook1.jpg',
@@ -19,8 +17,6 @@ const FALLBACK_PHOTOS = {
   planting: '/images/farm/around-planting.jpg',
 };
 
-// An activity from the API in the visitor's language (falling back to the
-// other one), with its photos (cover first, at most 6 - set in admin).
 function localize(a, lang) {
   const pick = (en, th) => (lang === 'th' ? th || en : en || th);
   return {
@@ -37,7 +33,6 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 const prevMonth = (m) => (m === 1 ? 12 : m - 1);
 const nextMonth = (m) => (m === 12 ? 1 : m + 1);
 
-// One activity as a photo card; the photo opens all its photos large.
 function ActivityCard({ item, onOpen }) {
   const { t } = useLang();
   const cover = item.photos[0];
@@ -67,20 +62,15 @@ function ActivityCard({ item, onOpen }) {
   );
 }
 
-// Public page of the farm's activities: a photo on top, the activities as
-// cards (two big, the rest smaller - managed in admin), the fruit ripe this
-// month, and the fruit calendar for the whole year. Tapping a fruit opens
-// it large in FruitViewer.
 export default function Activity() {
   const { t, lang, locale } = useLang();
   const thisMonth = new Date().getMonth() + 1;
-  const [activities, setActivities] = useState(null); // from the API; null while loading
+  const [activities, setActivities] = useState(null);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [gallery, setGallery] = useState(null); // { photos, index } of the open activity
-  const [open, setOpen] = useState(null); // index in FRUIT_SEASONS, or null
+  const [gallery, setGallery] = useState(null);
+  const [open, setOpen] = useState(null);
   const calRef = useRef(null);
 
-  // The activities and their photos are managed in admin.
   useEffect(() => {
     api('/api/activities')
       .then((data) => setActivities(data.activities))
@@ -91,15 +81,12 @@ export default function Activity() {
     ? t('activities.items').map((item) => ({ ...item, photos: [{ id: item.id, src: FALLBACK_PHOTOS[item.id] }] }))
     : (activities ?? []).map((a) => localize(a, lang));
 
-  // Opened with a link to one activity (/activities#activity-7): go there
-  // once the activities have loaded.
   const ready = Boolean(activities) || loadFailed;
   useEffect(() => {
     if (!ready || !window.location.hash.startsWith('#activity-')) return;
     document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: 'center' });
   }, [ready]);
 
-  // Phones see a few months of the calendar at a time: start at this month.
   useEffect(() => {
     const cal = calRef.current;
     const now = cal?.querySelector('thead th.is-now');
@@ -111,7 +98,6 @@ export default function Activity() {
   const names = t('fruits');
   const monthName = (m, style) => new Date(2000, m - 1, 1).toLocaleDateString(locale, { month: style });
   const range = (f) => `${monthName(f.from, 'short')} – ${monthName(f.to, 'short')}`;
-  // The tapped picture grows into the viewer's large photo.
   const showFruit = (id, e) =>
     shift(() => setOpen(FRUIT_SEASONS.findIndex((f) => f.id === id)), {
       from: e?.currentTarget.querySelector('img'),
@@ -177,8 +163,6 @@ export default function Activity() {
         )}
       </section>
 
-      {/* The fruit calendar: a row per fruit, a bar over its months, this
-          month highlighted. Phones scroll it sideways; the names stay put. */}
       <section className="acts-sec" id="seasons" aria-labelledby="acts-year">
         <div className="acts-sec__hd">
           <h2 id="acts-year">{t('season.title')}</h2>

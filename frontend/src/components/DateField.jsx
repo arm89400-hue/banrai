@@ -8,13 +8,6 @@ const pad = (n) => String(n).padStart(2, '0');
 const HOURS = Array.from({ length: 24 }, (_, i) => pad(i));
 const MINUTES = Array.from({ length: 12 }, (_, i) => pad(i * 5));
 
-// A date (or date and time) field for the admin forms, in the site's own
-// calendar look instead of the browser's: a button showing the date in the
-// admin's language, opening a month calendar (and hour/minute picks when
-// `withTime`). `value` is "YYYY-MM-DD" or, with time, "YYYY-MM-DDTHH:mm";
-// "" is empty. `min` greys out earlier days. `clearable` adds a Clear
-// button and shows `emptyLabel` when empty. A hidden input keeps the form's
-// `required` check working.
 export default function DateField({ value, onChange, withTime = false, min, required = false, clearable = false, emptyLabel }) {
   const { t, locale } = useLang();
   const [open, setOpen] = useState(false);
@@ -27,7 +20,6 @@ export default function DateField({ value, onChange, withTime = false, min, requ
     return new Date(base.getFullYear(), base.getMonth(), 1);
   });
 
-  // Closes on a click outside or Escape.
   useEffect(() => {
     if (!open) return undefined;
     const onDown = (e) => !boxRef.current?.contains(e.target) && setOpen(false);
@@ -49,7 +41,7 @@ export default function DateField({ value, onChange, withTime = false, min, requ
 
   const year = viewMonth.getFullYear();
   const month = viewMonth.getMonth();
-  const offset = (new Date(year, month, 1).getDay() + 6) % 7; // Monday first
+  const offset = (new Date(year, month, 1).getDay() + 6) % 7;
   const days = new Date(year, month + 1, 0).getDate();
   const cells = [
     ...Array.from({ length: offset }, () => null),
@@ -67,7 +59,6 @@ export default function DateField({ value, onChange, withTime = false, min, requ
         </svg>
         {label}
       </button>
-      {/* Keeps the form's own "please fill this in" check. */}
       <input className="date-field__check" tabIndex={-1} aria-hidden="true" required={required} value={value} onChange={() => {}} />
 
       {open && (

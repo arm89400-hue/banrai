@@ -13,7 +13,6 @@ import StayView from '../components/StayView';
 import Announcements from '../components/Announcements';
 import './Booking.css';
 
-// Tells the member that the property deleted one of their bookings, and why.
 function DeletedNotice({ notice, onDismiss }) {
   const { t, lang, locale } = useLang();
   const what = [
@@ -59,8 +58,6 @@ function DeletedNotice({ notice, onDismiss }) {
   );
 }
 
-// The stay to show in full: the soonest one still needing something from
-// the guest (deposit or the rest), else the next one coming up.
 function pickFocus(stays) {
   const today = toISODate(new Date());
   const upcoming = stays
@@ -69,9 +66,6 @@ function pickFocus(stays) {
   return (upcoming.find(stayNeedsAction) ?? upcoming[0])?.key ?? null;
 }
 
-// "My bookings": the stay that needs the guest now, shown in full (where it
-// is, pay by QR, room logins, the booking in the green box), then every
-// other booking as a short row with its own next step.
 export default function Booking() {
   const { user } = useAuth();
   const { t, lang, locale } = useLang();
@@ -94,7 +88,6 @@ export default function Booking() {
       .catch((err) => setError(err.message));
   }, [isMember]);
 
-  // Removes a "your booking was deleted" notice once the member has read it.
   async function dismissNotice(id) {
     try {
       await api(`/api/bookings/notices/${id}`, { method: 'DELETE' });
@@ -105,12 +98,10 @@ export default function Booking() {
   }
 
   if (!user) return <Navigate to="/login?next=/booking" replace />;
-  // Room accounts only have their room dashboard.
   if (user.is_stay) return <Navigate to="/stay" replace />;
 
   const stays = groupStays(bookings ?? []);
   const focus = stays.find((s) => s.key === (focusKey ?? pickFocus(stays)));
-  // Others: coming up first (soonest first), then past and cancelled (newest first).
   const today = toISODate(new Date());
   const others = stays
     .filter((s) => s !== focus)
@@ -142,15 +133,12 @@ export default function Booking() {
         </p>
       )}
 
-      {/* Bookings the property deleted, with the reason it gave. */}
       {notices.map((n) => (
         <DeletedNotice key={n.id} notice={n} onDismiss={() => dismissNotice(n.id)} />
       ))}
 
-      {/* Announcements for guests with a booking (none: nothing shown). */}
       <Announcements source="/api/announcements/mine" className="page-news" />
 
-      {/* A paid stay coming up: its room dashboard (activities, chat). */}
       {stays.some((s) => s.status === 'confirmed' && s.checkOut >= today) && (
         <Link className="my-room-link" to="/stay">
           <span>✓ {t('stay.openHint')}</span>

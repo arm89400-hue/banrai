@@ -1,8 +1,6 @@
 import { useLang } from '../i18n/lang';
 import './RoomAmenities.css';
 
-// Line icons drawn for the in-room list (i18n `amenities.groups[0].items[].icon`):
-// one 24px grid, one stroke weight, so they read as a set made for this site.
 const ICONS = {
   bath: (
     <>
@@ -62,7 +60,6 @@ const ICONS = {
       <path d="M19.5 4v5M17 6.5h5" />
     </>
   ),
-  // Kitchen & dining
   pot: (
     <>
       <path d="M5 10h14v5a5 5 0 0 1-5 5h-4a5 5 0 0 1-5-5z" />
@@ -96,7 +93,6 @@ const ICONS = {
       <path d="M9 6.5c0-1 1-1 1-2.5M14 6.5c0-1 1-1 1-2.5" />
     </>
   ),
-  // Around the farm
   pool: (
     <>
       <path d="M8 15V5.5a2 2 0 0 1 4 0M14 15V5.5a2 2 0 0 1 4 0M8 9h6M8 12h6" />
@@ -130,7 +126,6 @@ const ICONS = {
       <path d="M12 12l-3 8M12 12l3 8" />
     </>
   ),
-  // Services & safety
   paw: (
     <>
       <circle cx="6.5" cy="10.5" r="1.6" />
@@ -169,10 +164,6 @@ const ICONS = {
   ),
 };
 
-// One amenity group (i18n `amenities.groups[group]`), each item with its
-// icon: group 0 is what's in every room, the rest is around the house.
-// The grid fits as many columns as there's room for; a long item (private
-// events) takes two.
 export default function RoomAmenities({ group = 0 }) {
   const { t } = useLang();
   const { items } = t('amenities.groups')[group];

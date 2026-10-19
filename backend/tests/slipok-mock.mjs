@@ -1,24 +1,9 @@
-// A pretend SlipOK for the payment test (tests/payment-flow.mjs). It answers
-// POST /api/line/apikey/<branch> the way SlipOK's documentation shows
-// (https://slipok.com/api-documentation/check-slip/), so the real backend
-// code path runs end to end without real money or a SlipOK account.
-//
-// The test decides each answer first with POST /__next:
-//   {}                          -> a good slip for the amount asked
-//   { amount: 999 }             -> a good slip for a different amount
-//   { transRef: 'X' }           -> a good slip with this transfer reference
-//   { code: 1013 }              -> a SlipOK error (see error codes below)
-// With nothing queued it answers a good slip.
-//
-// Run: node slipok-mock.mjs   (listens on MOCK_PORT, default 4010)
-
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 
 const PORT = Number(process.env.MOCK_PORT ?? 4010);
 const API_KEY = process.env.MOCK_API_KEY ?? 'test-key';
 
-// SlipOK's error messages (https://slipok.com/api-documentation/error-status-code/).
 const ERRORS = {
   1000: 'Missing QR data',
   1001: 'Branch not found',
@@ -39,9 +24,8 @@ const ERRORS = {
 
 const queue = [];
 let calls = 0;
-let last = null; // the text fields of the latest check (amount, log)
+let last = null;
 
-// The text fields of a multipart/form-data body (the slip file is skipped).
 function formFields(body, contentType) {
   const boundary = /boundary=(?:"([^"]+)"|([^;]+))/.exec(contentType ?? '');
   if (!boundary) return {};

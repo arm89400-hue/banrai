@@ -5,12 +5,8 @@ import DateField from '../components/DateField';
 import AdminPhotos, { MAX_PHOTOS } from './AdminPhotos';
 import { uploadPending } from '../lib/uploadPending';
 
-// Who can see an announcement; each one's name and hint are text keys
-// adm.ann.aud.<id> and adm.ann.hint.<id>.
 const AUDIENCES = ['home', 'booked', 'both'];
 
-// The date fields work in the admin's own (Thai) time; the API
-// stores real moments in time.
 const pad = (n) => String(n).padStart(2, '0');
 function toLocalInput(iso) {
   if (!iso) return '';
@@ -44,7 +40,6 @@ const formFor = (a) => ({
   active: a.active,
 });
 
-// Where an announcement stands right now: [text key, tone].
 function stateOf(a) {
   const now = Date.now();
   if (!a.active) return ['adm.ann.state.off', 'neutral'];
@@ -53,19 +48,14 @@ function stateOf(a) {
   return ['adm.ann.state.showing', 'confirmed'];
 }
 
-// Admin › Website › Announcements: write announcements in Thai and/or
-// English with up to 6 photos, choose who sees them (Home page, booked
-// guests, or both) and from when until when. Outside that time they
-// disappear by themselves; with none showing, the Home page has no
-// announcement space. A preview shows the card as guests will see it.
 export default function AdminAnnouncements() {
   const { t, lang, locale } = useLang();
   const [list, setList] = useState(null);
   const [error, setError] = useState(null);
-  const [editing, setEditing] = useState(null); // null | 'new' | announcement id
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
-  const [photos, setPhotos] = useState([]); // the edited announcement's photos
-  const [pending, setPending] = useState([]); // photos picked for a new one, uploaded on Save
+  const [photos, setPhotos] = useState([]);
+  const [pending, setPending] = useState([]);
   const [formError, setFormError] = useState(null);
   const [savedNote, setSavedNote] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -103,7 +93,6 @@ export default function AdminAnnouncements() {
         body: JSON.stringify(payload(form)),
       });
       if (isNew) {
-        // Upload the photos picked on the new form, then stay open.
         const id = data.announcement.id;
         setEditing(id);
         setForm(formFor(data.announcement));
@@ -159,7 +148,6 @@ export default function AdminAnnouncements() {
     onChange: (e) => setForm({ ...form, [key]: e.target.value }),
   });
 
-  // The preview follows the admin's language, like a guest's would.
   const pick = (en, th) => (lang === 'th' ? th || en : en || th);
   const previewPhoto = photos[0] ? mediaUrl(photos[0].file) : pending[0]?.url;
   const previewTitle = pick(form.title, form.title_th);

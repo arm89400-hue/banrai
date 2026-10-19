@@ -1,5 +1,3 @@
-/* One month on white: grey round arrows, weekday letters, days in the
-   page font. The stay is a soft green band with solid green ends. */
 .inline-cal {
   user-select: none;
   font-family: var(--plex);
@@ -38,7 +36,6 @@
   cursor: default;
 }
 
-/* No gap between columns, so the stay's band runs unbroken across a week. */
 .inline-cal__grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -86,7 +83,6 @@
 .inline-cal__day.is-today .inline-cal__n {
   box-shadow: inset 0 0 0 1.5px var(--text-muted);
 }
-/* Keyboard focus: a ring around the circle, not a box around the cell. */
 .inline-cal__day:focus-visible {
   outline: none;
 }
@@ -94,7 +90,6 @@
   box-shadow: 0 0 0 2px var(--white), 0 0 0 4px var(--brand);
 }
 
-/* The stay: a soft band behind the nights, solid circles on the two ends. */
 .inline-cal__day.in-range {
   background-color: var(--brand-soft);
 }
@@ -127,7 +122,6 @@
   color: hsl(0, 0%, 60%);
 }
 
-/* Compact: the same calendar, a little smaller. */
 .inline-cal--compact .inline-cal__day {
   height: 40px;
   font-size: 14px;

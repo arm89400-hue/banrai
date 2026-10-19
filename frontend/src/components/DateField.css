@@ -1,5 +1,3 @@
-/* Admin date field: looks like the other inputs, opens the site's month
-   calendar in a white box under it (see InlineCalendar.css for the days). */
 .date-field {
   position: relative;
   min-width: 0;

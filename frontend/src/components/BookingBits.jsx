@@ -3,11 +3,6 @@ import { useLang } from '../i18n/lang';
 import { formatBaht } from '../lib/money';
 import './BookingBits.css';
 
-// Price breakdown for a stay: rate x nights, any extra-guest and pet
-// charges, the total, the 50% deposit and the balance due on arrival. Pass
-// `total`/`deposit` to show a saved booking's amounts instead of computing
-// them from the rate. `discount` is the promotion's amount off (already
-// taken off a saved `total`) and `promoName` what to call it.
 export function PriceRows({
   price,
   nights,
@@ -79,8 +74,6 @@ export function PriceRows({
   );
 }
 
-// "Promotion -10% · Rainy season · check-in 1 Oct – 31 Oct": one promotion,
-// as shown on room cards, room pages and the booking flow's room list.
 export function PromoTag({ promo }) {
   const { t, locale } = useLang();
   const day = (iso) =>
@@ -95,13 +88,11 @@ export function PromoTag({ promo }) {
   );
 }
 
-// pending / confirmed / cancelled pill, labelled in the current language.
 export function StatusBadge({ status }) {
   const { t } = useLang();
   return <span className={`status-badge status-badge--${status}`}>{t(`status.${status}`)}</span>;
 }
 
-// One login row with a copy button; the button says "Copied" for a moment.
 function CopyRow({ label, value }) {
   const { t } = useLang();
   const [copied, setCopied] = useState(false);
@@ -111,7 +102,6 @@ function CopyRow({ label, value }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Clipboard blocked: the value is still selectable by hand.
     }
   }
   return (
@@ -125,8 +115,6 @@ function CopyRow({ label, value }) {
   );
 }
 
-// The room-dashboard login a guest gets once the deposit is paid, in the
-// same dark-green look as the booking-done header.
 export function StayLogin({ booking, room, hint }) {
   const { t } = useLang();
   return (

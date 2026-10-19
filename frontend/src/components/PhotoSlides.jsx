@@ -3,12 +3,8 @@ import './PhotoSlides.css';
 
 const SLIDE_MS = 6000;
 
-// Decorative full-bleed slideshow: loops through `photos` (image URLs), one
-// cross-fade every SLIDE_MS. A photo is only requested just before it is
-// shown, so the page doesn't download all of them up front. With reduced
-// motion it stays on the first photo. Fills its nearest positioned parent.
 export default function PhotoSlides({ photos }) {
-  const [step, setStep] = useState(0); // counts up forever; slide = step % length
+  const [step, setStep] = useState(0);
   const active = step % photos.length;
 
   useEffect(() => {

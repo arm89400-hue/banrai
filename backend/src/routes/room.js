@@ -5,15 +5,9 @@ import { photosJson } from '../lib/photos.js';
 
 export const roomRouter = Router();
 
-// Columns every room response carries, including its photos (cover first).
 const ROOM_COLUMNS = `id, name, description, price, capacity, max_extra_guests, image_url,
   ${photosJson('room_id', 'rooms.id')} AS photos`;
 
-// Lists rooms, alphabetically - feeds the Home page's "Available Rooms"
-// section. Public - no auth required. With ?checkIn=&checkOut= (ISO
-// dates/timestamps), excludes rooms that already have an overlapping
-// booking for that range, so only genuinely available rooms come back.
-// Without both, returns every room (e.g. before a search is made).
 roomRouter.get('/', async (req, res) => {
   const { checkIn, checkOut } = req.query;
 
@@ -24,11 +18,6 @@ roomRouter.get('/', async (req, res) => {
     return res.json({ rooms: rows, ...PRICING });
   }
 
-  // checkIn/checkOut arrive as bare "YYYY-MM-DD" dates from the date
-  // picker - anchor them to UTC midnight explicitly instead of letting the
-  // ::timestamptz cast fall back to the database session's timezone,
-  // which would silently disagree with how POST /api/bookings below
-  // stores booked_for/booked_until (also explicit UTC).
   const checkInAt = new Date(`${checkIn}T00:00:00.000Z`);
   const checkOutAt = new Date(`${checkOut}T00:00:00.000Z`);
   if (Number.isNaN(checkInAt.getTime()) || Number.isNaN(checkOutAt.getTime())) {
@@ -53,9 +42,6 @@ roomRouter.get('/', async (req, res) => {
   res.json({ rooms: rows, ...PRICING });
 });
 
-// Lists the date ranges a room is already taken for (today onwards), as
-// bare "YYYY-MM-DD" check-in/check-out pairs, so the booking calendar can
-// cross those nights out. Cancelled bookings don't count.
 roomRouter.get('/:id/booked', async (req, res, next) => {
   if (!/^\d+$/.test(req.params.id)) {
     return res.status(404).json({ error: 'Room not found' });
@@ -75,7 +61,6 @@ roomRouter.get('/:id/booked', async (req, res, next) => {
   }
 });
 
-// Fetches a single room by id, or 404 if it doesn't exist.
 roomRouter.get('/:id', async (req, res) => {
   if (!/^\d+$/.test(req.params.id)) {
     return res.status(404).json({ error: 'Room not found' });

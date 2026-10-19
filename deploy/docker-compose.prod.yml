@@ -1,16 +1,3 @@
-# Production on the VPS, behind the server's own Nginx (reverse proxy).
-#
-#   docker compose -p baanrai -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod up -d --build
-#
-# Its own project name ("baanrai"), container names, volumes and network, so
-# it never touches other projects on the same server. Nothing is published
-# to the internet directly: the website and the API listen on 127.0.0.1 only,
-# and the server's Nginx (deploy/nginx-baanrai.conf) sends visitors to them.
-# The database has no published port at all.
-#
-# deploy/.env.prod (on the server only, never in git) holds DB_PASSWORD and
-# the two local ports; backend/.env holds the app settings (JWT_SECRET,
-# SlipOK, PromptPay, ...).
 name: baanrai
 
 services:
@@ -22,8 +9,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/.env.prod}
       POSTGRES_DB: baanrai
-    # Starts empty; the first deploy loads a full copy (tables and data) of
-    # the database from the computer it was built on.
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -53,8 +38,6 @@ services:
     build:
       context: ../frontend
       args:
-        # Empty: the browser calls the API on the same address as the site
-        # (/api/... and /uploads/... are passed on by the server's Nginx).
         VITE_API_URL: ''
         VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     container_name: baanrai-frontend

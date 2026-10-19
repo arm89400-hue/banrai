@@ -1,5 +1,3 @@
-// Line icons for the admin dashboard's menu: one set drawn on a 24px grid
-// with the same stroke, so they read as a family. Usage: <AdminIcon name="chat" />.
 const PATHS = {
   overview: (
     <>

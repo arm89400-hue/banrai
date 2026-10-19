@@ -6,11 +6,6 @@ import './FruitViewer.css';
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
-// One fruit at a time, large: the list of fruits on the side, then the
-// photo (with its cut-out as a sticker), picking months and description.
-// `index` points into FRUIT_SEASONS. Closes on Escape, the close button or a
-// click outside; arrow keys and the ← → buttons step through the fruits.
-// Rendered into <body>, like the photo Lightbox.
 export default function FruitViewer({ index, onChange, onClose }) {
   const { t, locale } = useLang();
   const closeRef = useRef(null);
@@ -41,7 +36,6 @@ export default function FruitViewer({ index, onChange, onClose }) {
     return () => document.removeEventListener('keydown', handleKey);
   }, [index, count, onChange, onClose]);
 
-  // Keep the picked fruit visible in the list (it scrolls sideways on phones).
   useEffect(() => {
     listRef.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   }, [index]);
@@ -74,7 +68,6 @@ export default function FruitViewer({ index, onChange, onClose }) {
           ))}
         </nav>
 
-        {/* Keyed so each fruit fades in rather than swapping abruptly. */}
         <article key={fruit.id} className="fruit-viewer__panel">
           <div className="fruit-viewer__photo">
             <img src={fruitPhoto(fruit.id)} alt={name} />

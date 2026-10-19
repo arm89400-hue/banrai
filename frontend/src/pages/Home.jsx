@@ -14,10 +14,6 @@ import Announcements from '../components/Announcements';
 import { FARM_PHOTOS, HERO_SLIDES, roomCover } from '../lib/photos';
 import './Home.css';
 
-// Public landing page: the farm's photos with the stay search on them, then
-// the five rooms (named after the family), a day at the farm, and the house
-// rules. Searching starts the booking flow (/book); each room opens its own
-// page (/rooms/:id). The header floats over the photos (see Navbar).
 export default function Home() {
   const [rooms, setRooms] = useState([]);
   const [fees, setFees] = useState({ extra_guest_fee: 500, pet_fee: 100 });
@@ -36,8 +32,6 @@ export default function Home() {
       .catch((err) => setError(err.message));
   }, []);
 
-  // Hands the dates and guests to the booking flow's first step, which
-  // lists the free rooms (or asks for dates if none were picked).
   function handleSearch(e) {
     e.preventDefault();
     const query = new URLSearchParams({ guests: String(search.guests), step: '1' });
@@ -73,7 +67,6 @@ export default function Home() {
         </StaySearch>
       </form>
 
-      {/* Announcements for everyone; takes no space when there are none. */}
       <Announcements source="/api/announcements/home" className="home-news" />
 
       <Rooms rooms={rooms} error={error} promotions={promotions} />
@@ -86,7 +79,6 @@ export default function Home() {
           </Link>
         </div>
         <div className="day-grid">
-          {/* Real photos with one plain line each (i18n `day.items`). */}
           {t('day.items').map((item) => (
             <figure key={item.photo}>
               <img src={`/images/farm/${item.photo}.jpg`} alt="" loading="lazy" />
@@ -132,7 +124,6 @@ export default function Home() {
   );
 }
 
-// The fruit ripe this month, from the orchard's season list.
 function SeasonChip() {
   const { t } = useLang();
   const ripe = fruitsIn(new Date().getMonth() + 1).slice(0, 3);
@@ -150,8 +141,6 @@ function SeasonChip() {
   );
 }
 
-// The five rooms in family order (Father's room first, which is also price
-// order). The two rooms that take up to four guests get the bigger photos.
 function Rooms({ rooms, error, promotions }) {
   const { lang, t } = useLang();
   const sorted = [...rooms].sort((a, b) => b.price - a.price);

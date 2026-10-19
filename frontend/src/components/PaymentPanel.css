@@ -1,5 +1,3 @@
-/* Payment box (deposit or balance): QR on the left, amount and actions on the right;
-   stacks on phones with the QR first. */
 .pay-panel {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
@@ -12,7 +10,6 @@
   text-align: left;
 }
 
-/* The QR card (square). */
 .pay-panel__qr {
   aspect-ratio: 1;
   display: flex;
@@ -52,7 +49,6 @@
   }
 }
 
-/* Real PromptPay QR: a white card with the PromptPay label on top. */
 .pay-panel__qr--real {
   gap: 6px;
   padding: 10px;
@@ -93,7 +89,6 @@
   }
 }
 
-/* Sample QR (no PromptPay ID yet): same card, grey, stamped "do not pay". */
 .pay-panel__qr--sample {
   border-color: var(--text-muted);
   border-style: dashed;
@@ -128,7 +123,6 @@
   color: var(--error);
 }
 
-/* Slip sent, waiting for the owner to check it. */
 .pay-panel__waiting {
   margin: 4px 0 0;
   padding: 10px 12px;
@@ -139,7 +133,6 @@
   font-weight: 600;
 }
 
-/* Numbered steps: save the QR, pay from the bank app, upload the slip. */
 .pay-panel__steps {
   display: grid;
   gap: 10px;
@@ -297,8 +290,6 @@
   }
 }
 
-/* The other half of the price (after the deposit): amount + "pay online";
-   opening it shows the payment box for that amount. */
 .balance-pay {
   display: grid;
   gap: 10px;
@@ -343,7 +334,6 @@
   color: var(--text-muted);
 }
 
-/* 50% deposit or the whole price: two big choices above the amount. */
 .pay-panel__choice {
   display: grid;
   grid-template-columns: 1fr 1fr;

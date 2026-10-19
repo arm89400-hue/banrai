@@ -3,11 +3,6 @@ import { createPortal } from 'react-dom';
 import { useLang } from '../i18n/lang';
 import './Lightbox.css';
 
-// Full-screen photo viewer. `photos` is a list of { id, src, caption? };
-// without its own caption a photo is captioned from the `photos` table in
-// i18n/strings.js. Closes on Escape, on the close button or on a click
-// outside the photo; arrow keys step through the list. Rendered into <body>
-// so an animated (transformed) parent can't shrink it to its own box.
 export default function Lightbox({ photos, index, onChange, onClose }) {
   const { t } = useLang();
   const closeRef = useRef(null);
@@ -62,7 +57,6 @@ export default function Lightbox({ photos, index, onChange, onClose }) {
       )}
 
       <figure className="lightbox__figure" onClick={(e) => e.stopPropagation()}>
-        {/* Keyed so each photo fades in rather than swapping abruptly. */}
         <img key={photo.id} src={photo.src} alt={caption} />
         <figcaption>
           <span>{caption}</span>

@@ -7,10 +7,6 @@ import { useLang } from '../i18n/lang';
 const EMPTY_PHONE = { name_th: '', name_en: '', number: '' };
 const MAX_PHONES = 6;
 
-// Admin › Website › Contact: the phone lines, LINE, Facebook and Google Maps
-// the website shows (footer, chat button, booked guests' pages). Saving
-// changes them on the site straight away; a footer preview beside the form
-// shows how they will look.
 export default function AdminContact() {
   const { t, lang } = useLang();
   const [form, setForm] = useState(null);
@@ -22,7 +18,6 @@ export default function AdminContact() {
     api('/api/settings/contact')
       .then((data) => {
         const c = data.contact ?? { phones: [EMPTY_PHONE], line: '', facebook: '', maps: '' };
-        // Numbers saved before the 10-digit rule are shown the same way.
         setForm({ ...c, phones: c.phones.map((p) => ({ ...p, number: p.number ? formatThaiPhone(p.number) : '' })) });
       })
       .catch((err) => setError(err.message));
@@ -36,12 +31,9 @@ export default function AdminContact() {
   };
   const changePhone = (i, patch) => change({ phones: form.phones.map((p, j) => (j === i ? { ...p, ...patch } : p)) });
 
-  // Formats the number as it is typed (dashes added at 3 and 6 digits) and
-  // keeps the cursor after the same digit, so typing in the middle works.
   const typePhone = (i, input) => {
     const digitsBefore = input.value.slice(0, input.selectionStart ?? input.value.length).replace(/\D/g, '').length;
     const next = formatThaiPhone(input.value);
-    // Rendered at once, so the cursor can be put back before the next key.
     flushSync(() => changePhone(i, { number: next }));
     let pos = 0;
     for (let seen = 0; pos < next.length && seen < digitsBefore; pos++) if (/\d/.test(next[pos])) seen++;
@@ -140,7 +132,6 @@ export default function AdminContact() {
         </div>
       </form>
 
-      {/* What the footer will show, in its colours. */}
       <div>
         <p className="adm-preview-label">{t('adm.contact.preview')}</p>
         <div className="adm-foot-preview">

@@ -9,16 +9,10 @@ import { shift } from '../lib/motion';
 import { formatThaiPhone } from '../lib/contact';
 import './AdminBookings.css';
 
-// The owner's bookings: "Today" (what needs you, the room board, who comes
-// and goes) and the Bookings list with a details panel. Rooms booked
-// together are one booking here, as the guest sees them. All text and
-// dates follow the admin's language (i18n/adminStrings.js).
-
 const day = (iso) => new Date(`${iso}T00:00:00`);
 const nightsOf = (a, b) => Math.max(0, Math.round((day(b) - day(a)) / 86_400_000));
 const who = (b) => b.guest_name || b.user_email || '-';
 
-// Dates, money and slip reasons in the admin's language.
 function useFmt() {
   const { t, lang, locale } = useLang();
   const short = { day: 'numeric', month: 'short' };
@@ -28,11 +22,9 @@ function useFmt() {
     lang,
     locale,
     day: dayFmt,
-    // "16–22 ต.ค." / "Oct 16 – 22": the month once when both dates share it.
     range: (a, b) => new Intl.DateTimeFormat(locale, short).formatRange(day(a), day(b)),
     time: (d) => (d ? new Date(d).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) : '-'),
     money: formatBaht,
-    // A slip reason code -> words (the code itself if it is new).
     reason: (code) => {
       const key = `adm.slip.${code}`;
       const text = t(key);
@@ -41,7 +33,6 @@ function useFmt() {
   };
 }
 
-// Loads `path` and exposes { data, error, loading, reload }.
 function useLoad(path) {
   const [state, setState] = useState({ data: null, error: null, loading: true });
   const reload = useCallback(() => {
@@ -54,7 +45,6 @@ function useLoad(path) {
   return { ...state, reload };
 }
 
-// Where the money stands, in words: [text, tone].
 function moneyLine(g, t) {
   if (!g.isRoom) return g.status === 'cancelled' ? [t('adm.bk.money.cancelled'), 'off'] : [t('adm.bk.money.activity'), 'ok'];
   if (g.status === 'cancelled') return [t('adm.bk.money.cancelled'), 'off'];
@@ -65,7 +55,6 @@ function moneyLine(g, t) {
   return [t('adm.bk.money.paid'), 'ok'];
 }
 
-// Every change the owner makes to a booking; each reloads the data after.
 function useBookingActions(reload, setError, t) {
   const run = async (fn) => {
     setError(null);
@@ -77,8 +66,6 @@ function useBookingActions(reload, setError, t) {
     }
   };
   return {
-    // Approves a slip waiting for a manual check: a deposit confirms every
-    // room it pays for; a balance marks the rest of the price paid.
     approve(g, kind) {
       const row = g.rows.find((r) => (kind === 'deposit' ? r.slip_status === 'review' : r.balance_slip_status === 'review')) ?? g.lead;
       const amount = kind === 'deposit' ? row.slip_expected : row.balance_slip_expected;
@@ -86,19 +73,16 @@ function useBookingActions(reload, setError, t) {
       if (!window.confirm(t(ask, { code: g.code, money: formatBaht(amount) }))) return;
       run(() => api(`/api/admin/slips/${kind === 'deposit' ? row.slip_id : row.balance_slip_id}/approve`, { method: 'POST' }));
     },
-    // Turns down a slip; the guest is asked for a new one.
     reject(g, kind) {
       const row = g.rows.find((r) => (kind === 'deposit' ? r.slip_status === 'review' : r.balance_slip_status === 'review')) ?? g.lead;
       if (!window.confirm(t('adm.ask.reject', { code: g.code }))) return;
       run(() => api(`/api/admin/slips/${kind === 'deposit' ? row.slip_id : row.balance_slip_id}/reject`, { method: 'PATCH' }));
     },
-    // The rest of the price paid at the farm (or undo that mark).
     paidAtFarm(g, paid = true) {
       const q = paid ? t('adm.ask.paidAtFarm', { code: g.code, money: formatBaht(g.restDue) }) : t('adm.ask.undoFarm', { code: g.code });
       if (!window.confirm(q)) return;
       run(() => api(`/api/admin/bookings/${g.lead.id}/balance`, { method: 'PATCH', body: JSON.stringify({ paid }) }));
     },
-    // Confirms, cancels or re-opens every room of the booking.
     setStatus(g, status, question) {
       if (question && !window.confirm(question)) return;
       run(async () => {
@@ -110,9 +94,6 @@ function useBookingActions(reload, setError, t) {
   };
 }
 
-// A guest's phone number. On a phone (touch screen) it is a button that
-// starts the call; on a computer, which can't call, it is just the number
-// to read and dial - no button that does nothing.
 const CAN_CALL = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
 
 function Phone({ phone, label, className = 'admin__btn' }) {
@@ -134,8 +115,6 @@ function Phone({ phone, label, className = 'admin__btn' }) {
   );
 }
 
-// The one next step for a booking (or null): look at a slip, call about
-// the deposit, or take the rest of the price at the farm.
 function nextStep(g, actions, today, t, open) {
   if (g.depositReview || g.balanceReview) return { label: t('adm.bk.step.checkSlip'), primary: true, run: open };
   if (g.isRoom && g.status === 'pending' && g.lead.guest_phone) return { phone: g.lead.guest_phone, label: t('adm.bk.step.call') };
@@ -161,13 +140,6 @@ function StepButton({ step }) {
   );
 }
 
-/* ======================================================================
-   Today
-   ====================================================================== */
-
-// Overview: the month's four figures, the stay calendar (or the month as a
-// list) and what needs doing, on one screen. Months move with ‹ › and the
-// figures follow the month shown (counted by check-in month).
 export function Today() {
   const navigate = useNavigate();
   const fmt = useFmt();
@@ -190,14 +162,12 @@ export function Today() {
   const open = (g) => navigate(`/admin/bookings?open=${encodeURIComponent(g.key)}`);
   const short = (iso) => day(iso).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
 
-  // ---- The month shown ----
   const [y, m] = month.split('-').map(Number);
   const daysIn = new Date(y, m, 0).getDate();
   const iso = (d) => `${month}-${String(d).padStart(2, '0')}`;
   const moveMonth = (n) => setMonth(toISODate(new Date(y, m - 1 + n, 1)).slice(0, 7));
   const monthName = day(`${month}-01`).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
 
-  // Figures: bookings that check in this month; nights taken in it.
   const inMonth = live.filter((g) => g.checkIn.slice(0, 7) === month);
   const rows = inMonth.flatMap((g) => g.live);
   const revenue = rows.reduce((n, r) => n + (Number(r.total) || 0), 0);
@@ -217,11 +187,9 @@ export function Today() {
     }, 0);
   const occupancy = rooms.length ? Math.round((nightsTaken / (rooms.length * daysIn)) * 100) : 0;
 
-  // Who stays on a night (a room booking covers check-in up to check-out).
   const staying = (d) =>
     live.flatMap((g) => g.live.filter((r) => dayOf(r.booked_for) <= d && d < dayOf(r.booked_until)).map((r) => ({ g, r })));
 
-  // ---- To do: slips, unpaid deposits, money to collect, new messages ----
   const rank = (g) => (g.depositReview || g.balanceReview ? 0 : g.status === 'pending' ? 1 : 2);
   const todo = groups.filter((g) => needsYou(g, today)).sort((a, b) => rank(a) - rank(b) || a.checkIn.localeCompare(b.checkIn));
   const unread = stats.data?.stats?.unread_chats ?? 0;
@@ -233,7 +201,6 @@ export function Today() {
     .filter((x) => x.d > today)
     .sort((a, b) => a.d.localeCompare(b.d))[0];
 
-  // Monday-first weeks for the calendar.
   const lead = (day(first).getDay() + 6) % 7;
   const cells = [...Array(lead).fill(null), ...Array.from({ length: daysIn }, (_, k) => k + 1)];
   while (cells.length % 7) cells.push(null);
@@ -415,10 +382,6 @@ export function Today() {
   );
 }
 
-/* ======================================================================
-   Bookings list + details panel
-   ====================================================================== */
-
 const TABS = ['todo', 'upcoming', 'past', 'cancelled', 'all'];
 
 export function Bookings() {
@@ -458,7 +421,6 @@ export function Bookings() {
     )
     .sort((a, b) => (tab === 'todo' || tab === 'upcoming' ? a.checkIn.localeCompare(b.checkIn) : b.checkIn.localeCompare(a.checkIn)));
 
-  // Grouped under a month heading, in the order above.
   const months = [];
   for (const g of rows) {
     const key = g.checkIn.slice(0, 7);
@@ -467,8 +429,6 @@ export function Bookings() {
   }
   const monthName = (key) => day(`${key}-01`).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
 
-  // Below 1280px the details replace the list, so start them at the top.
-  // The list narrows and the details panel grows in beside it (lib/motion).
   const open = (g) => {
     shift(() => setParams(g ? { open: g.key } : {}), { cards: '.abk-list, .abk-panel' });
     if (window.innerWidth < 1280) window.scrollTo({ top: 0 });
@@ -566,8 +526,6 @@ export function Bookings() {
   );
 }
 
-// A slip waiting for a manual check: the picture, what it should be, and
-// Approve / Reject.
 function SlipCheck({ g, kind, actions }) {
   const f = useFmt();
   const { t } = f;
@@ -602,7 +560,6 @@ function SlipCheck({ g, kind, actions }) {
   );
 }
 
-// Last result of a slip that is no longer waiting (verified / rejected).
 function SlipResult({ status, reason, amount, kind }) {
   const f = useFmt();
   const { t } = f;
@@ -758,7 +715,6 @@ function BookingPanel({ g, actions, today, onClose, onEditPrice, onDelete }) {
         </ul>
       </section>
 
-      {/* The rarer jobs, small and at the bottom so they aren't pressed by mistake. */}
       <footer className="abk-acts abk-acts--quiet abk-panel__more">
         {g.status === 'pending' && (
           <button type="button" className="adm-link" onClick={() => actions.setStatus(g, 'confirmed', t('adm.ask.confirmNoSlip', { code: g.code }))}>
@@ -779,9 +735,6 @@ function BookingPanel({ g, actions, today, onClose, onEditPrice, onDelete }) {
   );
 }
 
-// Lets the admin correct what a booking costs: the total and the deposit
-// are typed in directly (the deposit follows the total at 50% until it is
-// edited itself). The member who booked is told the new amounts in their chat.
 function EditPriceDialog({ booking: b, who: name, onClose, onSaved }) {
   const { t, lang } = useLang();
   const dialogRef = useRef(null);
@@ -867,9 +820,6 @@ function EditPriceDialog({ booking: b, who: name, onClose, onSaved }) {
   );
 }
 
-// Confirmation for deleting a booking for good. The admin has to write the
-// reason, which is what the member who booked is shown (a notice on their
-// "My bookings" page and a chat message).
 function DeleteBookingDialog({ booking: b, who: name, onClose, onDeleted }) {
   const f = useFmt();
   const { t } = f;
@@ -878,7 +828,6 @@ function DeleteBookingDialog({ booking: b, who: name, onClose, onDeleted }) {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  // showModal() gives the backdrop, focus trap and Escape-to-close.
   useEffect(() => {
     dialogRef.current?.showModal();
   }, []);

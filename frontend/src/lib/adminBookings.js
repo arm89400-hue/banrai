@@ -1,13 +1,8 @@
-// The admin's booking rows grouped the way the guest booked them, shared by
-// the admin pages (pages/AdminBookings.jsx) and the menu's Today count.
 import { addDays, roomNames } from './booking';
 
 export const dayOf = (ts) => String(ts ?? '').slice(0, 10);
-// A room's name in the admin's language ('th' or 'en').
 export const roomTitle = (name, lang = 'th') => roomNames(name, lang).title;
 
-// The admin's booking rows as bookings the way the guest made them: rooms
-// booked together (same group code) become one. Activities stay one each.
 export function groupRows(list, lang = 'th') {
   const map = new Map();
   for (const b of list) {
@@ -44,8 +39,6 @@ export function groupRows(list, lang = 'th') {
   });
 }
 
-// Whether a booking needs the owner now: a slip to check, a deposit not
-// paid yet, or the rest to collect from guests arriving today or tomorrow.
 export function needsYou(g, today) {
   if (!g.isRoom || g.status === 'cancelled' || g.checkOut < today) return false;
   return g.depositReview || g.balanceReview || g.status === 'pending' || (g.restDue > 0 && g.checkIn <= addDays(today, 1));

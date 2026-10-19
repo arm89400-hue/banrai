@@ -10,14 +10,10 @@ import { CHAT_COLUMNS, MAX_CHAT_LENGTH, readChatBody } from './chat.js';
 
 export const adminRouter = Router();
 
-// Every route below is admin-only.
 adminRouter.use(requireAuth, requireAdmin);
 
-// Express 4 doesn't catch rejected promises from async handlers - this
-// forwards them to the app's error handler instead of crashing the process.
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
-// Headline numbers for the dashboard's Overview tab.
 adminRouter.get(
   '/stats',
   wrap(async (_req, res) => {
@@ -53,7 +49,6 @@ adminRouter.get(
   })
 );
 
-// Every booking (rooms and activities) with who made it, newest stay first.
 adminRouter.get(
   '/bookings',
   wrap(async (_req, res) => {
@@ -101,12 +96,6 @@ adminRouter.get(
   })
 );
 
-// Moves a booking between pending / confirmed / cancelled.
-// - Confirming (the deposit has been paid) creates the room dashboard login
-//   for that booking, which expires at check-out.
-// - Any other status removes that login again.
-// - Cancelling frees the room's dates; re-opening a cancelled booking can
-//   fail if someone else has taken those dates in the meantime.
 adminRouter.patch(
   '/bookings/:id',
   wrap(async (req, res) => {
@@ -118,7 +107,6 @@ adminRouter.patch(
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      // What the booking looked like before the change, for the activity log.
       const before = (
         await client.query(
           `SELECT b.status, b.code, b.guest_name, b.stay_username,
@@ -143,9 +131,6 @@ adminRouter.patch(
         [status, req.params.id]
       );
 
-      // Slips waiting for a manual check follow the booking: confirming it
-      // approves them, cancelling it turns them down. An approved slip for
-      // the whole price also marks the other half paid.
       if (status !== 'pending') {
         const closed = await client.query(
           `UPDATE slip_payments SET status = $2, reason = $3, reviewed_at = now()
@@ -210,11 +195,6 @@ adminRouter.patch(
   })
 );
 
-// Permanently deletes a booking record (and, with it, the room login of a
-// confirmed booking). The admin must give a reason. The member who made the
-// booking is told: a notice with the reason appears on their "My bookings"
-// page, and the same text is sent to their chat so the chat button shows it
-// as unread. Bookings without an account can't be notified here.
 adminRouter.delete(
   '/bookings/:id',
   wrap(async (req, res) => {
@@ -228,7 +208,6 @@ adminRouter.delete(
     let deleted;
     try {
       await client.query('BEGIN');
-      // What the booking was, read before it goes, for the notice and the log.
       deleted = (
         await client.query(
           `SELECT b.code, b.guest_name, b.status, b.user_id, b.stay_username,
@@ -255,7 +234,6 @@ adminRouter.delete(
            VALUES ($1, $2, $3, $4, $5, $6)`,
           [deleted.user_id, deleted.code, deleted.booked, deleted.check_in, deleted.check_out, reason]
         );
-        // Thai first (the site's default language), then English.
         const what = [deleted.code, deleted.booked].filter(Boolean).join(' · ');
         await client.query(
           'INSERT INTO chat_messages (user_id, from_admin, body) VALUES ($1, true, $2)',
@@ -291,8 +269,6 @@ adminRouter.delete(
   })
 );
 
-// The activity log, newest first: bookings requested / confirmed /
-// cancelled, room logins created, sign-ups and logins.
 adminRouter.get(
   '/log',
   wrap(async (_req, res) => {
@@ -306,8 +282,6 @@ adminRouter.get(
   })
 );
 
-// Accounts with how many bookings each has made. Never returns password
-// hashes. Room accounts (stay_booking_id set) are listed too, with their expiry.
 adminRouter.get(
   '/users',
   wrap(async (_req, res) => {
@@ -323,10 +297,6 @@ adminRouter.get(
   })
 );
 
-// ---- Rooms & activities: create / edit / delete ----
-
-// Validates and normalizes the editable fields shared by rooms and
-// activities. Returns { error } or { values }.
 function readListingBody(body, { withRoomFields }) {
   const name = String(body.name ?? '').trim();
   const description = String(body.description ?? '').trim() || null;
@@ -337,8 +307,6 @@ function readListingBody(body, { withRoomFields }) {
   return readRoomFields(body, { name, description, price });
 }
 
-// Activities: English and Thai text (either language is enough), a short
-// tag such as "Every morning", and the order they're listed in.
 function readActivityBody(body) {
   const text = (key, max = 2000) => String(body[key] ?? '').trim().slice(0, max) || null;
   const nameEn = text('name', 120);
@@ -350,8 +318,6 @@ function readActivityBody(body) {
   if (position !== null && !(position >= 0 && position <= 9999)) return { error: 'order must be 0 or more' };
   return {
     values: {
-      // `name` can't be empty in the table: an activity named only in Thai
-      // keeps that name there too.
       name: nameEn ?? nameTh,
       name_th: nameTh,
       description: text('description'),
@@ -368,7 +334,6 @@ function readRoomFields(body, { name, description, price }) {
   const capacity =
     body.capacity === '' || body.capacity == null ? null : Number.parseInt(body.capacity, 10);
   if (capacity !== null && !(capacity > 0)) return { error: 'capacity must be 1 or more' };
-  // Extra guests allowed on top of `capacity` (each charged the extra-guest fee).
   const max_extra_guests = Number.parseInt(body.max_extra_guests, 10) || 0;
   if (max_extra_guests < 0 || max_extra_guests > 10) {
     return { error: 'extra guests must be between 0 and 10' };
@@ -409,8 +374,6 @@ adminRouter.put(
   })
 );
 
-// Deletes a room or activity together with its bookings (ON DELETE CASCADE)
-// and photos, including the uploaded photo files.
 async function deleteListing(kind, id) {
   const { table, column } = PHOTO_OWNERS[kind];
   if (!/^\d+$/.test(String(id))) return false;
@@ -435,7 +398,6 @@ adminRouter.post(
   wrap(async (req, res) => {
     const { error, values: v } = readActivityBody(req.body ?? {});
     if (error) return res.status(400).json({ error });
-    // New activities go to the end of the list unless an order is given.
     const { rows } = await pool.query(
       `INSERT INTO activities (name, name_th, description, description_th, tag, tag_th, price, position)
        VALUES ($1, $2, $3, $4, $5, $6, $7,
@@ -476,9 +438,6 @@ adminRouter.delete(
   })
 );
 
-// ---- Photos of rooms, activities & announcements (see db/migrations/013_photos.sql) ----
-
-// The owner's photos, cover first.
 async function listPhotos(db, column, id) {
   const { rows } = await db.query(
     `SELECT id, file FROM photos WHERE ${column} = $1 ORDER BY position, id`,
@@ -487,10 +446,6 @@ async function listPhotos(db, column, id) {
   return rows;
 }
 
-// Uploads one photo (the raw image is the request body: JPEG, PNG or WebP,
-// up to 8 MB) to a room, activity or announcement. Refused once it already has 6. The
-// owner row is locked while counting, so two uploads at once can't both
-// squeeze in as the 6th. Returns the owner's photos.
 adminRouter.post(
   '/:kind(rooms|activities|announcements)/:id/photos',
   express.raw({ type: () => true, limit: MAX_UPLOAD_BYTES }),
@@ -538,7 +493,6 @@ adminRouter.post(
   })
 );
 
-// Sets the photo order: `ids` lists every photo of the owner, cover first.
 adminRouter.put(
   '/:kind(rooms|activities|announcements)/:id/photos/order',
   wrap(async (req, res) => {
@@ -558,7 +512,6 @@ adminRouter.put(
   })
 );
 
-// Deletes one photo (and its file, if it was uploaded).
 adminRouter.delete(
   '/photos/:id',
   wrap(async (req, res) => {
@@ -574,15 +527,8 @@ adminRouter.delete(
   })
 );
 
-// ---- Booking amounts & promotions (see db/migrations/011_promotions.sql) ----
-
 const baht = (n) => `฿${Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 
-// Approves a slip waiting for a manual check (the owner saw the money
-// arrive). A deposit slip confirms every room it pays for (rooms booked
-// together are one payment) and creates their room logins; a balance slip
-// marks the other half paid. Other slips still waiting for the same payment
-// are closed.
 adminRouter.post(
   '/slips/:id/approve',
   wrap(async (req, res) => {
@@ -632,9 +578,6 @@ adminRouter.post(
   })
 );
 
-// The other half of the price, paid at the farm: { paid: true } marks it
-// paid for the booking and the rooms booked with it; { paid: false } undoes a
-// mark made here by mistake (an online payment can't be undone here).
 adminRouter.patch(
   '/bookings/:id/balance',
   wrap(async (req, res) => {
@@ -669,7 +612,6 @@ adminRouter.patch(
       }
       const ids = scope.due.map((b) => b.id);
       await settlePayment(client, ids, 'balance', 'at_farm');
-      // A balance slip still waiting is no longer needed.
       await client.query(
         `UPDATE slip_payments SET status = 'rejected', reason = 'PAID_AT_FARM', reviewed_at = now()
          WHERE status = 'review' AND kind = 'balance' AND booking_ids && $1::int[]`,
@@ -687,9 +629,6 @@ adminRouter.patch(
   })
 );
 
-// Turns down a slip waiting for a manual check (wrong amount, unreadable,
-// not received...). The booking stays pending; the guest sees the slip was
-// not accepted and can send another.
 adminRouter.patch(
   '/slips/:id/reject',
   wrap(async (req, res) => {
@@ -706,9 +645,6 @@ adminRouter.patch(
   })
 );
 
-// Corrects what a booking costs: the admin sets the total and the deposit
-// directly (a price agreed by phone, a goodwill discount, a mistake to fix).
-// The member who booked is told the new amounts in their chat.
 adminRouter.patch(
   '/bookings/:id/amount',
   wrap(async (req, res) => {
@@ -760,7 +696,6 @@ adminRouter.patch(
   })
 );
 
-// Validates a promotion's fields. Returns { error } or { values }.
 function readPromotionBody(body) {
   const name = String(body?.name ?? '').trim();
   const percent = Number(body?.percent);
@@ -778,7 +713,6 @@ function readPromotionBody(body) {
   return { values: { name, percent, starts_on, ends_on, room_id, active: body?.active !== false } };
 }
 
-// Every promotion, including switched-off and finished ones, newest first.
 adminRouter.get(
   '/promotions',
   wrap(async (_req, res) => {
@@ -833,7 +767,6 @@ adminRouter.put(
   })
 );
 
-// Bookings already made keep the discount they were given.
 adminRouter.delete(
   '/promotions/:id',
   wrap(async (req, res) => {
@@ -847,11 +780,6 @@ adminRouter.delete(
   })
 );
 
-// ---- Chat with accounts (see db/migrations/008_chat.sql) ----
-
-// Every account the property can chat with, with its latest message and how
-// many of its messages are still unread. Conversations with messages come
-// first (newest first), then the accounts nobody has written to yet.
 adminRouter.get(
   '/chats',
   wrap(async (_req, res) => {
@@ -877,8 +805,6 @@ adminRouter.get(
   })
 );
 
-// One account's conversation, oldest first. Opening it marks that
-// account's messages as seen.
 adminRouter.get(
   '/chats/:userId',
   wrap(async (req, res) => {
@@ -911,7 +837,6 @@ adminRouter.post(
       );
       res.status(201).json({ message: rows[0] });
     } catch (err) {
-      // 23503: no such account (foreign key).
       if (err.code === '23503') return res.status(404).json({ error: 'Account not found' });
       throw err;
     }

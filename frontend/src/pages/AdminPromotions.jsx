@@ -19,7 +19,6 @@ function todayKey() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
-// Where a promotion stands today: [text key, tone].
 function promoState(p) {
   if (!p.active) return ['adm.promo.state.off', 'neutral'];
   const today = todayKey();
@@ -28,16 +27,12 @@ function promoState(p) {
   return ['adm.promo.state.running', 'confirmed'];
 }
 
-// Admin "Promotions" section: create, edit, switch off and delete
-// promotions. A promotion takes a percentage off the room rate for stays
-// that check in between its two dates, for one room or all of them. Guests
-// see it on the site straight away and get the discount when they book.
 export default function AdminPromotions() {
   const { t, lang, locale } = useLang();
   const [promotions, setPromotions] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [error, setError] = useState(null);
-  const [editing, setEditing] = useState(null); // null | 'new' | promotion id
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -94,7 +89,6 @@ export default function AdminPromotions() {
     }
   }
 
-  // Switches a promotion on or off without opening the form.
   async function toggle(p) {
     try {
       await api(`/api/admin/promotions/${p.id}`, { method: 'PUT', body: JSON.stringify({ ...p, active: !p.active }) });

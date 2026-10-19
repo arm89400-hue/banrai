@@ -1,8 +1,3 @@
-// Every piece of guest-facing text on the site, in Thai (the default) and
-// English. Keys are shared; `{name}` placeholders are filled by t().
-// Thai copy for the farm, amenities and policies follows the property's
-// pinned Facebook post.
-
 import { BOOKING_STRINGS } from './bookingStrings.js';
 import { ADMIN_STRINGS } from './adminStrings.js';
 
@@ -19,7 +14,6 @@ export const STRINGS = {
     'nav.myBookings': 'การจองของฉัน',
     'nav.logout': 'ออกจากระบบ',
     'nav.admin': 'หลังบ้าน (แอดมิน)',
-    'nav.signedInAs': 'เข้าสู่ระบบในชื่อ {email}',
     'nav.account': 'บัญชี: {email}',
     'nav.accountShort': 'บัญชี',
     'nav.openMenu': 'เปิดเมนู',
@@ -62,33 +56,18 @@ export const STRINGS = {
     'date.pickIn': 'เลือกวันเช็คอิน',
     'date.use': 'ใช้วันที่นี้ · {n} คืน',
     'date.clear': 'ล้าง',
-    'search.guests': 'ผู้เข้าพัก',
-    'search.submit': 'ค้นหา',
 
     'date.label': 'เช็คอิน – เช็คเอาท์',
     'date.select': 'เลือกวันที่',
     'date.selectOut': 'เลือกวันเช็คเอาท์',
     'date.prev': 'เดือนก่อนหน้า',
     'date.next': 'เดือนถัดไป',
-    'date.confirm': 'ยืนยันวันที่',
     'date.weekdays': ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'],
     'date.wd': ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'],
 
     'rooms.title': 'ห้องพัก',
-    'rooms.perNight': '{price} / คืน',
-    'rooms.upTo': 'พักได้สูงสุด {n} ท่าน',
-    'rooms.book': 'จองห้องนี้',
-    'rooms.loginToBook': 'เข้าสู่ระบบเพื่อจอง',
-    'rooms.pickDates': 'กรุณาเลือกวันเช็คอินและเช็คเอาท์ด้านบนก่อน',
-    'rooms.booking': 'กำลังจอง…',
-    'rooms.booked': 'จองแล้ว',
-    'rooms.noneForDates': 'ไม่มีห้องว่างในวันที่เลือก',
     'rooms.none': 'ยังไม่มีห้องพัก',
 
-    'farm.badge': 'ใกล้เขาใหญ่',
-    'farm.title': 'ใช้ชีวิตที่บ้านไร่ของพ่อ',
-    'farm.photoAlt': 'ทางเดินไม้ไผ่เข้าสู่บ้านพัก',
-    'farm.insetAlt': 'เงาะ น้อยหน่า และไข่ไก่สดจากสวน',
     'farm.lead':
       'ที่พักตากอากาศใกล้เขาใหญ่ ให้บริการที่พักพร้อมอาหาร และเยี่ยมชมสวนเกษตรอินทรีย์ ' +
       'สัมผัสบรรยากาศเย็นสบายท่ามกลางสวนผลไม้แบบผสมผสานไร้สารเคมี ' +
@@ -99,34 +78,14 @@ export const STRINGS = {
       { icon: 'bowl', title: 'อาหารในฟาร์ม', text: 'ที่พักพร้อมอาหาร และมีบาร์บีคิวหรือหมูกระทะตามสั่ง' },
     ],
 
-    'rooms.noPhoto': 'ยังไม่มีรูปห้องนี้ · ภาพบ้านพัก',
-    'life.title': 'มาพักที่บ้านไร่ ได้สัมผัสอะไรบ้าง',
-    'life.tab.fruit': 'ผลไม้ในสวน',
-    'life.tab.food': 'อาหาร',
-    'life.tab.around': 'รอบบ้านไร่',
-    'life.seeAll': 'ดูทั้งหมด {n} รูป',
-    'stayinfo.title': 'ข้อมูลที่พักและสิ่งอำนวยความสะดวก',
-    'orchard.eyebrow': 'จากสวนของเรา',
-    'orchard.title': 'ผลไม้ในสวนผสมผสาน',
-    'orchard.lead': 'ปลูกแบบไร้สารเคมี ผลัดกันออกผลตามฤดูกาล มาช่วงไหนก็ได้ชิมของสดจากต้นในช่วงนั้น',
 
-    'table.eyebrow': 'อาหารในฟาร์ม',
-    'table.title': 'อิ่มอร่อยจากครัวบ้านไร่',
-    'table.lead': 'ราคาห้องพักรวมอาหารเช้า ส่วนบาร์บีคิวหรือหมูกระทะมีค่าบริการ กรุณาแจ้งล่วงหน้าก่อนเข้าพัก',
 
-    'around.eyebrow': 'ภาพบรรยากาศ',
-    'around.title': 'เดินเล่นรอบบ้านไร่',
-    'around.lead': 'สระว่ายน้ำ สวนผัก ลานนั่งเล่น และสวนผลไม้ กดที่ภาพเพื่อดูขนาดใหญ่',
 
-    'closing.eyebrow': 'บ้านไร่ของพ่อ 344',
-    'closing.title': 'แล้วพบกันที่บ้านไร่',
-    'closing.lead': 'เลือกวันเข้าพัก แล้วมาพักผ่อนกับเราที่ปากช่อง',
 
     'gallery.close': 'ปิด',
     'gallery.prev': 'ภาพก่อนหน้า',
     'gallery.next': 'ภาพถัดไป',
 
-    // Captions, keyed by photo id (see lib/photos.js).
     photos: {
       'hero-house': 'บ้านพักบ้านไร่ของพ่อ',
       'fruit-avocado': 'อะโวคาโด',
@@ -183,7 +142,6 @@ export const STRINGS = {
       {
         icon: 'pan',
         title: 'ครัวและห้องอาหาร',
-        // \u2060 (word joiner) keeps a compound word like หมูกระทะ on one line.
         items: [
           { icon: 'pot', label: 'ครัวส่วนกลาง' },
           { icon: 'pan', label: 'เครื่องครัว' },
@@ -217,27 +175,7 @@ export const STRINGS = {
       },
     ],
 
-    'know.eyebrow': 'ก่อนเข้าพัก',
-    'know.title': 'ข้อควรรู้',
-    'know.inLabel': 'เช็คอินตั้งแต่',
-    'know.inSub': 'น. เป็นต้นไป',
-    'know.outLabel': 'เช็คเอาท์ไม่เกิน',
-    'know.outSub': 'น.',
-    'know.policies': [
-      'ราคาห้องเป็นราคาต่อห้องต่อคืน รวมอาหารเช้า',
-      'ผู้เข้าพักเกินจำนวน คิดเพิ่มท่านละ 500 บาทต่อคืน',
-      'ชำระมัดจำ 50% ของราคาเต็มเพื่อยืนยันการจอง',
-      'หากยกเลิกการจอง ขอสงวนสิทธิ์ไม่คืนเงินมัดจำทุกกรณี',
-      'ทำความสะอาดและฆ่าเชื้อทุกครั้งก่อนแขกท่านใหม่เข้าพัก',
-      'ต้องการบาร์บีคิวหรือหมูกระทะ กรุณาแจ้งล่วงหน้าก่อนเข้าพัก',
-      'นำสัตว์เลี้ยงเข้าพักได้ ตัวละ 100 บาทต่อคืน น้ำหนักไม่เกิน 20 กก. ต่อตัว ไม่จำกัดจำนวน',
-    ],
 
-    'book.title': 'จองห้องพัก',
-    'book.lead': 'โทรหรือส่งข้อความหาเราเพื่อเช็ควันว่างและจองห้อง ชำระมัดจำ 50% เพื่อยืนยันการจอง',
-    'book.call': 'โทรหา {name}',
-    'book.fb': 'ส่งข้อความทาง Facebook',
-    'book.map': 'ดูเส้นทาง',
 
     'footer.tagline': 'ฟาร์มสเตย์ใกล้เขาใหญ่ ท่ามกลางธรรมชาติในปากช่อง',
     'footer.explore': 'สำรวจ',
@@ -245,7 +183,6 @@ export const STRINGS = {
     'footer.contact': 'ติดต่อเรา',
     'footer.aboutUs': 'เกี่ยวกับเรา',
     'footer.bookRoom': 'จองห้องพัก',
-    'footer.location': 'ปากช่อง นครราชสีมา',
     'footer.copyright': 'สงวนลิขสิทธิ์ © {year} Baanrai Pachong',
     'footer.address': 'ปากช่อง นครราชสีมา',
     'footer.findUs': 'ติดตามเรา',
@@ -279,10 +216,6 @@ export const STRINGS = {
     'login.haveAccount': 'มีบัญชีอยู่แล้ว? เข้าสู่ระบบ',
 
     'booking.title': 'การจองของฉัน',
-    'booking.loginLink': 'เข้าสู่ระบบ',
-    'booking.loginRest': ' เพื่อดูการจองของคุณ',
-    'booking.room': 'ห้องพัก:',
-    'booking.activity': 'กิจกรรม:',
     'booking.empty': 'ยังไม่มีการจอง',
 
     'activities.title': 'ใช้ชีวิตแบบชาวไร่',
@@ -349,7 +282,6 @@ export const STRINGS = {
     'nav.myBookings': 'My bookings',
     'nav.logout': 'Log out',
     'nav.admin': 'Admin dashboard',
-    'nav.signedInAs': 'Signed in as {email}',
     'nav.account': 'Account: {email}',
     'nav.accountShort': 'Account',
     'nav.openMenu': 'Open menu',
@@ -392,33 +324,18 @@ export const STRINGS = {
     'date.pickIn': 'Pick check-in',
     'date.use': 'Use these dates · {n} nights',
     'date.clear': 'Clear',
-    'search.guests': 'Guests',
-    'search.submit': 'Search',
 
     'date.label': 'Check-in – Check-out',
     'date.select': 'Select dates',
     'date.selectOut': 'Select check-out',
     'date.prev': 'Previous month',
     'date.next': 'Next month',
-    'date.confirm': 'Confirm dates',
     'date.weekdays': ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
     'date.wd': ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
 
     'rooms.title': 'Rooms',
-    'rooms.perNight': '{price} / night',
-    'rooms.upTo': 'Up to {n} guests',
-    'rooms.book': 'Book this room',
-    'rooms.loginToBook': 'Log in to book',
-    'rooms.pickDates': 'Pick check-in and check-out dates above first',
-    'rooms.booking': 'Booking…',
-    'rooms.booked': 'Booked',
-    'rooms.noneForDates': 'No rooms available for these dates.',
     'rooms.none': 'No rooms published yet.',
 
-    'farm.badge': 'Near Khao Yai',
-    'farm.title': "Life on Dad's farm",
-    'farm.photoAlt': 'The bamboo-lined path into the farmstay',
-    'farm.insetAlt': 'Rambutan, custard apples and fresh eggs from the farm',
     'farm.lead':
       'A countryside retreat close to Khao Yai, with rooms, meals and walks through our organic farm. ' +
       'Enjoy the cool air among a chemical-free fruit orchard, collect fresh eggs from our happy hens ' +
@@ -429,34 +346,14 @@ export const STRINGS = {
       { icon: 'bowl', title: 'Meals on the farm', text: 'Stays with meals, plus BBQ or moo kata grills on request.' },
     ],
 
-    'rooms.noPhoto': 'Room photo coming soon · the house',
-    'life.title': 'What a stay at the farm feels like',
-    'life.tab.fruit': 'Orchard fruit',
-    'life.tab.food': 'Food',
-    'life.tab.around': 'Around the farm',
-    'life.seeAll': 'See all {n} photos',
-    'stayinfo.title': 'Your stay at a glance',
-    'orchard.eyebrow': 'From our orchard',
-    'orchard.title': 'Fruit from a mixed orchard',
-    'orchard.lead': 'Grown without chemicals and ripening in turn through the year, so what you taste fresh from the tree depends on when you visit.',
 
-    'table.eyebrow': 'Meals on the farm',
-    'table.title': 'From the farm kitchen',
-    'table.lead': 'Breakfast is included with every room. BBQ or moo kata grills are an extra charge: let us know before you arrive.',
 
-    'around.eyebrow': 'Gallery',
-    'around.title': 'A walk around the farm',
-    'around.lead': 'The pool, the vegetable beds, places to sit and the orchard. Tap a photo to see it larger.',
 
-    'closing.eyebrow': 'Baanrai Pachong',
-    'closing.title': 'See you at the farm',
-    'closing.lead': 'Pick your dates and come and unwind with us in Pak Chong.',
 
     'gallery.close': 'Close',
     'gallery.prev': 'Previous photo',
     'gallery.next': 'Next photo',
 
-    // Captions, keyed by photo id (see lib/photos.js).
     photos: {
       'hero-house': 'The farmstay house',
       'fruit-avocado': 'Avocado',
@@ -546,27 +443,7 @@ export const STRINGS = {
       },
     ],
 
-    'know.eyebrow': 'Before you arrive',
-    'know.title': 'Good to know',
-    'know.inLabel': 'Check-in',
-    'know.inSub': 'from',
-    'know.outLabel': 'Check-out',
-    'know.outSub': 'by',
-    'know.policies': [
-      'Room prices are per room per night, with breakfast included.',
-      'Extra guests are charged 500 baht each per night.',
-      'A 50% deposit confirms your booking.',
-      'If you cancel, the deposit is not refunded, in every case.',
-      'Every room is cleaned and disinfected before each new guest.',
-      'Want BBQ or moo kata? Let us know before check-in.',
-      'Pets are welcome: 100 baht per pet per night, up to 20 kg each, with no limit on how many.',
-    ],
 
-    'book.title': 'Book your stay',
-    'book.lead': 'Call or message us to check dates and book. A 50% deposit confirms your room.',
-    'book.call': 'Call {name}',
-    'book.fb': 'Message on Facebook',
-    'book.map': 'Get directions',
 
     'footer.tagline': 'A quiet homestay retreat in Pak Chong, surrounded by nature.',
     'footer.explore': 'Explore',
@@ -574,7 +451,6 @@ export const STRINGS = {
     'footer.contact': 'Contact us',
     'footer.aboutUs': 'About us',
     'footer.bookRoom': 'Book a room',
-    'footer.location': 'Pak Chong, Nakhon Ratchasima',
     'footer.copyright': 'All material herein © {year} Baanrai Pachong. All rights reserved.',
     'footer.address': 'Pak Chong, Nakhon Ratchasima, Thailand',
     'footer.findUs': 'Find us on',
@@ -608,10 +484,6 @@ export const STRINGS = {
     'login.haveAccount': 'Have an account? Log in',
 
     'booking.title': 'My bookings',
-    'booking.loginLink': 'Log in',
-    'booking.loginRest': ' to see your bookings.',
-    'booking.room': 'Room:',
-    'booking.activity': 'Activity:',
     'booking.empty': 'No bookings yet.',
 
     'activities.title': 'Live like a farmer',
@@ -670,7 +542,6 @@ export const STRINGS = {
   },
 };
 
-// Booking flow / room page / status page text lives in its own file.
 Object.assign(STRINGS.th, BOOKING_STRINGS.th);
 Object.assign(STRINGS.en, BOOKING_STRINGS.en);
 Object.assign(STRINGS.th, ADMIN_STRINGS.th);

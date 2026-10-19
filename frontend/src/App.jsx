@@ -15,12 +15,6 @@ import Login from './pages/Login';
 import Admin from './pages/Admin';
 import './App.css';
 
-// Opens every new page at its top. Without this the browser keeps the
-// previous page's scroll position, so e.g. searching from the Home hero
-// landed on /book scrolled past the top of the booking card. Only the path
-// counts: the booking flow's steps change the query string and scroll
-// themselves. A #anchor link (e.g. /home#rooms) scrolls to that section
-// instead, waiting briefly for the page to render it.
 function ScrollToTop() {
   const { pathname, hash } = useLocation();
   useLayoutEffect(() => {
@@ -41,8 +35,6 @@ function ScrollToTop() {
   return null;
 }
 
-// The public site: renders the Navbar and Footer around every page and maps
-// each route to its page component. "/" redirects to "/home" since Home lives there.
 function PublicSite() {
   return (
     <>
@@ -60,10 +52,8 @@ function PublicSite() {
           <Route path="/stay" element={<StayDashboard />} />
           <Route path="/activities" element={<Activity />} />
           <Route path="/about" element={<About />} />
-          {/* The Contact page was replaced by the site footer; keep old links working. */}
           <Route path="/contact" element={<Navigate to="/home#contact" replace />} />
           <Route path="/login" element={<Login />} />
-          {/* Unknown or mistyped addresses go Home instead of an empty page. */}
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </main>
@@ -74,9 +64,6 @@ function PublicSite() {
   );
 }
 
-// Top-level layout. The admin dashboard is its own page with its own
-// sidebar and login screen, so it renders outside the public site's Navbar
-// and Footer; everything else is the public site.
 function App() {
   return (
     <Routes>
