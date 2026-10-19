@@ -1,31 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
+import { useLang } from '../i18n/lang';
+import { roomNames } from '../lib/booking';
 import ChatThread from '../components/ChatThread';
 import './AdminChat.css';
 
 // How often the conversation list and the open conversation are refreshed.
 const POLL_MS = 4000;
 
-const LABELS = {
-  empty: 'No messages yet. Write the first one below.',
-  placeholder: 'Write a message…',
-  send: 'Send',
-};
-
-const fmtWhen = (d) => new Date(d).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+const fmtWhen = (d, locale) => new Date(d).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' });
 
 // A room account is shown by its guest and room; a member by their email.
 function chatName(c) {
   return c.stay_booking_id ? c.guest_name || c.email : c.email;
 }
-function chatSub(c) {
-  return c.stay_booking_id ? `Room login ${c.email}${c.room_name ? ` · ${c.room_name}` : ''}` : `Member ${c.member_code}`;
+function chatSub(c, t, lang) {
+  if (!c.stay_booking_id) return t('adm.logd.member', { code: c.member_code });
+  const room = c.room_name ? ` · ${roomNames(c.room_name, lang).title}` : '';
+  return `${t('adm.panel.login')} ${c.email}${room}`;
 }
 
 // Admin "Chat" section: every account on the left (unread and most recent
 // first), the chosen account's conversation on the right. Both refresh every
 // few seconds, so replies show up without reloading the page.
 export default function AdminChat() {
+  const { t, lang, locale } = useLang();
+  const labels = { empty: t('adm.chat.empty'), placeholder: t('adm.chat.placeholder'), send: t('adm.chat.send') };
   const [chats, setChats] = useState(null);
   const [error, setError] = useState(null);
   const [activeId, setActiveId] = useState(null);
@@ -89,7 +89,7 @@ export default function AdminChat() {
   const active = chats?.find((c) => c.user_id === activeId);
 
   if (error && !chats) return <p className="admin__error" role="alert">{error}</p>;
-  if (!chats) return <p className="admin__muted">Loading…</p>;
+  if (!chats) return <p className="admin__muted">{t('adm.loading')}</p>;
 
   return (
     <div className={`achat${active ? ' achat--open' : ''}`}>
@@ -97,7 +97,7 @@ export default function AdminChat() {
         <input
           type="search"
           className="admin__search"
-          placeholder="Search name, email or room"
+          placeholder={t('adm.chat.search')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -114,17 +114,17 @@ export default function AdminChat() {
                   {/* The open conversation is being read right now. */}
                   {c.unread > 0 && c.user_id !== activeId && <span className="achat__badge">{c.unread}</span>}
                 </span>
-                <span className="achat__sub">{chatSub(c)}</span>
+                <span className="achat__sub">{chatSub(c, t, lang)}</span>
                 <span className="achat__last">
-                  {c.last_body ? `${c.last_from_admin ? 'You: ' : ''}${c.last_body}` : 'No messages yet'}
+                  {c.last_body ? `${c.last_from_admin ? t('adm.chat.you') : ''}${c.last_body}` : t('adm.chat.none')}
                 </span>
-                {c.last_at && <span className="achat__when">{fmtWhen(c.last_at)}</span>}
+                {c.last_at && <span className="achat__when">{fmtWhen(c.last_at, locale)}</span>}
               </button>
             </li>
           ))}
         </ul>
         {shown.length === 0 && (
-          <p className="admin__empty">{chats.length === 0 ? 'No accounts to chat with yet.' : 'No accounts match.'}</p>
+          <p className="admin__empty">{chats.length === 0 ? t('adm.chat.noAccounts') : t('adm.chat.noMatch')}</p>
         )}
       </aside>
 
@@ -133,17 +133,17 @@ export default function AdminChat() {
           <>
             <header className="achat__head">
               <button type="button" className="admin__btn achat__back" onClick={() => setActiveId(null)}>
-                ← All chats
+                ← {t('adm.chat.all')}
               </button>
               <div>
                 <strong>{chatName(active)}</strong>
-                <span className="achat__sub">{chatSub(active)}</span>
+                <span className="achat__sub">{chatSub(active, t, lang)}</span>
               </div>
             </header>
-            <ChatThread messages={messages} mine={(m) => m.from_admin} onSend={send} labels={LABELS} />
+            <ChatThread messages={messages} mine={(m) => m.from_admin} onSend={send} labels={labels} />
           </>
         ) : (
-          <p className="admin__empty achat__pick">Choose an account on the left to read and reply.</p>
+          <p className="admin__empty achat__pick">{t('adm.chat.pick')}</p>
         )}
       </section>
     </div>

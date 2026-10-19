@@ -1,50 +1,45 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, mediaUrl } from '../lib/api';
 import { formatBaht } from '../lib/money';
 import { addDays, toISODate } from '../lib/booking';
 import { dayOf, groupRows, needsYou, roomTitle } from '../lib/adminBookings';
+import { useLang } from '../i18n/lang';
+import { shift } from '../lib/motion';
+import { formatThaiPhone } from '../lib/contact';
 import './AdminBookings.css';
 
 // The owner's bookings: "Today" (what needs you, the room board, who comes
 // and goes) and the Bookings list with a details panel. Rooms booked
-// together are one booking here, as the guest sees them.
-
-// Why a slip was turned down, or why SlipOK sent it to you to check
-// (reason codes from POST /api/bookings/:id/slip and admin actions).
-const SLIP_REASONS = {
-  SLIP_UNREADABLE: 'no QR',
-  SLIP_NOT_FOUND: 'not found at bank',
-  SLIP_PENDING: 'bank asks to wait a few minutes',
-  SLIP_DUPLICATE: 'used before',
-  SLIP_AMOUNT: 'wrong amount',
-  SLIP_RECEIVER: 'wrong account',
-  SLIP_OLD: 'older than booking',
-  SLIP_SERVICE: 'SlipOK or the bank was down',
-  SLIPOK_SETUP: 'SlipOK setup problem - check the API key and branch ID',
-  SLIPOK_PACKAGE: 'SlipOK package expired or quota used up - renew it',
-  NOT_PENDING: 'booking not pending',
-  BALANCE_NOT_DUE: 'nothing left to pay',
-  MANUAL_REJECT: 'rejected by you',
-  BOOKING_CANCELLED: 'booking cancelled',
-  SUPERSEDED: 'another slip was approved',
-  PAID_AT_FARM: 'paid at the farm instead',
-};
-const REQUEST_LABELS = { bbq: 'BBQ / moo kata', extra_bed: 'Extra bed', pets: 'Pets' };
+// together are one booking here, as the guest sees them. All text and
+// dates follow the admin's language (i18n/adminStrings.js).
 
 const day = (iso) => new Date(`${iso}T00:00:00`);
-const fmtDay = (iso) => day(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-const fmtRange = (a, b) =>
-  a.slice(0, 7) === b.slice(0, 7)
-    ? `${day(a).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })} – ${fmtDay(b)}`
-    : `${fmtDay(a)} – ${fmtDay(b)}`;
-const fmtDateTime = (d) => (d ? new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '-');
 const nightsOf = (a, b) => Math.max(0, Math.round((day(b) - day(a)) / 86_400_000));
-const who = (b) => b.guest_name || b.user_email || 'guest';
-const daysAgo = (ts) => {
-  const n = Math.floor((Date.now() - new Date(ts).getTime()) / 86_400_000);
-  return n <= 0 ? 'today' : n === 1 ? 'yesterday' : `${n} days ago`;
-};
+const who = (b) => b.guest_name || b.user_email || '-';
+
+// Dates, money and slip reasons in the admin's language.
+function useFmt() {
+  const { t, lang, locale } = useLang();
+  const short = { day: 'numeric', month: 'short' };
+  const dayFmt = (iso) => day(iso).toLocaleDateString(locale, { weekday: 'short', ...short });
+  return {
+    t,
+    lang,
+    locale,
+    day: dayFmt,
+    // "16–22 ต.ค." / "Oct 16 – 22": the month once when both dates share it.
+    range: (a, b) => new Intl.DateTimeFormat(locale, short).formatRange(day(a), day(b)),
+    time: (d) => (d ? new Date(d).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) : '-'),
+    money: formatBaht,
+    // A slip reason code -> words (the code itself if it is new).
+    reason: (code) => {
+      const key = `adm.slip.${code}`;
+      const text = t(key);
+      return text === key ? code : text;
+    },
+  };
+}
 
 // Loads `path` and exposes { data, error, loading, reload }.
 function useLoad(path) {
@@ -59,19 +54,19 @@ function useLoad(path) {
   return { ...state, reload };
 }
 
-// What the money looks like, as one pill: [label, tone].
-function moneyPill(g) {
-  if (!g.isRoom) return [g.status === 'cancelled' ? 'Cancelled' : 'Activity', g.status === 'cancelled' ? 'off' : 'ok'];
-  if (g.status === 'cancelled') return ['Cancelled', 'off'];
-  if (g.depositReview) return ['Deposit slip to check', 'check'];
-  if (g.balanceReview) return ['Rest: slip to check', 'check'];
-  if (g.status === 'pending') return ['No deposit yet', 'wait'];
-  if (g.restDue > 0) return [`Deposit ✓ · rest ${formatBaht(g.restDue)}`, 'ok'];
-  return ['Paid in full', 'ok'];
+// Where the money stands, in words: [text, tone].
+function moneyLine(g, t) {
+  if (!g.isRoom) return g.status === 'cancelled' ? [t('adm.bk.money.cancelled'), 'off'] : [t('adm.bk.money.activity'), 'ok'];
+  if (g.status === 'cancelled') return [t('adm.bk.money.cancelled'), 'off'];
+  if (g.depositReview) return [t('adm.bk.money.depositSlip'), 'check'];
+  if (g.balanceReview) return [t('adm.bk.money.restSlip'), 'check'];
+  if (g.status === 'pending') return [t('adm.bk.money.noDeposit', { money: formatBaht(g.deposit) }), 'wait'];
+  if (g.restDue > 0) return [t('adm.bk.money.rest', { money: formatBaht(g.restDue) }), 'ok'];
+  return [t('adm.bk.money.paid'), 'ok'];
 }
 
 // Every change the owner makes to a booking; each reloads the data after.
-function useBookingActions(reload, setError) {
+function useBookingActions(reload, setError, t) {
   const run = async (fn) => {
     setError(null);
     try {
@@ -87,19 +82,19 @@ function useBookingActions(reload, setError) {
     approve(g, kind) {
       const row = g.rows.find((r) => (kind === 'deposit' ? r.slip_status === 'review' : r.balance_slip_status === 'review')) ?? g.lead;
       const amount = kind === 'deposit' ? row.slip_expected : row.balance_slip_expected;
-      const what = kind === 'deposit' ? `confirm ${g.code}${g.live.length > 1 ? ` (${g.live.length} rooms)` : ''}` : `mark the rest of ${g.code} paid`;
-      if (!window.confirm(`Approve the slip and ${what}? Check that ${formatBaht(amount)} reached your account.`)) return;
+      const ask = kind === 'deposit' ? 'adm.ask.approveDeposit' : 'adm.ask.approveRest';
+      if (!window.confirm(t(ask, { code: g.code, money: formatBaht(amount) }))) return;
       run(() => api(`/api/admin/slips/${kind === 'deposit' ? row.slip_id : row.balance_slip_id}/approve`, { method: 'POST' }));
     },
     // Turns down a slip; the guest is asked for a new one.
     reject(g, kind) {
       const row = g.rows.find((r) => (kind === 'deposit' ? r.slip_status === 'review' : r.balance_slip_status === 'review')) ?? g.lead;
-      if (!window.confirm(`Reject the slip for ${g.code}? The guest is asked for a new slip.`)) return;
+      if (!window.confirm(t('adm.ask.reject', { code: g.code }))) return;
       run(() => api(`/api/admin/slips/${kind === 'deposit' ? row.slip_id : row.balance_slip_id}/reject`, { method: 'PATCH' }));
     },
     // The rest of the price paid at the farm (or undo that mark).
     paidAtFarm(g, paid = true) {
-      const q = paid ? `Mark the rest of ${g.code} (${formatBaht(g.restDue)}) as paid at the farm?` : `Undo "paid at the farm" for ${g.code}?`;
+      const q = paid ? t('adm.ask.paidAtFarm', { code: g.code, money: formatBaht(g.restDue) }) : t('adm.ask.undoFarm', { code: g.code });
       if (!window.confirm(q)) return;
       run(() => api(`/api/admin/bookings/${g.lead.id}/balance`, { method: 'PATCH', body: JSON.stringify({ paid }) }));
     },
@@ -115,19 +110,18 @@ function useBookingActions(reload, setError) {
   };
 }
 
-// The one next step for a booking (or null): approve a slip, call about
+// The one next step for a booking (or null): look at a slip, call about
 // the deposit, or take the rest of the price at the farm.
-function nextStep(g, actions, today) {
-  if (g.depositReview) return { label: 'Approve slip', primary: true, run: () => actions.approve(g, 'deposit') };
-  if (g.balanceReview) return { label: 'Approve slip', primary: true, run: () => actions.approve(g, 'balance') };
-  if (g.isRoom && g.status === 'pending' && g.lead.guest_phone) return { label: 'Call', href: `tel:${g.lead.guest_phone}` };
-  if (g.restDue > 0 && g.checkOut >= today) return { label: 'Paid at farm', primary: true, run: () => actions.paidAtFarm(g) };
+function nextStep(g, actions, today, t, open) {
+  if (g.depositReview || g.balanceReview) return { label: t('adm.bk.step.checkSlip'), primary: true, run: open };
+  if (g.isRoom && g.status === 'pending' && g.lead.guest_phone) return { label: t('adm.bk.step.call'), href: `tel:${g.lead.guest_phone}` };
+  if (g.restDue > 0 && g.checkOut >= today) return { label: t('adm.act.paidAtFarm'), primary: true, run: () => actions.paidAtFarm(g) };
   return null;
 }
 
-function StepButton({ step, small }) {
-  if (!step) return <span className="ab-muted">-</span>;
-  const cls = `admin__btn${step.primary ? ' admin__btn--primary' : ''}${small ? '' : ' ab-btn-lg'}`;
+function StepButton({ step }) {
+  if (!step) return null;
+  const cls = `admin__btn${step.primary ? ' admin__btn--primary' : ''}`;
   return step.href ? (
     <a className={cls} href={step.href} onClick={(e) => e.stopPropagation()}>
       {step.label}
@@ -146,244 +140,259 @@ function StepButton({ step, small }) {
   );
 }
 
-// Go-live checklist for payments: what is set up in backend/.env.
-function PaymentSetup({ setup }) {
-  if (!setup) return null;
-  const items = [
-    setup.promptpay
-      ? `PromptPay QR: on${setup.promptpay_name ? ` (${setup.promptpay_name})` : ''}`
-      : 'PromptPay QR: not set - guests see a sample QR (add PROMPTPAY_ID)',
-    setup.slipok ? 'SlipOK: on - slips are checked automatically' : 'SlipOK: off - you check slips',
-    setup.test_pay ? 'Test button (PassPay): on - turn off before going live' : 'Test button (PassPay): off',
-  ];
-  return (
-    <p className="ab-setup">
-      <strong>Payments</strong> · {items.join(' · ')}
-    </p>
-  );
-}
-
 /* ======================================================================
    Today
    ====================================================================== */
 
+// Overview: the month's four figures, the stay calendar (or the month as a
+// list) and what needs doing, on one screen. Months move with ‹ › and the
+// figures follow the month shown (counted by check-in month).
 export function Today() {
   const navigate = useNavigate();
+  const fmt = useFmt();
+  const { t, lang, locale } = fmt;
   const bookings = useLoad('/api/admin/bookings');
   const stats = useLoad('/api/admin/stats');
   const roomsLoad = useLoad('/api/rooms');
   const [error, setError] = useState(null);
+  const [month, setMonth] = useState(() => toISODate(new Date()).slice(0, 7));
+  const [view, setView] = useState('calendar');
   const reload = () => {
     bookings.reload();
     stats.reload();
   };
-  const actions = useBookingActions(reload, setError);
+  const actions = useBookingActions(reload, setError, t);
   const today = toISODate(new Date());
-  const groups = useMemo(() => groupRows(bookings.data?.bookings ?? []).filter((g) => g.isRoom), [bookings.data]);
+  const groups = useMemo(() => groupRows(bookings.data?.bookings ?? [], lang).filter((g) => g.isRoom), [bookings.data, lang]);
+  const live = groups.filter((g) => g.status !== 'cancelled');
+  const rooms = [...(roomsLoad.data?.rooms ?? [])].sort((a, b) => b.price - a.price);
   const open = (g) => navigate(`/admin/bookings?open=${encodeURIComponent(g.key)}`);
+  const short = (iso) => day(iso).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
 
-  // Slips first, then deposits not paid, then arrivals; soonest first.
+  // ---- The month shown ----
+  const [y, m] = month.split('-').map(Number);
+  const daysIn = new Date(y, m, 0).getDate();
+  const iso = (d) => `${month}-${String(d).padStart(2, '0')}`;
+  const moveMonth = (n) => setMonth(toISODate(new Date(y, m - 1 + n, 1)).slice(0, 7));
+  const monthName = day(`${month}-01`).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+
+  // Figures: bookings that check in this month; nights taken in it.
+  const inMonth = live.filter((g) => g.checkIn.slice(0, 7) === month);
+  const rows = inMonth.flatMap((g) => g.live);
+  const revenue = rows.reduce((n, r) => n + (Number(r.total) || 0), 0);
+  const received = rows.reduce((n, r) => {
+    if (r.status !== 'confirmed') return n;
+    const dep = Number(r.deposit) || 0;
+    return n + dep + (r.balance_paid_at ? Math.max(0, Number(r.total) - dep) : 0);
+  }, 0);
+  const first = iso(1);
+  const after = addDays(iso(daysIn), 1);
+  const nightsTaken = live
+    .flatMap((g) => g.live)
+    .reduce((n, r) => {
+      const from = dayOf(r.booked_for) > first ? dayOf(r.booked_for) : first;
+      const to = dayOf(r.booked_until) < after ? dayOf(r.booked_until) : after;
+      return n + Math.max(0, Math.round((day(to) - day(from)) / 86_400_000));
+    }, 0);
+  const occupancy = rooms.length ? Math.round((nightsTaken / (rooms.length * daysIn)) * 100) : 0;
+
+  // Who stays on a night (a room booking covers check-in up to check-out).
+  const staying = (d) =>
+    live.flatMap((g) => g.live.filter((r) => dayOf(r.booked_for) <= d && d < dayOf(r.booked_until)).map((r) => ({ g, r })));
+
+  // ---- To do: slips, unpaid deposits, money to collect, new messages ----
   const rank = (g) => (g.depositReview || g.balanceReview ? 0 : g.status === 'pending' ? 1 : 2);
   const todo = groups.filter((g) => needsYou(g, today)).sort((a, b) => rank(a) - rank(b) || a.checkIn.localeCompare(b.checkIn));
-  const week = addDays(today, 7);
-  const live = groups.filter((g) => g.status !== 'cancelled');
-  const arriving = live.filter((g) => g.checkIn >= today && g.checkIn < week).sort((a, b) => a.checkIn.localeCompare(b.checkIn));
-  const leaving = live.filter((g) => g.checkOut >= today && g.checkOut < week).sort((a, b) => a.checkOut.localeCompare(b.checkOut));
-  const s = stats.data?.stats;
+  const unread = stats.data?.stats?.unread_chats ?? 0;
+  const next = live
+    .flatMap((g) => [
+      { d: g.checkIn, kind: 'in', g },
+      { d: g.checkOut, kind: 'out', g },
+    ])
+    .filter((x) => x.d > today)
+    .sort((a, b) => a.d.localeCompare(b.d))[0];
+
+  // Monday-first weeks for the calendar.
+  const lead = (day(first).getDay() + 6) % 7;
+  const cells = [...Array(lead).fill(null), ...Array.from({ length: daysIn }, (_, k) => k + 1)];
+  while (cells.length % 7) cells.push(null);
+  const weekdays = Array.from({ length: 7 }, (_, k) => day(addDays('2024-01-01', k)).toLocaleDateString(locale, { weekday: 'long' }).replace(/^วัน/, ''));
 
   return (
-    <div className="ab-today">
-      {s && (
-        <p className="ab-summary">
-          This month {formatBaht(s.room_revenue_this_month)} · tonight {s.rooms_occupied_now} of {s.rooms} rooms taken
-        </p>
-      )}
+    <div className="ov">
+      <header className="ov-head">
+        <h1>{monthName}</h1>
+        <div className="ov-nav">
+          <button type="button" onClick={() => moveMonth(-1)} aria-label={t('adm.dash.prev')}>
+            ‹
+          </button>
+          <button type="button" onClick={() => moveMonth(1)} aria-label={t('adm.dash.nextMonth')}>
+            ›
+          </button>
+          <button type="button" className="ov-today" onClick={() => setMonth(today.slice(0, 7))}>
+            {t('adm.dash.today')}
+          </button>
+        </div>
+      </header>
       {(bookings.error || error) && <p className="admin__error" role="alert">{bookings.error || error}</p>}
 
-      <section className="ab-card">
-        <header className="ab-card__hd">
-          <h2>Needs you{todo.length > 0 && ` (${todo.length})`}</h2>
-          <button type="button" className="ab-link" onClick={() => navigate('/admin/bookings')}>
-            All bookings
-          </button>
-        </header>
-        {bookings.loading && !bookings.data && <p className="ab-empty">Loading…</p>}
-        {bookings.data && todo.length === 0 && <p className="ab-empty">Nothing waiting. Slips to check and deposits to follow up appear here.</p>}
-        <ul className="ab-todo">
+      <dl className="ov-figs">
+        <div>
+          <dt>{t('adm.dash.bookings')}</dt>
+          <dd className="num">{inMonth.length}</dd>
+        </div>
+        <div>
+          <dt>{t('adm.dash.occupancy')}</dt>
+          <dd className="num">{occupancy}%</dd>
+        </div>
+        <div>
+          <dt>{t('adm.dash.revenue')}</dt>
+          <dd className="num">{formatBaht(revenue)}</dd>
+        </div>
+        <div className="is-due">
+          <dt>{t('adm.dash.outstanding')}</dt>
+          <dd className="num">{formatBaht(Math.max(0, revenue - received))}</dd>
+        </div>
+      </dl>
+
+      <div className="ov-two">
+        <section className="ov-cal" aria-label={t('adm.dash.calendar')}>
+          <div className="ov-cal__hd">
+            <h2>{t('adm.dash.calendar')}</h2>
+            <div className="ov-seg" role="tablist">
+              {['calendar', 'list'].map((v) => (
+                <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? 'is-on' : ''} onClick={() => setView(v)}>
+                  {t(`adm.dash.view.${v}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {view === 'calendar' ? (
+            <div className="ov-grid">
+              {weekdays.map((w) => (
+                <div key={w} className="ov-grid__wd">
+                  {w}
+                </div>
+              ))}
+              {cells.map((d, k) => {
+                if (!d) return <div key={`x${k}`} className="ov-day is-out" />;
+                const date = iso(d);
+                const here = staying(date);
+                return (
+                  <div key={date} className={`ov-day${date === today ? ' is-today' : ''}${date < today ? ' is-past' : ''}`}>
+                    <b className="num">{d}</b>
+                    {here.map(({ g, r }) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        className={g.status === 'pending' ? 'is-wait' : ''}
+                        title={`${who(r)} · ${g.code}`}
+                        onClick={() => open(g)}
+                      >
+                        {roomTitle(r.room_name, lang)}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <ul className="ov-list">
+              {inMonth.length === 0 && <li className="ov-empty">{t('adm.dash.noneMonth')}</li>}
+              {[...inMonth]
+                .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
+                .map((g) => (
+                  <li key={g.key}>
+                    <button type="button" onClick={() => open(g)}>
+                      <b className="num">
+                        {short(g.checkIn)} – {short(g.checkOut)}
+                      </b>
+                      <span>
+                        {who(g.lead)} · {g.rooms}
+                      </span>
+                      <em className={g.status === 'pending' ? 'is-wait' : ''}>
+                        {g.status === 'pending' ? t('adm.dash.legend.wait') : t('adm.dash.legend.ok')}
+                      </em>
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          )}
+          <p className="ov-key">
+            <span>
+              <i /> {t('adm.dash.legend.ok')}
+            </span>
+            <span>
+              <i className="is-wait" /> {t('adm.dash.legend.wait')}
+            </span>
+            <span>{t('adm.dash.legend.hint')}</span>
+          </p>
+        </section>
+
+        <aside className="ov-todo" aria-labelledby="ov-todo-title">
+          <h2 id="ov-todo-title">{t('adm.dash.todo')}</h2>
+          <p className="ov-todo__n">{t('adm.dash.todoCount', { n: todo.length + (unread > 0 ? 1 : 0) })}</p>
+          {todo.length === 0 && unread === 0 && <p className="ov-empty">{t('adm.dash.nothing')}</p>}
+
           {todo.map((g) => {
             const slip = g.depositReview ? 'deposit' : g.balanceReview ? 'balance' : null;
             const slipRow = slip && g.rows.find((r) => (slip === 'deposit' ? r.slip_status === 'review' : r.balance_slip_status === 'review'));
-            const reason = slipRow && (slip === 'deposit' ? slipRow.slip_reason : slipRow.balance_slip_reason);
-            const file = slipRow && (slip === 'deposit' ? slipRow.slip_file : slipRow.balance_slip_file);
             const expected = slipRow && (slip === 'deposit' ? slipRow.slip_expected : slipRow.balance_slip_expected);
-            let pill;
-            let line;
-            if (slip) {
-              pill = ['Slip to check', 'check'];
-              line = `${slip === 'deposit' ? `Deposit${g.live.length > 1 ? ` for ${g.live.length} rooms` : ''}` : 'Rest of the price'}, should be ${formatBaht(expected)}${reason ? ` · SlipOK couldn't check it (${SLIP_REASONS[reason] ?? reason})` : ''}`;
-            } else if (g.status === 'pending') {
-              pill = ['No deposit yet', 'wait'];
-              line = `Booked ${daysAgo(g.lead.created_at)} · deposit ${formatBaht(g.deposit)} · arrives ${fmtDay(g.checkIn)}`;
-            } else {
-              pill = [g.checkIn < today ? 'Staying now' : g.checkIn === today ? 'Arrives today' : 'Arrives tomorrow', 'ok'];
-              line = `Rest to collect at the farm: ${formatBaht(g.restDue)}`;
-            }
+            const name = who(g.lead);
+            let what;
+            if (slip) what = t(slip === 'deposit' ? 'adm.dash.slipDeposit' : 'adm.dash.slipRest', { money: formatBaht(expected) });
+            else if (g.status === 'pending') what = t('adm.dash.waitDeposit', { money: formatBaht(g.deposit) });
+            else what = t('adm.dash.collect', { money: formatBaht(g.restDue) });
             return (
-              <li key={g.key}>
-                <span className={`ab-pill ab-pill--${pill[1]}`}>{pill[0]}</span>
-                <button type="button" className="ab-todo__what" onClick={() => open(g)}>
+              <div key={g.key} className="ov-item">
+                <button type="button" className="ov-item__what" onClick={() => open(g)}>
                   <b>
-                    {who(g.lead)} · {g.code} · {g.rooms}
+                    {what} · {name}
                   </b>
-                  <span>{line}</span>
+                  <small className="num">
+                    {g.rooms} · {short(g.checkIn)} – {short(g.checkOut)}
+                  </small>
                 </button>
-                <div className="ab-todo__act">
-                  {slip && (
-                    <>
-                      {file && (
-                        <a className="ab-thumb" href={mediaUrl(file)} target="_blank" rel="noreferrer" aria-label="View slip">
-                          <img src={mediaUrl(file)} alt="" />
-                        </a>
-                      )}
-                      <button type="button" className="admin__btn admin__btn--primary" onClick={() => actions.approve(g, slip)}>
-                        Approve
-                      </button>
-                      <button type="button" className="admin__btn" onClick={() => actions.reject(g, slip)}>
-                        Reject
-                      </button>
-                    </>
-                  )}
-                  {!slip && g.status === 'pending' && (
-                    <>
-                      {g.lead.guest_phone && (
-                        <a className="admin__btn" href={`tel:${g.lead.guest_phone}`}>
-                          Call {g.lead.guest_phone}
-                        </a>
-                      )}
-                      <button
-                        type="button"
-                        className="admin__btn"
-                        onClick={() => actions.setStatus(g, 'cancelled', `Cancel ${g.code} for ${who(g.lead)}? The rooms become free again.`)}
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  )}
-                  {!slip && g.status === 'confirmed' && (
-                    <button type="button" className="admin__btn admin__btn--primary" onClick={() => actions.paidAtFarm(g)}>
-                      Paid at farm
-                    </button>
-                  )}
-                </div>
-              </li>
+                {slip && (
+                  <button type="button" className="admin__btn admin__btn--primary" onClick={() => actions.approve(g, slip)}>
+                    {t('adm.dash.verify')}
+                  </button>
+                )}
+                {!slip && g.status === 'pending' && g.lead.guest_phone && (
+                  <a className="admin__btn num" href={`tel:${g.lead.guest_phone}`}>
+                    {t('adm.dash.contact', { phone: formatThaiPhone(g.lead.guest_phone) })}
+                  </a>
+                )}
+                {!slip && g.status === 'confirmed' && (
+                  <button type="button" className="admin__btn admin__btn--primary" onClick={() => actions.paidAtFarm(g)}>
+                    {t('adm.dash.received')}
+                  </button>
+                )}
+              </div>
             );
           })}
-        </ul>
-      </section>
 
-      <RoomBoard rooms={roomsLoad.data?.rooms ?? []} groups={live} today={today} onOpen={open} />
+          {unread > 0 && (
+            <div className="ov-item">
+              <div className="ov-item__what">
+                <b>{t('adm.dash.newMessages', { n: unread })}</b>
+              </div>
+              <button type="button" className="admin__btn admin__btn--primary" onClick={() => navigate('/admin/chat')}>
+                {t('adm.dash.reply')}
+              </button>
+            </div>
+          )}
 
-      <div className="ab-two">
-        <ComingGoing title="Arriving" list={arriving} when={(g) => g.checkIn} today={today} extra={(g) => `${g.rooms} · ${g.guests} guests`} onOpen={open} />
-        <ComingGoing title="Leaving" list={leaving} when={(g) => g.checkOut} today={today} extra={(g) => `${g.rooms} · check-out 12:00`} onOpen={open} />
+          {next && (
+            <p className="ov-next num">
+              {t('adm.dash.next')}: <b>{short(next.d)}</b>{' '}
+              {t(next.kind === 'in' ? 'adm.dash.checkIn' : 'adm.dash.checkOut')} {who(next.g.lead)} · {next.g.rooms}
+            </p>
+          )}
+        </aside>
       </div>
-
-      <PaymentSetup setup={stats.data?.payment_setup} />
     </div>
-  );
-}
-
-function ComingGoing({ title, list, when, today, extra, onOpen }) {
-  return (
-    <section className="ab-card">
-      <header className="ab-card__hd">
-        <h2>{title}</h2>
-        <span className="ab-muted">next 7 days</span>
-      </header>
-      {list.length === 0 && <p className="ab-empty">No one.</p>}
-      <ul className="ab-list">
-        {list.map((g) => (
-          <li key={g.key}>
-            <button type="button" onClick={() => onOpen(g)}>
-              <b>
-                {when(g) === today ? 'Today' : fmtDay(when(g))} · {who(g.lead)}
-              </b>
-              <span>{extra(g)}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-// 5 rooms × the next 14 nights, a bar per booking (green confirmed, gold
-// waiting for the deposit). A bar opens the booking.
-function RoomBoard({ rooms, groups, today, onOpen }) {
-  const DAYS = 14;
-  const days = Array.from({ length: DAYS }, (_, i) => addDays(today, i));
-  const end = days[DAYS - 1];
-  const sorted = [...rooms].sort((a, b) => b.price - a.price);
-  const stays = (roomId) =>
-    groups.flatMap((g) =>
-      g.live
-        .filter((r) => r.room_id === roomId && dayOf(r.booked_until) > today && dayOf(r.booked_for) <= end)
-        .map((r) => ({ g, r, from: dayOf(r.booked_for), to: dayOf(r.booked_until) })),
-    );
-  const col = (iso) => Math.max(0, Math.round((day(iso) - day(today)) / 86_400_000));
-
-  return (
-    <section className="ab-card">
-      <header className="ab-card__hd">
-        <h2>Rooms, next 2 weeks</h2>
-        <span className="ab-muted">Click a bar to open the booking</span>
-      </header>
-      <div className="ab-board-wrap">
-        <div className="ab-board" style={{ '--days': DAYS }}>
-          <span />
-          {days.map((d) => (
-            <span key={d} className={`ab-board__day${d === today ? ' is-today' : ''}`}>
-              {day(d).toLocaleDateString('en-GB', { weekday: 'short' }).slice(0, 2)}
-              <b>{day(d).getDate()}</b>
-            </span>
-          ))}
-          {sorted.map((room, i) => (
-            <Fragment key={room.id}>
-              <span className="ab-board__room" style={{ gridRow: i + 2 }}>
-                {roomTitle(room.name)}
-              </span>
-              {days.map((d, j) => (
-                <span key={d} className="ab-board__cell" style={{ gridRow: i + 2, gridColumn: j + 2 }} />
-              ))}
-              {stays(room.id).map(({ g, r, from, to }) => {
-                const start = col(from < today ? today : from);
-                const span = Math.max(1, Math.min(DAYS, col(to)) - start);
-                return (
-                  <button
-                    type="button"
-                    key={r.id}
-                    className={`ab-bar ab-bar--${g.status === 'pending' ? 'wait' : 'ok'}${from < today ? ' is-cont' : ''}`}
-                    style={{ gridRow: i + 2, gridColumn: `${start + 2} / span ${span}` }}
-                    title={`${who(r)} · ${g.code} · ${fmtRange(from, to)}`}
-                    onClick={() => onOpen(g)}
-                  >
-                    {who(r).split(' ')[0]}
-                  </button>
-                );
-              })}
-            </Fragment>
-          ))}
-        </div>
-      </div>
-      <p className="ab-legend">
-        <span>
-          <i className="ab-bar--ok" /> Confirmed
-        </span>
-        <span>
-          <i className="ab-bar--wait" /> Waiting for deposit
-        </span>
-      </p>
-    </section>
   );
 }
 
@@ -391,13 +400,7 @@ function RoomBoard({ rooms, groups, today, onOpen }) {
    Bookings list + details panel
    ====================================================================== */
 
-const TABS = [
-  ['todo', 'To do'],
-  ['upcoming', 'Upcoming'],
-  ['past', 'Past'],
-  ['cancelled', 'Cancelled'],
-  ['all', 'All'],
-];
+const TABS = ['todo', 'upcoming', 'past', 'cancelled', 'all'];
 
 export function Bookings() {
   const [params, setParams] = useSearchParams();
@@ -407,9 +410,11 @@ export function Bookings() {
   const [query, setQuery] = useState('');
   const [repricing, setRepricing] = useState(null);
   const [deleting, setDeleting] = useState(null);
-  const actions = useBookingActions(reload, setActionError);
+  const f = useFmt();
+  const { t, lang, locale } = f;
+  const actions = useBookingActions(reload, setActionError, t);
   const today = toISODate(new Date());
-  const groups = useMemo(() => groupRows(data?.bookings ?? []), [data]);
+  const groups = useMemo(() => groupRows(data?.bookings ?? [], lang), [data, lang]);
   const openKey = params.get('open');
   const selected = groups.find((g) => g.key === openKey) ?? null;
 
@@ -434,98 +439,84 @@ export function Bookings() {
     )
     .sort((a, b) => (tab === 'todo' || tab === 'upcoming' ? a.checkIn.localeCompare(b.checkIn) : b.checkIn.localeCompare(a.checkIn)));
 
+  // Grouped under a month heading, in the order above.
+  const months = [];
+  for (const g of rows) {
+    const key = g.checkIn.slice(0, 7);
+    if (months.at(-1)?.key !== key) months.push({ key, list: [] });
+    months.at(-1).list.push(g);
+  }
+  const monthName = (key) => day(`${key}-01`).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+
   // Below 1280px the details replace the list, so start them at the top.
+  // The list narrows and the details panel grows in beside it (lib/motion).
   const open = (g) => {
-    setParams(g ? { open: g.key } : {});
+    shift(() => setParams(g ? { open: g.key } : {}), { cards: '.abk-list, .abk-panel' });
     if (window.innerWidth < 1280) window.scrollTo({ top: 0 });
   };
 
   return (
     <div className="ab-bookings">
-      <div className="ab-tools">
-        <div className="ab-tabs" role="tablist">
-          {TABS.map(([id, label]) => {
+      <div className="abk-tools">
+        <nav className="abk-tabs" role="tablist">
+          {TABS.map((id) => {
             const n = id === 'todo' ? groups.filter(inTab.todo).length : 0;
             return (
               <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-on' : ''} onClick={() => setTab(id)}>
-                {label}
+                {t(`adm.bk.tab.${id}`)}
                 {n > 0 && <em>{n}</em>}
               </button>
             );
           })}
-        </div>
-        <input type="search" className="admin__search ab-search" placeholder="Search name, phone or code" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </nav>
+        <input type="search" className="abk-search" placeholder={t('adm.bk.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
       </div>
       {(error || actionError) && <p className="admin__error" role="alert">{error || actionError}</p>}
-      {loading && !data && <p className="admin__muted">Loading…</p>}
+      {loading && !data && <p className="admin__muted">{t('adm.loading')}</p>}
 
       {data && (
         <div className={`ab-listing${selected ? ' has-panel' : ''}`}>
-          <div className="ab-card ab-table-card">
-            <table className="ab-table">
-              <thead>
-                <tr>
-                  <th>Guest</th>
-                  <th>Stay</th>
-                  <th>Money</th>
-                  <th>Next step</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((g) => {
-                  const [pill, tone] = moneyPill(g);
+          <div className="abk-list">
+            {months.map(({ key, list }) => (
+              <section key={key}>
+                <h3 className="abk-month">{monthName(key)}</h3>
+                {list.map((g) => {
+                  const [money, tone] = moneyLine(g, t);
+                  const step = nextStep(g, actions, today, t, () => open(g));
                   return (
-                    <tr key={g.key} className={`${selected === g ? 'is-sel' : ''}${g.status === 'cancelled' ? ' is-off' : ''}`} onClick={() => open(g)}>
-                      <td>
+                    <div
+                      key={g.key}
+                      role="button"
+                      tabIndex={0}
+                      className={`abk-row${selected === g ? ' is-sel' : ''}${g.status === 'cancelled' ? ' is-off' : ''}`}
+                      onClick={() => open(g)}
+                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open(g))}
+                    >
+                      <div className="abk-when">
+                        <b>{g.isRoom ? f.range(g.checkIn, g.checkOut) : f.day(g.checkIn)}</b>
+                        <span>{g.isRoom ? t('adm.bk.nights', { n: nightsOf(g.checkIn, g.checkOut) }) : f.time(g.lead.booked_for)}</span>
+                      </div>
+                      <div className="abk-who">
                         <b>{who(g.lead)}</b>
-                        <small>
-                          {g.code}
-                          {g.lead.guest_phone && ` · ${g.lead.guest_phone}`}
-                        </small>
-                      </td>
-                      <td>
-                        {g.isRoom ? fmtRange(g.checkIn, g.checkOut) : fmtDateTime(g.lead.booked_for)}
-                        <small>
+                        <span>
                           {g.rooms}
-                          {g.isRoom && ` · ${g.guests} guests`}
-                        </small>
-                      </td>
-                      <td>
-                        <div className="ab-money">
-                          {g.total ? formatBaht(g.total) : '-'}
-                          <span className={`ab-pill ab-pill--${tone}`}>{pill}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="ab-next">
-                          <StepButton step={nextStep(g, actions, today)} small />
-                          <button
-                            type="button"
-                            className="ab-dots"
-                            aria-label={`More for ${g.code}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              open(g);
-                            }}
-                          >
-                            ⋯
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                          {g.isRoom && ` · ${t('adm.panel.guests', { n: g.guests })}`} · {g.code}
+                        </span>
+                      </div>
+                      <div className="abk-end">
+                        <p className={`abk-money abk-money--${tone}`}>{money}</p>
+                        <StepButton step={step} />
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-            {rows.length === 0 && <p className="ab-empty">{tab === 'todo' ? 'Nothing to do right now.' : 'No bookings match.'}</p>}
+              </section>
+            ))}
+            {rows.length === 0 && <p className="adt-empty">{tab === 'todo' ? t('adm.bk.noneTodo') : t('adm.bk.none')}</p>}
           </div>
 
-          {selected ? (
+          {selected && (
             <BookingPanel g={selected} actions={actions} today={today} onClose={() => open(null)} onEditPrice={setRepricing} onDelete={setDeleting} />
-          ) : (
-            <aside className="ab-card ab-panel ab-panel--hint">
-              <p className="ab-empty">Click a booking to see the guest, the money and the slip here.</p>
-            </aside>
           )}
         </div>
       )}
@@ -559,6 +550,8 @@ export function Bookings() {
 // A slip waiting for a manual check: the picture, what it should be, and
 // Approve / Reject.
 function SlipCheck({ g, kind, actions }) {
+  const f = useFmt();
+  const { t } = f;
   const row = g.rows.find((r) => (kind === 'deposit' ? r.slip_status === 'review' : r.balance_slip_status === 'review'));
   if (!row) return null;
   const file = kind === 'deposit' ? row.slip_file : row.balance_slip_file;
@@ -567,21 +560,22 @@ function SlipCheck({ g, kind, actions }) {
   return (
     <div className="ab-slipcheck">
       {file && (
-        <a className="ab-thumb ab-thumb--big" href={mediaUrl(file)} target="_blank" rel="noreferrer" aria-label="View slip">
-          <img src={mediaUrl(file)} alt="" />
+        <a className="ab-thumb ab-thumb--big" href={mediaUrl(file)} target="_blank" rel="noreferrer" title={t('adm.act.viewSlip')}>
+          <img src={mediaUrl(file)} alt={t('adm.act.viewSlip')} />
         </a>
       )}
       <div>
-        <b>
-          {kind === 'deposit' ? 'Deposit' : 'Rest'} slip sent, {formatBaht(expected)} expected
-        </b>
-        <p>{reason ? `SlipOK couldn't check it: ${SLIP_REASONS[reason] ?? reason}. ` : ''}Check your bank app, then approve.</p>
-        <div className="ab-row">
-          <button type="button" className="admin__btn admin__btn--primary" onClick={() => actions.approve(g, kind)}>
-            Approve
+        <b>{t('adm.slip.waiting', { what: t(kind === 'deposit' ? 'adm.slip.deposit' : 'adm.slip.rest'), money: formatBaht(expected) })}</b>
+        <p>
+          {reason && `${t('adm.slip.okFail', { reason: f.reason(reason) })} · `}
+          {t('adm.slip.check')}
+        </p>
+        <div className="abk-acts">
+          <button type="button" className="admin__btn admin__btn--primary adm-btn-lg" onClick={() => actions.approve(g, kind)}>
+            {t(kind === 'deposit' ? 'adm.act.approveDeposit' : 'adm.act.approveRest')}
           </button>
-          <button type="button" className="admin__btn" onClick={() => actions.reject(g, kind)}>
-            Reject
+          <button type="button" className="admin__btn adm-btn-lg" onClick={() => actions.reject(g, kind)}>
+            {t('adm.act.reject')}
           </button>
         </div>
       </div>
@@ -590,87 +584,156 @@ function SlipCheck({ g, kind, actions }) {
 }
 
 // Last result of a slip that is no longer waiting (verified / rejected).
-function SlipResult({ status, reason, amount, label }) {
+function SlipResult({ status, reason, amount, kind }) {
+  const f = useFmt();
+  const { t } = f;
   if (!status || status === 'review') return null;
-  return (
-    <p className={`ab-slip ab-slip--${status}`}>
-      {label} slip {status === 'verified' ? `✓ ${amount != null ? formatBaht(amount) : 'checked by hand'}` : `✗ ${SLIP_REASONS[reason] ?? reason}`}
-    </p>
-  );
+  const what = t(kind === 'deposit' ? 'adm.slip.deposit' : 'adm.slip.rest');
+  let text;
+  if (status !== 'verified') text = t('adm.slip.rejected', { what, reason: f.reason(reason) });
+  else text = amount != null ? t('adm.slip.verified', { what, money: formatBaht(amount) }) : t('adm.slip.verifiedByHand', { what });
+  return <p className={`ab-slip ab-slip--${status}`}>{text}</p>;
 }
 
-const STATUS_PILL = { pending: ['Waiting for deposit', 'wait'], confirmed: ['Confirmed', 'ok'], cancelled: ['Cancelled', 'off'] };
-
 function BookingPanel({ g, actions, today, onClose, onEditPrice, onDelete }) {
+  const f = useFmt();
+  const { t } = f;
   const b = g.lead;
-  const [label, tone] = STATUS_PILL[g.status];
-  const contact = [b.guest_email || b.user_email, b.member_code, b.guest_line && `LINE ${b.guest_line}`].filter(Boolean);
-  const requests = [...new Set(g.rows.flatMap((r) => r.requests ?? []))];
+  const requests = [...new Set(g.rows.flatMap((r) => r.requests ?? []))].filter((r) => r !== 'pets');
   const pets = g.rows.reduce((n, r) => n + (r.pets ?? 0), 0);
+  const extras = [...requests.map((r) => t(`adm.req.${r}`)), pets > 0 && t('adm.panel.pets', { n: pets })].filter(Boolean);
+  let rest = f.money(g.restDue || g.total - g.deposit);
+  if (g.status === 'confirmed' && g.restDue === 0) rest = `✓ ${f.money(g.total - g.deposit)} ${t(g.paidAtFarm ? 'adm.panel.restPaidFarm' : 'adm.panel.restPaidOnline')}`;
+  else if (g.status !== 'cancelled') rest += ` ${t('adm.panel.restOnArrival')}`;
 
   return (
-    <aside className="ab-card ab-panel" aria-label={`Booking ${g.code}`}>
-      <section className="ab-panel__top">
+    <aside className="ab-panel abk-panel" aria-label={g.code}>
+      <header className="abk-panel__top">
         <div>
-          <b>{g.code}</b>
-          <span className={`ab-pill ab-pill--${tone}`}>{label}</span>
-        </div>
-        <button type="button" className="ab-close" onClick={onClose} aria-label="Close">
-          ×
-        </button>
-        <p className="ab-muted">Booked {fmtDateTime(b.created_at)}</p>
-      </section>
-
-      <section>
-        <h3>Guest</h3>
-        <p>
-          <b>{who(b)}</b>
-          {b.guest_phone && (
-            <>
-              {' · '}
-              <a href={`tel:${b.guest_phone}`}>{b.guest_phone}</a>
-            </>
-          )}
-        </p>
-        {contact.length > 0 && <p className="ab-muted">{contact.join(' · ')}</p>}
-        {(requests.length > 0 || pets > 0) && (
-          <p className="ab-flag">{[...requests.filter((r) => r !== 'pets').map((r) => REQUEST_LABELS[r] ?? r), pets > 0 && `${pets} ${pets === 1 ? 'pet' : 'pets'}`].filter(Boolean).join(', ')}</p>
-        )}
-        {b.note && <p className="ab-muted">“{b.note}”</p>}
-      </section>
-
-      <section>
-        <h3>Stay</h3>
-        {g.isRoom ? (
+          <h3>{who(b)}</h3>
           <p>
-            {fmtDay(g.checkIn)} 14:00 → {fmtDay(g.checkOut)} 12:00 · {nightsOf(g.checkIn, g.checkOut)} nights
+            {g.code} · {t(`adm.bk.status.${g.status}`)} · {t('adm.panel.booked', { when: f.time(b.created_at) })}
+            {b.member_code && ` · ${b.member_code}`}
           </p>
+        </div>
+        <button type="button" className="adm-link" onClick={onClose}>
+          {t('adm.panel.close')}
+        </button>
+      </header>
+
+      {(b.guest_phone || b.guest_line || b.guest_email || b.user_email) && (
+        <div className="abk-contact">
+          {b.guest_phone && (
+            <a className="admin__btn adm-btn-lg" href={`tel:${b.guest_phone}`}>
+              {t('adm.act.call', { phone: b.guest_phone })}
+            </a>
+          )}
+          {b.guest_line && <span className="abk-chip">LINE {b.guest_line}</span>}
+          {(b.guest_email || b.user_email) && <span className="abk-chip">{b.guest_email || b.user_email}</span>}
+        </div>
+      )}
+
+      <dl className="abk-facts">
+        {g.isRoom ? (
+          <>
+            <div>
+              <dt>{t('adm.panel.room')}</dt>
+              <dd>
+                {g.rooms} · {t('adm.panel.guests', { n: g.guests })}
+              </dd>
+            </div>
+            <div>
+              <dt>{t('adm.panel.in')}</dt>
+              <dd>{f.day(g.checkIn)} · 14:00</dd>
+            </div>
+            <div>
+              <dt>{t('adm.panel.out')}</dt>
+              <dd>
+                {f.day(g.checkOut)} · 12:00 · {t('adm.bk.nights', { n: nightsOf(g.checkIn, g.checkOut) })}
+              </dd>
+            </div>
+          </>
         ) : (
-          <p>{fmtDateTime(b.booked_for)}</p>
+          <div>
+            <dt>{t('adm.panel.when')}</dt>
+            <dd>{f.time(b.booked_for)}</dd>
+          </div>
         )}
+        {extras.length > 0 && (
+          <div>
+            <dt>{t('adm.panel.extras')}</dt>
+            <dd className="abk-flag">{extras.join(', ')}</dd>
+          </div>
+        )}
+        {b.note && (
+          <div>
+            <dt>{t('adm.panel.note')}</dt>
+            <dd>“{b.note}”</dd>
+          </div>
+        )}
+      </dl>
+
+      {g.isRoom && g.total > 0 && (
+        <section className="abk-money-box">
+          <h4>{t('adm.panel.money')}</h4>
+          <dl className="abk-facts">
+            <div>
+              <dt>{t('adm.panel.total')}</dt>
+              <dd>
+                <b>{f.money(g.total)}</b>
+              </dd>
+            </div>
+            <div>
+              <dt>{t('adm.panel.deposit')}</dt>
+              <dd>{g.status === 'confirmed' ? `✓ ${f.money(g.deposit)}` : f.money(g.deposit)}</dd>
+            </div>
+            <div>
+              <dt>{t('adm.panel.rest')}</dt>
+              <dd>{rest}</dd>
+            </div>
+          </dl>
+          {g.depositReview && <SlipCheck g={g} kind="deposit" actions={actions} />}
+          {g.balanceReview && <SlipCheck g={g} kind="balance" actions={actions} />}
+          {!g.depositReview && <SlipResult kind="deposit" status={b.slip_status} reason={b.slip_reason} amount={b.slip_amount} />}
+          {!g.balanceReview && <SlipResult kind="balance" status={b.balance_slip_status} reason={b.balance_slip_reason} amount={b.balance_slip_amount} />}
+          {g.restDue > 0 && g.checkOut >= today && !g.balanceReview && (
+            <button type="button" className="admin__btn admin__btn--primary adm-btn-lg abk-wide" onClick={() => actions.paidAtFarm(g)}>
+              {t('adm.panel.paidAtFarm', { money: f.money(g.restDue) })}
+            </button>
+          )}
+          {g.paidAtFarm && (
+            <button type="button" className="adm-link" onClick={() => actions.paidAtFarm(g, false)}>
+              {t('adm.panel.undoFarm')}
+            </button>
+          )}
+        </section>
+      )}
+
+      <section>
+        <h4>{t('adm.panel.rooms')}</h4>
         <ul className="ab-rooms">
           {g.rows.map((r) => (
             <li key={r.id} className={r.status === 'cancelled' && g.status !== 'cancelled' ? 'is-off' : ''}>
               <div>
-                <b>{r.room_id ? roomTitle(r.room_name) : r.activity_name}</b>
+                <b>{r.room_id ? roomTitle(r.room_name, f.lang) : r.activity_name}</b>
                 <span>
                   {r.code}
-                  {r.guests ? ` · ${r.guests} guests` : ''}
-                  {r.total != null ? ` · ${formatBaht(r.total)}` : ''}
-                  {r.status === 'cancelled' && g.status !== 'cancelled' ? ' · cancelled' : ''}
+                  {r.guests ? ` · ${t('adm.panel.guests', { n: r.guests })}` : ''}
+                  {r.total != null ? ` · ${f.money(r.total)}` : ''}
+                  {r.status === 'cancelled' && g.status !== 'cancelled' ? ` · ${t('adm.panel.roomCancelled')}` : ''}
                 </span>
                 {r.stay_username && (
                   <span className="ab-login">
-                    Room login <code>{r.stay_username}</code> <code>{r.stay_password}</code>
+                    {t('adm.panel.login')} <code>{r.stay_username}</code> <code>{r.stay_password}</code>
                   </span>
                 )}
               </div>
-              <div className="ab-row ab-row--quiet">
-                <button type="button" className="ab-link" onClick={() => onEditPrice(r)}>
-                  Edit price
+              <div className="abk-acts abk-acts--quiet">
+                <button type="button" className="adm-link" onClick={() => onEditPrice(r)}>
+                  {t('adm.panel.editPrice')}
                 </button>
-                <button type="button" className="ab-link ab-link--del" onClick={() => onDelete(r)}>
-                  Delete
+                <button type="button" className="adm-link adm-link--danger" onClick={() => onDelete(r)}>
+                  {t('adm.panel.delete')}
                 </button>
               </div>
             </li>
@@ -678,64 +741,23 @@ function BookingPanel({ g, actions, today, onClose, onEditPrice, onDelete }) {
         </ul>
       </section>
 
-      {g.isRoom && g.total > 0 && (
-        <section>
-          <h3>Money</h3>
-          <dl className="ab-money-list">
-            <div>
-              <dt>Total</dt>
-              <dd>{formatBaht(g.total)}</dd>
-            </div>
-            <div>
-              <dt>Deposit (half)</dt>
-              <dd>{g.status === 'confirmed' ? `✓ ${formatBaht(g.deposit)}` : formatBaht(g.deposit)}</dd>
-            </div>
-            <div>
-              <dt>Rest</dt>
-              <dd>
-                {g.status === 'confirmed' && g.restDue === 0
-                  ? `✓ ${formatBaht(g.total - g.deposit)}${g.paidAtFarm ? ' at the farm' : ' online'}`
-                  : formatBaht(g.restDue || g.total - g.deposit)}
-              </dd>
-            </div>
-          </dl>
-          {g.depositReview && <SlipCheck g={g} kind="deposit" actions={actions} />}
-          {g.balanceReview && <SlipCheck g={g} kind="balance" actions={actions} />}
-          {!g.depositReview && <SlipResult label="Deposit" status={b.slip_status} reason={b.slip_reason} amount={b.slip_amount} />}
-          {!g.balanceReview && <SlipResult label="Rest" status={b.balance_slip_status} reason={b.balance_slip_reason} amount={b.balance_slip_amount} />}
-          {g.restDue > 0 && g.checkOut >= today && !g.balanceReview && (
-            <button type="button" className="admin__btn admin__btn--primary ab-btn-lg" onClick={() => actions.paidAtFarm(g)}>
-              Rest paid at the farm ({formatBaht(g.restDue)})
-            </button>
-          )}
-          {g.paidAtFarm && (
-            <button type="button" className="ab-link" onClick={() => actions.paidAtFarm(g, false)}>
-              Undo "paid at the farm"
-            </button>
-          )}
-        </section>
-      )}
-
-      <section className="ab-row ab-row--quiet">
+      {/* The rarer jobs, small and at the bottom so they aren't pressed by mistake. */}
+      <footer className="abk-acts abk-acts--quiet abk-panel__more">
         {g.status === 'pending' && (
-          <button
-            type="button"
-            className="ab-link"
-            onClick={() => actions.setStatus(g, 'confirmed', `Confirm ${g.code} without a slip (deposit received another way)? Room logins are created.`)}
-          >
-            Confirm without slip
+          <button type="button" className="adm-link" onClick={() => actions.setStatus(g, 'confirmed', t('adm.ask.confirmNoSlip', { code: g.code }))}>
+            {t('adm.panel.confirmNoSlip')}
           </button>
         )}
         {g.status !== 'cancelled' ? (
-          <button type="button" className="ab-link ab-link--del" onClick={() => actions.setStatus(g, 'cancelled', `Cancel ${g.code} for ${who(b)}? The rooms become free again.`)}>
-            Cancel booking
+          <button type="button" className="adm-link adm-link--danger" onClick={() => actions.setStatus(g, 'cancelled', t('adm.ask.cancel', { code: g.code, name: who(b) }))}>
+            {t('adm.act.cancel')}
           </button>
         ) : (
-          <button type="button" className="ab-link" onClick={() => actions.setStatus(g, 'pending')}>
-            Re-open
+          <button type="button" className="adm-link" onClick={() => actions.setStatus(g, 'pending')}>
+            {t('adm.panel.reopen')}
           </button>
         )}
-      </section>
+      </footer>
     </aside>
   );
 }
@@ -744,6 +766,7 @@ function BookingPanel({ g, actions, today, onClose, onEditPrice, onDelete }) {
 // are typed in directly (the deposit follows the total at 50% until it is
 // edited itself). The member who booked is told the new amounts in their chat.
 function EditPriceDialog({ booking: b, who: name, onClose, onSaved }) {
+  const { t, lang } = useLang();
   const dialogRef = useRef(null);
   const [total, setTotal] = useState(b.total ?? '');
   const [deposit, setDeposit] = useState(b.deposit ?? '');
@@ -780,20 +803,20 @@ function EditPriceDialog({ booking: b, who: name, onClose, onSaved }) {
   return (
     <dialog ref={dialogRef} className="admin__dialog admin__dialog--edit" onClose={onClose}>
       <form onSubmit={handleSubmit}>
-        <h2>Edit price</h2>
+        <h2>{t('adm.edit.title')}</h2>
         <p>
           <strong>{b.code || `#${b.id}`}</strong> · {name}
           <br />
-          {b.room_name || b.activity_name}
-          {b.total != null && ` · now ${formatBaht(b.total)} (deposit ${formatBaht(b.deposit)})`}
+          {b.room_id ? roomTitle(b.room_name, lang) : b.activity_name}
+          {b.total != null && ` · ${t('adm.edit.now', { total: formatBaht(b.total), deposit: formatBaht(b.deposit) })}`}
         </p>
         <div className="admin__dialog-fields">
           <label>
-            <span>Total (฿)</span>
+            <span>{t('adm.edit.total')}</span>
             <input type="number" min="0" step="0.01" required autoFocus value={total} onChange={(e) => changeTotal(e.target.value)} />
           </label>
           <label>
-            <span>Deposit (฿)</span>
+            <span>{t('adm.edit.deposit')}</span>
             <input
               type="number"
               min="0"
@@ -809,19 +832,17 @@ function EditPriceDialog({ booking: b, who: name, onClose, onSaved }) {
           </label>
         </div>
         <label>
-          <span>Note for the guest (optional)</span>
-          <textarea rows={2} maxLength={500} placeholder="e.g. Discount for the broken air conditioner" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <span>{t('adm.edit.reason')}</span>
+          <textarea rows={2} maxLength={500} placeholder={t('adm.edit.reasonPh')} value={reason} onChange={(e) => setReason(e.target.value)} />
         </label>
-        <p className="admin__muted">
-          {b.user_email ? `${b.user_email} is told the new amounts in their chat.` : 'This booking has no account, so nobody is told automatically.'}
-        </p>
+        <p className="admin__muted">{b.user_email ? t('adm.edit.told', { email: b.user_email }) : t('adm.edit.noAccount')}</p>
         {error && <p className="admin__error" role="alert">{error}</p>}
         <div className="admin__form-actions">
           <button type="button" className="admin__btn" onClick={onClose} disabled={busy}>
-            Cancel
+            {t('adm.edit.cancel')}
           </button>
           <button type="submit" className="admin__btn admin__btn--primary" disabled={busy}>
-            {busy ? 'Saving…' : 'Save price'}
+            {busy ? t('adm.edit.saving') : t('adm.edit.save')}
           </button>
         </div>
       </form>
@@ -833,6 +854,8 @@ function EditPriceDialog({ booking: b, who: name, onClose, onSaved }) {
 // reason, which is what the member who booked is shown (a notice on their
 // "My bookings" page and a chat message).
 function DeleteBookingDialog({ booking: b, who: name, onClose, onDeleted }) {
+  const f = useFmt();
+  const { t } = f;
   const dialogRef = useRef(null);
   const [reason, setReason] = useState('');
   const [error, setError] = useState(null);
@@ -856,39 +879,33 @@ function DeleteBookingDialog({ booking: b, who: name, onClose, onDeleted }) {
     }
   }
 
+  const noAccount = `${t('adm.del.noAccount')}${b.guest_phone ? ` ${t('adm.del.call', { phone: b.guest_phone })}` : ''}`;
+
   return (
     <dialog ref={dialogRef} className="admin__dialog" onClose={onClose}>
       <form onSubmit={handleSubmit}>
-        <h2>Delete this booking?</h2>
+        <h2>{t('adm.del.title')}</h2>
         <p>
           <strong>{b.code || `#${b.id}`}</strong> · {name}
           <br />
-          {b.room_name || b.activity_name} ·{' '}
-          {b.room_id ? `${fmtDay(dayOf(b.booked_for))} → ${fmtDay(dayOf(b.booked_until))}` : fmtDateTime(b.booked_for)}
+          {b.room_id ? roomTitle(b.room_name, f.lang) : b.activity_name} ·{' '}
+          {b.room_id ? f.range(dayOf(b.booked_for), dayOf(b.booked_until)) : f.time(b.booked_for)}
         </p>
         <ul>
-          <li>This removes the booking for good. It can&apos;t be undone.</li>
-          {b.status !== 'cancelled' && b.room_id && <li>The room&apos;s dates become available again.</li>}
-          {b.stay_username && (
-            <li>
-              The room login <code>{b.stay_username}</code> is deleted too.
-            </li>
-          )}
-          <li>
-            {b.user_email
-              ? `${b.user_email} is told it was deleted, with your reason: on their My bookings page and in their chat.`
-              : `This booking has no account, so nobody is told automatically.${b.guest_phone ? ` Call ${b.guest_phone}.` : ''}`}
-          </li>
+          <li>{t('adm.del.forGood')}</li>
+          {b.status !== 'cancelled' && b.room_id && <li>{t('adm.del.freeAgain')}</li>}
+          {b.stay_username && <li>{t('adm.del.login', { user: b.stay_username })}</li>}
+          <li>{b.user_email ? t('adm.del.told', { email: b.user_email }) : noAccount}</li>
         </ul>
         <label>
-          <span>Reason for deleting (the guest sees this)</span>
+          <span>{t('adm.del.reason')}</span>
           <textarea
             rows={3}
             required
             minLength={3}
             maxLength={500}
             autoFocus
-            placeholder="e.g. Deposit not received by the due date"
+            placeholder={t('adm.del.reasonPh')}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
           />
@@ -896,10 +913,10 @@ function DeleteBookingDialog({ booking: b, who: name, onClose, onDeleted }) {
         {error && <p className="admin__error" role="alert">{error}</p>}
         <div className="admin__form-actions">
           <button type="button" className="admin__btn" onClick={onClose} disabled={busy}>
-            Keep booking
+            {t('adm.del.keep')}
           </button>
           <button type="submit" className="admin__btn admin__btn--delete" disabled={busy || reason.trim().length < 3}>
-            {busy ? 'Deleting…' : 'Delete booking'}
+            {busy ? t('adm.del.deleting') : t('adm.del.confirm')}
           </button>
         </div>
       </form>

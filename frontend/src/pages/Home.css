@@ -97,7 +97,7 @@
   padding: 0 36px;
   border: none;
   border-radius: 999px;
-  background: hsl(38, 48%, 64%);
+  background: var(--straw);
   color: hsl(150, 38%, 13%);
   font: inherit;
   font-size: 18px;

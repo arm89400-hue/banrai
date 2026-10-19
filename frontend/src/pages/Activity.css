@@ -1,8 +1,10 @@
 /* Activities: a photo on top, the activities as photo cards (two big,
    the rest smaller, like the rooms on Home), the fruit ripe this month,
    and the fruit calendar. Lines up with the header. */
+/* The photo runs edge to edge under the header (like Home and About);
+   everything after it keeps to the 1110px column. */
 .acts {
-  padding: 112px max(20px, calc((100% - 1110px) / 2)) 96px;
+  padding: 0 0 96px;
   background: var(--bg);
   color: var(--text);
 }
@@ -20,10 +22,12 @@
 }
 
 /* ---------- Top photo with the title on it ---------- */
+.acts > :not(.acts-top) {
+  padding-inline: max(20px, calc((100% - 1110px) / 2));
+}
 .acts-top {
   position: relative;
-  height: 340px;
-  border-radius: 12px;
+  height: 440px;
   overflow: hidden;
   color: var(--white);
 }
@@ -42,8 +46,8 @@
 .acts-top__in {
   position: absolute;
   z-index: 1;
-  left: 48px;
-  right: 48px;
+  left: max(20px, calc((100% - 1110px) / 2));
+  right: max(20px, calc((100% - 1110px) / 2));
   bottom: 40px;
   display: grid;
   gap: 8px;
@@ -321,15 +325,16 @@
 /* ---------- Phone ---------- */
 @media (max-width: 760px) {
   .acts {
-    padding: 88px 16px 64px;
+    padding: 0 0 64px;
+  }
+  .acts > :not(.acts-top) {
+    padding-inline: 16px;
   }
   .acts h2 {
     font-size: 24px;
   }
   .acts-top {
-    height: 260px;
-    margin: 0 -16px;
-    border-radius: 0;
+    height: 320px;
   }
   .acts-top__in {
     left: 16px;

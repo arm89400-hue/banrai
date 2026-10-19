@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { roomNames } from '../lib/booking';
+import { useLang } from '../i18n/lang';
+import DateField from '../components/DateField';
 
 const EMPTY_FORM = { name: '', percent: '', starts_on: '', ends_on: '', room_id: '', active: true };
 
-const fmtDay = (key) =>
-  new Date(`${key}T00:00:00Z`).toLocaleDateString(undefined, {
+const fmtDay = (key, locale) =>
+  new Date(`${key}T00:00:00Z`).toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -16,13 +19,13 @@ function todayKey() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
-// Where a promotion stands today.
+// Where a promotion stands today: [text key, tone].
 function promoState(p) {
-  if (!p.active) return { label: 'Off', tone: 'neutral' };
+  if (!p.active) return ['adm.promo.state.off', 'neutral'];
   const today = todayKey();
-  if (p.ends_on < today) return { label: 'Finished', tone: 'cancelled' };
-  if (p.starts_on > today) return { label: 'Upcoming', tone: 'pending' };
-  return { label: 'Running', tone: 'confirmed' };
+  if (p.ends_on < today) return ['adm.promo.state.finished', 'cancelled'];
+  if (p.starts_on > today) return ['adm.promo.state.upcoming', 'pending'];
+  return ['adm.promo.state.running', 'confirmed'];
 }
 
 // Admin "Promotions" section: create, edit, switch off and delete
@@ -30,6 +33,7 @@ function promoState(p) {
 // that check in between its two dates, for one room or all of them. Guests
 // see it on the site straight away and get the discount when they book.
 export default function AdminPromotions() {
+  const { t, lang, locale } = useLang();
   const [promotions, setPromotions] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [error, setError] = useState(null);
@@ -101,7 +105,7 @@ export default function AdminPromotions() {
   }
 
   async function remove(p) {
-    if (!window.confirm(`Delete the promotion "${p.name}"? Bookings already made keep their discount.`)) return;
+    if (!window.confirm(t('adm.promo.askDelete', { name: p.name }))) return;
     try {
       await api(`/api/admin/promotions/${p.id}`, { method: 'DELETE' });
       if (editing === p.id) setEditing(null);
@@ -119,42 +123,39 @@ export default function AdminPromotions() {
   return (
     <>
       <div className="admin__toolbar">
-        <p className="admin__muted">
-          A promotion takes a percentage off the room rate for stays that check in between its dates. Guests see it on
-          the site straight away. If two apply, the bigger discount is used.
-        </p>
-        <button type="button" className="admin__btn admin__btn--primary" onClick={() => startEdit(null)}>
-          + Add promotion
+        <p className="admin__muted">{t('adm.promo.lead')}</p>
+        <button type="button" className="admin__btn admin__btn--primary adm-btn-lg" onClick={() => startEdit(null)}>
+          {t('adm.promo.add')}
         </button>
       </div>
 
       {editing !== null && (
         <form className="admin__form" onSubmit={save}>
-          <h2>{editing === 'new' ? 'New promotion' : 'Edit promotion'}</h2>
+          <h2>{editing === 'new' ? t('adm.promo.new') : t('adm.promo.edit')}</h2>
           <div className="admin__form-grid">
             <label>
-              <span>Name (guests see this)</span>
-              <input required maxLength={80} placeholder="e.g. Rainy season special" {...field('name')} />
+              <span>{t('adm.promo.name')}</span>
+              <input required maxLength={80} placeholder={t('adm.promo.namePh')} {...field('name')} />
             </label>
             <label>
-              <span>Discount (% off the room rate)</span>
+              <span>{t('adm.promo.percent')}</span>
               <input required type="number" min="1" max="100" step="0.5" {...field('percent')} />
             </label>
             <label>
-              <span>First check-in date</span>
-              <input required type="date" {...field('starts_on')} />
+              <span>{t('adm.promo.first')}</span>
+              <DateField required value={form.starts_on} onChange={(v) => setForm({ ...form, starts_on: v })} />
             </label>
             <label>
-              <span>Last check-in date</span>
-              <input required type="date" min={form.starts_on || undefined} {...field('ends_on')} />
+              <span>{t('adm.promo.last')}</span>
+              <DateField required min={form.starts_on} value={form.ends_on} onChange={(v) => setForm({ ...form, ends_on: v })} />
             </label>
             <label>
-              <span>Room</span>
+              <span>{t('adm.panel.room')}</span>
               <select {...field('room_id')}>
-                <option value="">All rooms</option>
+                <option value="">{t('adm.promo.allRooms')}</option>
                 {rooms.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.name}
+                    {roomNames(r.name, lang).title}
                   </option>
                 ))}
               </select>
@@ -165,60 +166,60 @@ export default function AdminPromotions() {
                 checked={form.active}
                 onChange={(e) => setForm({ ...form, active: e.target.checked })}
               />
-              <span>Switched on</span>
+              <span>{t('adm.ann.on')}</span>
             </label>
           </div>
           {formError && <p className="admin__error" role="alert">{formError}</p>}
           <div className="admin__form-actions">
-            <button type="button" className="admin__btn" onClick={() => setEditing(null)}>
-              Cancel
+            <button type="button" className="admin__btn adm-btn-lg" onClick={() => setEditing(null)}>
+              {t('adm.list.cancel')}
             </button>
-            <button type="submit" className="admin__btn admin__btn--primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
+            <button type="submit" className="admin__btn admin__btn--primary adm-btn-lg" disabled={saving}>
+              {saving ? t('adm.contact.saving') : t('adm.contact.save')}
             </button>
           </div>
         </form>
       )}
 
       {error && <p className="admin__error" role="alert">{error}</p>}
-      {!promotions && !error && <p className="admin__muted">Loading…</p>}
+      {!promotions && !error && <p className="admin__muted">{t('adm.loading')}</p>}
       {promotions && (
         <div className="admin__table-wrap">
           <table className="admin__table">
             <thead>
               <tr>
-                <th>Promotion</th>
-                <th>Discount</th>
-                <th>Check-in dates</th>
-                <th>Room</th>
-                <th>Status</th>
-                <th aria-label="Actions" />
+                <th>{t('adm.promo.col')}</th>
+                <th>{t('adm.promo.discount')}</th>
+                <th>{t('adm.promo.dates')}</th>
+                <th>{t('adm.panel.room')}</th>
+                <th>{t('adm.ann.status')}</th>
+                <th aria-label={t('adm.list.actions')} />
               </tr>
             </thead>
             <tbody>
               {promotions.map((p) => {
-                const state = promoState(p);
+                const [state, tone] = promoState(p);
                 return (
                   <tr key={p.id} className={editing === p.id ? 'is-editing' : ''}>
                     <td><strong>{p.name}</strong></td>
-                    <td>{p.percent}% off</td>
+                    <td>{t('adm.logd.percentOff', { n: p.percent })}</td>
                     <td className="admin__nowrap">
-                      {fmtDay(p.starts_on)}
-                      <div className="admin__sub">→ {fmtDay(p.ends_on)}</div>
+                      {fmtDay(p.starts_on, locale)}
+                      <div className="admin__sub">→ {fmtDay(p.ends_on, locale)}</div>
                     </td>
-                    <td>{p.room_name ?? 'All rooms'}</td>
+                    <td>{p.room_name ? roomNames(p.room_name, lang).title : t('adm.promo.allRooms')}</td>
                     <td>
-                      <span className={`admin__status admin__status--${state.tone}`}>{state.label}</span>
+                      <span className={`admin__status admin__status--${tone}`}>{t(state)}</span>
                     </td>
                     <td className="admin__actions">
                       <button type="button" className="admin__btn" onClick={() => toggle(p)}>
-                        {p.active ? 'Switch off' : 'Switch on'}
+                        {p.active ? t('adm.ann.switchOff') : t('adm.ann.switchOn')}
                       </button>
                       <button type="button" className="admin__btn" onClick={() => startEdit(p)}>
-                        Edit
+                        {t('adm.list.editBtn')}
                       </button>
                       <button type="button" className="admin__btn admin__btn--danger" onClick={() => remove(p)}>
-                        Delete
+                        {t('adm.list.deleteBtn')}
                       </button>
                     </td>
                   </tr>
@@ -226,7 +227,7 @@ export default function AdminPromotions() {
               })}
             </tbody>
           </table>
-          {promotions.length === 0 && <p className="admin__empty">No promotions yet.</p>}
+          {promotions.length === 0 && <p className="admin__empty">{t('adm.promo.empty')}</p>}
         </div>
       )}
     </>

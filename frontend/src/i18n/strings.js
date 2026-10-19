@@ -4,6 +4,7 @@
 // pinned Facebook post.
 
 import { BOOKING_STRINGS } from './bookingStrings.js';
+import { ADMIN_STRINGS } from './adminStrings.js';
 
 export const LANGS = ['th', 'en'];
 export const DEFAULT_LANG = 'th';
@@ -17,8 +18,10 @@ export const STRINGS = {
     'nav.book': 'จองห้องพัก',
     'nav.myBookings': 'การจองของฉัน',
     'nav.logout': 'ออกจากระบบ',
+    'nav.admin': 'หลังบ้าน (แอดมิน)',
     'nav.signedInAs': 'เข้าสู่ระบบในชื่อ {email}',
     'nav.account': 'บัญชี: {email}',
+    'nav.accountShort': 'บัญชี',
     'nav.openMenu': 'เปิดเมนู',
     'nav.closeMenu': 'ปิดเมนู',
     'nav.language': 'ภาษา',
@@ -267,6 +270,7 @@ export const STRINGS = {
     'chat.visitorSub': 'โทรหรือทักมาได้เลย',
     'chat.call': 'โทรหา {name}',
     'chat.facebook': 'ทักทาง Facebook',
+    'chat.lineAsk': 'ทักทาง LINE',
     'chat.haveAccount': 'มีบัญชีแล้ว?',
     'chat.loginHere': 'เข้าสู่ระบบเพื่อแชทในเว็บ',
     'login.submit': 'เข้าสู่ระบบ',
@@ -334,9 +338,6 @@ export const STRINGS = {
     },
 
     'about.title': 'เกี่ยวกับบ้านไร่ของพ่อ 344',
-    'about.visitTitle': 'มาที่บ้านไร่',
-    'about.visitWhere': 'ปากช่อง นครราชสีมา · ใกล้เขาใหญ่',
-    'about.maps': 'เปิดใน Google Maps',
   },
 
   en: {
@@ -347,8 +348,10 @@ export const STRINGS = {
     'nav.book': 'Book a stay',
     'nav.myBookings': 'My bookings',
     'nav.logout': 'Log out',
+    'nav.admin': 'Admin dashboard',
     'nav.signedInAs': 'Signed in as {email}',
     'nav.account': 'Account: {email}',
+    'nav.accountShort': 'Account',
     'nav.openMenu': 'Open menu',
     'nav.closeMenu': 'Close menu',
     'nav.language': 'Language',
@@ -596,6 +599,7 @@ export const STRINGS = {
     'chat.visitorSub': 'Call or message us',
     'chat.call': 'Call {name}',
     'chat.facebook': 'Message us on Facebook',
+    'chat.lineAsk': 'Message us on LINE',
     'chat.haveAccount': 'Have an account?',
     'chat.loginHere': 'Log in to chat here',
     'login.submit': 'Log in',
@@ -663,12 +667,11 @@ export const STRINGS = {
     },
 
     'about.title': 'About Baanrai Pachong',
-    'about.visitTitle': 'Getting here',
-    'about.visitWhere': 'Pak Chong, Nakhon Ratchasima · near Khao Yai',
-    'about.maps': 'Open in Google Maps',
   },
 };
 
 // Booking flow / room page / status page text lives in its own file.
 Object.assign(STRINGS.th, BOOKING_STRINGS.th);
 Object.assign(STRINGS.en, BOOKING_STRINGS.en);
+Object.assign(STRINGS.th, ADMIN_STRINGS.th);
+Object.assign(STRINGS.en, ADMIN_STRINGS.en);

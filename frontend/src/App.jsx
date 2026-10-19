@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ChatWidget from './components/ChatWidget';
+import PageShift from './components/PageShift';
 import Home from './pages/Home';
 import Booking from './pages/Booking';
 import BookFlow from './pages/BookFlow';
@@ -46,6 +47,7 @@ function PublicSite() {
   return (
     <>
       <ScrollToTop />
+      <PageShift />
       <Navbar />
 
       <main>
@@ -78,7 +80,7 @@ function PublicSite() {
 function App() {
   return (
     <Routes>
-      <Route path="/admin/:section?" element={<Admin />} />
+      <Route path="/admin/:section?/:tab?" element={<Admin />} />
       <Route path="*" element={<PublicSite />} />
     </Routes>
   );

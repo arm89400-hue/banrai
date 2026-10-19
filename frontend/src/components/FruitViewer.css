@@ -87,7 +87,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: hsl(38, 48%, 64%);
+  background: var(--straw);
 }
 
 /* ---- The fruit, as a big taped polaroid ---- */
@@ -99,7 +99,6 @@
   border-radius: 6px;
   background: var(--white);
   box-shadow: 0 16px 28px -16px rgba(0, 0, 0, 0.45);
-  animation: fade-up var(--dur) var(--ease-out) both;
 }
 .fruit-viewer__panel::before {
   content: '';
@@ -146,7 +145,7 @@
 .fruit-viewer__now {
   padding: 3px 12px;
   border-radius: 999px;
-  background: hsl(38, 48%, 64%);
+  background: var(--straw);
   color: var(--brand-dark);
   font-size: 12px;
   font-weight: 700;

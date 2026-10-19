@@ -4,10 +4,15 @@ import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import './Navbar.css';
 
-// Past this scroll offset (and on every page other than Home, where there's
-// no hero photo to sit on) the full-width transparent bar condenses into a
-// floating, frosted capsule so it stays readable over any content.
+// Every page starts with the full-width transparent bar that Home has; past
+// this scroll offset it condenses into a floating, frosted capsule so it
+// stays readable over any content.
 const FLOAT_SCROLL_THRESHOLD = 24;
+
+// Pages that open with a full-width photo for the transparent bar to sit on.
+// On the others the same full-width bar gets a dark-green band instead, so
+// its white text stays readable.
+const PHOTO_TOP = ['/home', '/activities', '/about', '/stay'];
 
 // Below this width the links move into the drop-down menu card.
 const MOBILE_QUERY = '(max-width: 900px)';
@@ -43,6 +48,13 @@ function LangSwitch({ lang, setLang, label, className = '' }) {
   );
 }
 
+// A line icon for the account menu (24px grid, same stroke as the header's).
+const MenuIcon = ({ d }) => (
+  <svg className="navbar__menu-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <path d={d} />
+  </svg>
+);
+
 const Chevron = () => (
   <svg className="navbar__chev" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
     <path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -76,7 +88,8 @@ export default function Navbar() {
   const indicatorRef = useRef(null);
   const hasMeasuredRef = useRef(false);
 
-  const floating = scrolled || pathname !== '/home';
+  const floating = scrolled;
+  const band = !floating && !PHOTO_TOP.includes(pathname);
   const isAdmin = Boolean(user?.is_admin);
   // A room account (the temporary login of a confirmed stay) only has its
   // room dashboard: no booking button, no "My bookings".
@@ -164,11 +177,10 @@ export default function Navbar() {
     navigate('/home');
   }
 
-  const initial = user?.email?.[0]?.toUpperCase() ?? '?';
 
   return (
     <header
-      className={`navbar${floating ? ' navbar--floating' : ''}${menuOpen ? ' navbar--menu-open' : ''}`}
+      className={`navbar${floating ? ' navbar--floating' : ''}${band ? ' navbar--band' : ''}${menuOpen ? ' navbar--menu-open' : ''}`}
     >
       <div className="navbar__inner">
         <Link to="/home" className="navbar__brand" onClick={closeMenus} aria-label="Baanrai Pachong, home">
@@ -212,35 +224,51 @@ export default function Navbar() {
                 aria-label={t('nav.account', { email: user.email })}
                 onClick={() => setAccountOpen((open) => !open)}
               >
-                <span className="navbar__avatar" aria-hidden="true">
-                  {initial}
-                </span>
+                <svg className="navbar__person" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" />
+                </svg>
+                <span>{t('nav.accountShort')}</span>
                 <svg className="navbar__chevron" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
                   <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
               {accountOpen && (
                 <div className="navbar__dropdown" id="navbar-account-menu">
-                  <p className="navbar__dropdown-email">
-                    {user.email}
-                    {!isStay && user.member_code && (
-                      <span>
-                        {t('member.code')} {user.member_code}
-                      </span>
-                    )}
-                  </p>
-                  {/* The admin dashboard is English-only, like this link to it. */}
+                  {/* Who is signed in, in plain small text. */}
+                  <div className="navbar__dropdown-who">
+                    <span>
+                      <b>{user.email}</b>
+                      {!isStay && user.member_code && (
+                        <small>
+                          {t('member.code')} {user.member_code}
+                        </small>
+                      )}
+                    </span>
+                  </div>
                   {isAdmin && (
                     <Link to="/admin" onClick={closeMenus}>
-                      Admin dashboard
+                      <MenuIcon d="M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z" />
+                      {t('nav.admin')}
+                      <Chevron />
                     </Link>
                   )}
                   {!isAdmin && !isStay && (
-                    <Link to="/booking" onClick={closeMenus}>
-                      {t('nav.myBookings')}
-                    </Link>
+                    <>
+                      <Link to="/booking" onClick={closeMenus}>
+                        <MenuIcon d="M4 7h16v13H4zM4 11h16M8 3v4M16 3v4" />
+                        {t('nav.myBookings')}
+                        <Chevron />
+                      </Link>
+                      <Link to="/stay" onClick={closeMenus}>
+                        <MenuIcon d="M3 18V8M3 14h18v4M21 18v-6a3 3 0 0 0-3-3h-7v5M7 11.5h.01" />
+                        {t('nav.myRoom')}
+                        <Chevron />
+                      </Link>
+                    </>
                   )}
                   <button type="button" className="navbar__dropdown-logout" onClick={handleLogout}>
+                    <MenuIcon d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" />
                     {t('nav.logout')}
                   </button>
                 </div>
@@ -254,9 +282,10 @@ export default function Navbar() {
 
           <LangSwitch lang={lang} setLang={setLang} label={t('nav.language')} className="navbar__desktop-only" />
 
-          {/* Not on Home (the hero's search bar is the booking button there) or
-              on the booking page itself. */}
-          {!isAdmin && !isStay && pathname !== '/home' && pathname !== '/book' && (
+          {/* Not on Home (the hero's search bar is the booking button there),
+              on a room page (its own "book this room" button is the one gold
+              button there) or on the booking page itself. */}
+          {!isAdmin && !isStay && pathname !== '/home' && !pathname.startsWith('/rooms/') && pathname !== '/book' && (
             <Link to="/book" className="navbar__cta" onClick={closeMenus}>
               {t('nav.book')}
             </Link>

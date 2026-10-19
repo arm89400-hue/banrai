@@ -1,7 +1,8 @@
 import { formatBaht } from '../lib/money';
 import { formatDayShort, nightsBetween, roomNames } from '../lib/booking';
 import { owes, payCode, roomsPaying } from '../lib/payments';
-import { CHECK_IN_TIME, CHECK_OUT_TIME, PHONES } from '../lib/site';
+import { CHECK_IN_TIME, CHECK_OUT_TIME } from '../lib/site';
+import { useContact } from '../lib/contact';
 import { useLang } from '../i18n/lang';
 import { StayLogin } from './BookingBits';
 import PaymentPanel from './PaymentPanel';
@@ -15,6 +16,7 @@ import './StayView.css';
 // Used on "My bookings" and right after sending a request.
 export default function StayView({ stay, pay, onPaid }) {
   const { t, lang, locale } = useLang();
+  const contact = useContact();
   const { bookings, lead } = stay;
   const live = bookings.filter((b) => b.status !== 'cancelled');
   const depositLead = live.find((b) => owes(b, 'deposit'));
@@ -56,6 +58,7 @@ export default function StayView({ stay, pay, onPaid }) {
             <PaymentPanel
               booking={depositLead}
               amount={Number(depositLead.deposit_due)}
+              fullAmount={Number(depositLead.full_due)}
               code={payCode(depositLead)}
               rooms={roomsPaying(bookings, depositLead, 'deposit')}
               slipStatus={depositLead.slip_status}
@@ -120,7 +123,7 @@ export default function StayView({ stay, pay, onPaid }) {
           <p className="stay-box__note">
             {!paidInFull && t('stayBox.restNote')}
             {!paidInFull && <br />}
-            {t('stayBox.call', { phones: PHONES.map((p) => `${p.name[lang]} ${p.display}`).join(' · ') })}
+            {t('stayBox.call', { phones: contact.phones.map((p) => `${p.name[lang]} ${p.display}`).join(' · ') })}
           </p>
         </aside>
       </div>

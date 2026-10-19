@@ -3,11 +3,12 @@
 import { addDays, roomNames } from './booking';
 
 export const dayOf = (ts) => String(ts ?? '').slice(0, 10);
-export const roomTitle = (name) => roomNames(name, 'th').title;
+// A room's name in the admin's language ('th' or 'en').
+export const roomTitle = (name, lang = 'th') => roomNames(name, lang).title;
 
 // The admin's booking rows as bookings the way the guest made them: rooms
 // booked together (same group code) become one. Activities stay one each.
-export function groupRows(list) {
+export function groupRows(list, lang = 'th') {
   const map = new Map();
   for (const b of list) {
     const key = b.room_id ? b.group_code || b.code || `#${b.id}` : `activity-${b.id}`;
@@ -38,7 +39,7 @@ export function groupRows(list) {
       paidAtFarm: live.some((r) => r.balance_method === 'at_farm'),
       depositReview: status === 'pending' && rows.some((r) => r.slip_status === 'review'),
       balanceReview: status === 'confirmed' && owing.some((r) => r.balance_slip_status === 'review'),
-      rooms: lead.room_id ? (live.length ? live : rows).map((r) => roomTitle(r.room_name)).join(' + ') : lead.activity_name,
+      rooms: lead.room_id ? (live.length ? live : rows).map((r) => roomTitle(r.room_name, lang)).join(' + ') : lead.activity_name,
     };
   });
 }

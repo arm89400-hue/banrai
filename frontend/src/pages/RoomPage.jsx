@@ -2,7 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatBaht } from '../lib/money';
-import { bookedNightSet, nightsBetween, priceStay, promoFor, promosForRoom, roomMaxGuests, roomNames } from '../lib/booking';
+import {
+  bookedNightSet,
+  nightsBetween,
+  priceStay,
+  promoFor,
+  promosForRoom,
+  roomMaxGuests,
+  roomNames,
+} from '../lib/booking';
 import { usePromotions } from '../lib/promotions';
 import { CHECK_IN_TIME, CHECK_OUT_TIME } from '../lib/site';
 import { useLang } from '../i18n/lang';
@@ -11,6 +19,7 @@ import { PriceRows, PromoTag } from '../components/BookingBits';
 import Lightbox from '../components/Lightbox';
 import RoomAmenities from '../components/RoomAmenities';
 import { roomCover, roomPhotos } from '../lib/photos';
+import { shift } from '../lib/motion';
 import './RoomPage.css';
 
 // One room's own page: photos, what it costs and what's in it, and a
@@ -127,7 +136,9 @@ export default function RoomPage() {
               key={photo.id}
               type="button"
               className={`room-gallery__tile${i === 0 ? ' room-gallery__tile--main' : ''}`}
-              onClick={() => setViewing(i)}
+              onClick={(e) =>
+                shift(() => setViewing(i), { from: e.currentTarget.querySelector('img'), to: '.lightbox__figure img' })
+              }
               aria-label={t('room.photoOf', { n: i + 1, total: gallery.length })}
             >
               <img
@@ -147,8 +158,25 @@ export default function RoomPage() {
           </div>
         )}
         {gallery.length > 1 && (
-          <button type="button" className="room-gallery__all" onClick={() => setViewing(0)}>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <button
+            type="button"
+            className="room-gallery__all"
+            onClick={() =>
+              shift(() => setViewing(0), {
+                from: document.querySelector('.room-gallery__tile--main img'),
+                to: '.lightbox__figure img',
+              })
+            }
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
               <rect x="3" y="3" width="7" height="7" rx="1.5" />
               <rect x="14" y="3" width="7" height="7" rx="1.5" />
               <rect x="3" y="14" width="7" height="7" rx="1.5" />
@@ -239,7 +267,9 @@ export default function RoomPage() {
                         <img src={roomCover(r)} alt="" loading="lazy" />
                         <strong>{roomNames(r.name, lang).title}</strong>
                         <span>
-                          {r.capacity && max > r.capacity ? t('rooms.guestsRange', { from: r.capacity, to: max }) : t('rooms.guests', { n: r.capacity || max })}
+                          {r.capacity && max > r.capacity
+                            ? t('rooms.guestsRange', { from: r.capacity, to: max })
+                            : t('rooms.guests', { n: r.capacity || max })}
                           {' · '}
                           {formatBaht(r.price)}
                         </span>
@@ -278,10 +308,20 @@ export default function RoomPage() {
               </b>
             </span>
             <div className="room-book__step">
-              <button type="button" onClick={() => setGuests(shownGuests - 1)} disabled={shownGuests <= 1} aria-label={t('flow.fewer')}>
+              <button
+                type="button"
+                onClick={() => setGuests(shownGuests - 1)}
+                disabled={shownGuests <= 1}
+                aria-label={t('flow.fewer')}
+              >
                 −
               </button>
-              <button type="button" onClick={() => setGuests(shownGuests + 1)} disabled={shownGuests >= maxGuests} aria-label={t('flow.more')}>
+              <button
+                type="button"
+                onClick={() => setGuests(shownGuests + 1)}
+                disabled={shownGuests >= maxGuests}
+                aria-label={t('flow.more')}
+              >
                 +
               </button>
             </div>

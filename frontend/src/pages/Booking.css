@@ -6,7 +6,7 @@
   align-content: start;
   gap: 24px;
   min-height: 80vh;
-  padding: 112px max(20px, calc((100% - 1110px) / 2)) 96px;
+  padding: 92px max(20px, calc((100% - 1110px) / 2)) 96px;
   background: var(--bg);
   color: var(--text);
 }
@@ -92,7 +92,7 @@
 
 @media (max-width: 760px) {
   .my-page {
-    padding: 92px 16px 64px;
+    padding: 80px 16px 64px;
     gap: 20px;
   }
   .my-page__head h1 {
@@ -129,7 +129,6 @@
   border: 1px solid hsl(0, 60%, 85%);
   border-radius: 16px;
   color: var(--text);
-  animation: fade-up var(--dur) var(--ease-out) both;
 }
 .my-notice > div {
   display: grid;
@@ -151,4 +150,27 @@
 .my-notice__meta {
   font-size: 14px;
   color: var(--text-muted);
+}
+
+/* Way into the room dashboard once a stay is paid. */
+.my-room-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 20px;
+  padding: 14px 20px;
+  border: 1px solid var(--brand);
+  border-radius: 14px;
+  background: var(--white);
+  color: var(--brand);
+  font-size: 16px;
+  text-decoration: none;
+}
+.my-room-link span {
+  color: var(--text-h);
+}
+.my-room-link:hover b {
+  text-decoration: underline;
 }

@@ -3,6 +3,7 @@ import { FRUIT_SEASONS, fruitPhoto, inRange } from '../lib/seasons';
 import { api } from '../lib/api';
 import { listingPhotos } from '../lib/photos';
 import { formatBaht } from '../lib/money';
+import { shift } from '../lib/motion';
 import { useLang } from '../i18n/lang';
 import FruitViewer from '../components/FruitViewer';
 import Lightbox from '../components/Lightbox';
@@ -46,11 +47,13 @@ function ActivityCard({ item, onOpen }) {
         <button
           type="button"
           className="act-card__photo"
-          onClick={() => onOpen(item, 0)}
+          onClick={(e) => onOpen(item, 0, e.currentTarget.querySelector('img'))}
           aria-label={t('activities.photoOf', { name: item.title, n: 1, total: item.photos.length })}
         >
           <img src={cover.src} alt="" loading="lazy" />
-          {item.photos.length > 1 && <span className="act-card__count">{t('activities.photos', { n: item.photos.length })}</span>}
+          {item.photos.length > 1 && (
+            <span className="act-card__count">{t('activities.photos', { n: item.photos.length })}</span>
+          )}
         </button>
       ) : (
         <span className="act-card__photo act-card__photo--empty" aria-hidden="true" />
@@ -108,9 +111,17 @@ export default function Activity() {
   const names = t('fruits');
   const monthName = (m, style) => new Date(2000, m - 1, 1).toLocaleDateString(locale, { month: style });
   const range = (f) => `${monthName(f.from, 'short')} – ${monthName(f.to, 'short')}`;
-  const showFruit = (id) => setOpen(FRUIT_SEASONS.findIndex((f) => f.id === id));
-  const openGallery = (item, index) =>
-    setGallery({ photos: item.photos.map((p) => ({ ...p, caption: item.title })), index });
+  // The tapped picture grows into the viewer's large photo.
+  const showFruit = (id, e) =>
+    shift(() => setOpen(FRUIT_SEASONS.findIndex((f) => f.id === id)), {
+      from: e?.currentTarget.querySelector('img'),
+      to: '.fruit-viewer__photo img',
+    });
+  const openGallery = (item, index, from) =>
+    shift(() => setGallery({ photos: item.photos.map((p) => ({ ...p, caption: item.title })), index }), {
+      from,
+      to: '.lightbox__figure img',
+    });
 
   const ripe = FRUIT_SEASONS.filter((f) => inRange(f, thisMonth));
   const big = items.slice(0, 2);
@@ -155,7 +166,7 @@ export default function Activity() {
           <ul className="ripe" style={{ '--cols': Math.min(ripe.length, 4) }}>
             {ripe.map((f) => (
               <li key={f.id}>
-                <button type="button" onClick={() => showFruit(f.id)}>
+                <button type="button" onClick={(e) => showFruit(f.id, e)}>
                   <img src={fruitPhoto(f.id)} alt="" loading="lazy" />
                   <strong>{names[f.id]}</strong>
                   <span>{range(f)}</span>
@@ -189,7 +200,7 @@ export default function Activity() {
               {FRUIT_SEASONS.map((f) => (
                 <tr key={f.id}>
                   <th scope="row">
-                    <button type="button" onClick={() => showFruit(f.id)}>
+                    <button type="button" onClick={(e) => showFruit(f.id, e)}>
                       <img src={fruitPhoto(f.id)} alt="" loading="lazy" />
                       {names[f.id]}
                     </button>
@@ -218,7 +229,6 @@ export default function Activity() {
           </table>
         </div>
       </section>
-
 
       {gallery && (
         <Lightbox

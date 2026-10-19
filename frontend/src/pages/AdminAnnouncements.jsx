@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, mediaUrl } from '../lib/api';
+import { useLang } from '../i18n/lang';
+import DateField from '../components/DateField';
 import AdminPhotos, { MAX_PHOTOS } from './AdminPhotos';
 import { uploadPending } from '../lib/uploadPending';
 
-const AUDIENCES = [
-  ['home', 'Home page'],
-  ['booked', 'Booked guests only'],
-  ['both', 'Both'],
-];
-const AUDIENCE_LABEL = Object.fromEntries(AUDIENCES);
+// Who can see an announcement; each one's name and hint are text keys
+// adm.ann.aud.<id> and adm.ann.hint.<id>.
+const AUDIENCES = ['home', 'booked', 'both'];
 
-// <input type="datetime-local"> works in the admin's own (Thai) time; the API
+// The date fields work in the admin's own (Thai) time; the API
 // stores real moments in time.
 const pad = (n) => String(n).padStart(2, '0');
 function toLocalInput(iso) {
@@ -20,8 +19,8 @@ function toLocalInput(iso) {
 }
 const fromLocalInput = (value) => (value ? new Date(value).toISOString() : null);
 
-const fmtWhen = (iso) =>
-  new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const fmtWhen = (iso, locale) =>
+  new Date(iso).toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 const emptyForm = () => ({
   title: '',
@@ -45,20 +44,22 @@ const formFor = (a) => ({
   active: a.active,
 });
 
-// Where an announcement stands right now.
+// Where an announcement stands right now: [text key, tone].
 function stateOf(a) {
   const now = Date.now();
-  if (!a.active) return { label: 'Off', tone: 'neutral' };
-  if (a.ends_at && new Date(a.ends_at) <= now) return { label: 'Ended', tone: 'cancelled' };
-  if (new Date(a.starts_at) > now) return { label: 'Scheduled', tone: 'pending' };
-  return { label: 'Showing', tone: 'confirmed' };
+  if (!a.active) return ['adm.ann.state.off', 'neutral'];
+  if (a.ends_at && new Date(a.ends_at) <= now) return ['adm.ann.state.ended', 'cancelled'];
+  if (new Date(a.starts_at) > now) return ['adm.ann.state.scheduled', 'pending'];
+  return ['adm.ann.state.showing', 'confirmed'];
 }
 
-// Admin "Announcements": write announcements in Thai and/or English with an
-// up to 6 photos, choose who sees them (Home page, booked guests, or
-// both) and from when until when. Outside that time they disappear by
-// themselves; with none showing, the Home page has no announcement space.
+// Admin › Website › Announcements: write announcements in Thai and/or
+// English with up to 6 photos, choose who sees them (Home page, booked
+// guests, or both) and from when until when. Outside that time they
+// disappear by themselves; with none showing, the Home page has no
+// announcement space. A preview shows the card as guests will see it.
 export default function AdminAnnouncements() {
+  const { t, lang, locale } = useLang();
   const [list, setList] = useState(null);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null); // null | 'new' | announcement id
@@ -109,10 +110,10 @@ export default function AdminAnnouncements() {
         setPending([]);
         try {
           setPhotos(await uploadPending('announcements', id, pending));
-          setSavedNote(`Saved${pending.length ? ` with ${pending.length} photo${pending.length > 1 ? 's' : ''}` : ''}.`);
+          setSavedNote(pending.length ? t('adm.list.savedPhotos', { n: pending.length }) : t('adm.list.saved'));
         } catch (err) {
           setPhotos(err.photos);
-          setFormError(`Saved, but not every photo uploaded: ${err.message} Add the rest below.`);
+          setFormError(t('adm.list.savedSomePhotos', { error: err.message }));
         }
       } else {
         setEditing(null);
@@ -143,7 +144,7 @@ export default function AdminAnnouncements() {
   }
 
   async function remove(a) {
-    if (!window.confirm(`Delete the announcement "${a.title || a.title_th}"? This can't be undone.`)) return;
+    if (!window.confirm(t('adm.ann.askDelete', { title: a.title_th || a.title }))) return;
     try {
       await api(`/api/admin/announcements/${a.id}`, { method: 'DELETE' });
       if (editing === a.id) setEditing(null);
@@ -158,42 +159,49 @@ export default function AdminAnnouncements() {
     onChange: (e) => setForm({ ...form, [key]: e.target.value }),
   });
 
+  // The preview follows the admin's language, like a guest's would.
+  const pick = (en, th) => (lang === 'th' ? th || en : en || th);
+  const previewPhoto = photos[0] ? mediaUrl(photos[0].file) : pending[0]?.url;
+  const previewTitle = pick(form.title, form.title_th);
+  const previewBody = pick(form.body, form.body_th);
+  const previewUntil = form.ends_at && new Date(form.ends_at).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+
   return (
     <>
       <div className="admin__toolbar admin__toolbar--end">
-        <button type="button" className="admin__btn admin__btn--primary" onClick={() => startEdit(null)}>
-          + Add announcement
+        <button type="button" className="admin__btn admin__btn--primary adm-btn-lg" onClick={() => startEdit(null)}>
+          {t('adm.ann.add')}
         </button>
       </div>
 
       {editing !== null && (
         <form className="admin__form" onSubmit={save}>
-          <h2>{editing === 'new' ? 'New announcement' : 'Edit announcement'}</h2>
+          <h2>{editing === 'new' ? t('adm.ann.new') : t('adm.ann.edit')}</h2>
           {savedNote && <p className="admin__notice">{savedNote}</p>}
           <div className="admin__form-grid">
             <label>
-              <span>Title (Thai)</span>
+              <span>{t('adm.ann.titleTh')}</span>
               <input lang="th" maxLength={120} placeholder="ปิดปรับปรุงสระว่ายน้ำ" {...field('title_th')} />
             </label>
             <label>
-              <span>Title (English)</span>
+              <span>{t('adm.ann.titleEn')}</span>
               <input maxLength={120} placeholder="Pool closed for cleaning" {...field('title')} />
             </label>
             <label className="admin__form-wide">
-              <span>Message (Thai, optional)</span>
+              <span>{t('adm.ann.bodyTh')}</span>
               <textarea lang="th" rows={3} maxLength={2000} {...field('body_th')} />
             </label>
             <label className="admin__form-wide">
-              <span>Message (English, optional)</span>
+              <span>{t('adm.ann.bodyEn')}</span>
               <textarea rows={3} maxLength={2000} {...field('body')} />
             </label>
 
             <div className="admin__form-wide admin-ann__who">
               <span className="admin-ann__label" id="ann-who">
-                Who sees it
+                {t('adm.ann.who')}
               </span>
               <div className="admin__segmented" role="group" aria-labelledby="ann-who">
-                {AUDIENCES.map(([id, label]) => (
+                {AUDIENCES.map((id) => (
                   <button
                     key={id}
                     type="button"
@@ -201,29 +209,24 @@ export default function AdminAnnouncements() {
                     className={form.audience === id ? 'is-active' : ''}
                     onClick={() => setForm({ ...form, audience: id })}
                   >
-                    {label}
+                    {t(`adm.ann.aud.${id}`)}
                   </button>
                 ))}
               </div>
-              <p className="admin__muted admin-ann__hint">
-                {form.audience === 'home' && 'Everyone, on the Home page.'}
-                {form.audience === 'booked' &&
-                  'Only guests with a booking that hasn’t ended, on “My bookings” and their room dashboard.'}
-                {form.audience === 'both' && 'On the Home page, and to guests with a booking on their pages.'}
-              </p>
+              <p className="admin__muted admin-ann__hint">{t(`adm.ann.hint.${form.audience}`)}</p>
             </div>
 
             <label>
-              <span>Show from</span>
-              <input required type="datetime-local" {...field('starts_at')} />
+              <span>{t('adm.ann.from')}</span>
+              <DateField withTime required value={form.starts_at} onChange={(v) => setForm({ ...form, starts_at: v })} />
             </label>
             <label>
-              <span>Show until (empty = no end)</span>
-              <input type="datetime-local" min={form.starts_at || undefined} {...field('ends_at')} />
+              <span>{t('adm.ann.until')}</span>
+              <DateField withTime clearable emptyLabel={t('adm.ann.noEnd')} min={form.starts_at} value={form.ends_at} onChange={(v) => setForm({ ...form, ends_at: v })} />
             </label>
             <label className="admin__check">
               <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-              <span>Switched on</span>
+              <span>{t('adm.ann.on')}</span>
             </label>
           </div>
 
@@ -236,20 +239,33 @@ export default function AdminAnnouncements() {
             onPendingChange={setPending}
           />
 
+          {previewTitle && (
+            <div className="adm-ann-preview">
+              <p className="adm-preview-label">{t('adm.ann.preview')}</p>
+              <article className={`adm-ann-card${previewPhoto ? '' : ' is-text'}`}>
+                {previewPhoto && <img src={previewPhoto} alt="" />}
+                <div>
+                  <b>{previewTitle}</b>
+                  {previewBody && <p>{previewBody}</p>}
+                  {previewUntil && <span>{t('ann.until', { date: previewUntil })}</span>}
+                </div>
+              </article>
+            </div>
+          )}
+
           {formError && (
             <p className="admin__error" role="alert">
               {formError}
             </p>
           )}
           <div className="admin__form-actions">
-            <button type="button" className="admin__btn" onClick={() => setEditing(null)}>
-              {editing === 'new' ? 'Cancel' : 'Close'}
+            <button type="button" className="admin__btn adm-btn-lg" onClick={() => setEditing(null)}>
+              {editing === 'new' ? t('adm.list.cancel') : t('adm.list.close')}
             </button>
-            <button type="submit" className="admin__btn admin__btn--primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
+            <button type="submit" className="admin__btn admin__btn--primary adm-btn-lg" disabled={saving}>
+              {saving ? t('adm.contact.saving') : t('adm.contact.save')}
             </button>
           </div>
-
         </form>
       )}
 
@@ -258,23 +274,23 @@ export default function AdminAnnouncements() {
           {error}
         </p>
       )}
-      {!list && !error && <p className="admin__muted">Loading…</p>}
+      {!list && !error && <p className="admin__muted">{t('adm.loading')}</p>}
       {list && (
         <div className="admin__table-wrap">
           <table className="admin__table">
             <thead>
               <tr>
-                <th>Photos</th>
-                <th>Announcement</th>
-                <th>Who sees it</th>
-                <th>When</th>
-                <th>Status</th>
-                <th aria-label="Actions" />
+                <th>{t('adm.list.photos')}</th>
+                <th>{t('adm.ann.col')}</th>
+                <th>{t('adm.ann.who')}</th>
+                <th>{t('adm.log.when')}</th>
+                <th>{t('adm.ann.status')}</th>
+                <th aria-label={t('adm.list.actions')} />
               </tr>
             </thead>
             <tbody>
               {list.map((a) => {
-                const state = stateOf(a);
+                const [state, tone] = stateOf(a);
                 return (
                   <tr key={a.id} className={editing === a.id ? 'is-editing' : ''}>
                     <td>
@@ -282,9 +298,9 @@ export default function AdminAnnouncements() {
                         type="button"
                         className="admin-thumb"
                         onClick={() => startEdit(a)}
-                        aria-label={`Photos: ${a.photos.length} of ${MAX_PHOTOS}`}
+                        aria-label={t('adm.list.photosOf', { name: a.title_th || a.title, n: a.photos.length, max: MAX_PHOTOS })}
                       >
-                        {a.photos[0] ? <img src={mediaUrl(a.photos[0].file)} alt="" loading="lazy" /> : <span>No photo</span>}
+                        {a.photos[0] ? <img src={mediaUrl(a.photos[0].file)} alt="" loading="lazy" /> : <span>{t('adm.list.noPhoto')}</span>}
                         <em>
                           {a.photos.length}/{MAX_PHOTOS}
                         </em>
@@ -294,23 +310,23 @@ export default function AdminAnnouncements() {
                       <strong>{a.title_th || a.title}</strong>
                       {a.title && a.title_th && <div className="admin__muted">{a.title}</div>}
                     </td>
-                    <td>{AUDIENCE_LABEL[a.audience]}</td>
+                    <td>{t(`adm.ann.aud.${a.audience}`)}</td>
                     <td className="admin__nowrap">
-                      {fmtWhen(a.starts_at)}
-                      <div className="admin__sub">→ {a.ends_at ? fmtWhen(a.ends_at) : 'no end'}</div>
+                      {fmtWhen(a.starts_at, locale)}
+                      <div className="admin__sub">→ {a.ends_at ? fmtWhen(a.ends_at, locale) : t('adm.ann.noEnd')}</div>
                     </td>
                     <td>
-                      <span className={`admin__status admin__status--${state.tone}`}>{state.label}</span>
+                      <span className={`admin__status admin__status--${tone}`}>{t(state)}</span>
                     </td>
                     <td className="admin__actions">
                       <button type="button" className="admin__btn" onClick={() => toggle(a)}>
-                        {a.active ? 'Switch off' : 'Switch on'}
+                        {a.active ? t('adm.ann.switchOff') : t('adm.ann.switchOn')}
                       </button>
                       <button type="button" className="admin__btn" onClick={() => startEdit(a)}>
-                        Edit
+                        {t('adm.list.editBtn')}
                       </button>
                       <button type="button" className="admin__btn admin__btn--danger" onClick={() => remove(a)}>
-                        Delete
+                        {t('adm.list.deleteBtn')}
                       </button>
                     </td>
                   </tr>
@@ -318,7 +334,7 @@ export default function AdminAnnouncements() {
               })}
             </tbody>
           </table>
-          {list.length === 0 && <p className="admin__empty">No announcements yet. The Home page shows none.</p>}
+          {list.length === 0 && <p className="admin__empty">{t('adm.ann.empty')}</p>}
         </div>
       )}
     </>

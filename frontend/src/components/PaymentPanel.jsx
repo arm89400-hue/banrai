@@ -4,41 +4,21 @@ import { api } from '../lib/api';
 import { formatBaht } from '../lib/money';
 import { promptPayPayload } from '../lib/promptpay';
 import { useLang } from '../i18n/lang';
+import { SAMPLE_QR_TEXT, errorKey } from '../lib/payments';
 import './PaymentPanel.css';
 
 const PAID_MS = 900; // how long "Payment complete" shows before the page updates
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// What the sample QR holds: plain text, so a bank app that scans it finds
-// nothing to pay.
-const SAMPLE_QR_TEXT = 'Baanrai 344 - SAMPLE QR, NOT FOR PAYMENT / ตัวอย่าง ห้ามโอน';
-
-// Slip errors the server explains with a reason code.
-const SLIP_ERRORS = new Set([
-  'SLIP_UNREADABLE',
-  'SLIP_NOT_FOUND',
-  'SLIP_PENDING',
-  'SLIP_DUPLICATE',
-  'SLIP_AMOUNT',
-  'SLIP_RECEIVER',
-  'SLIP_OLD',
-  'SLIP_SERVICE',
-  'SLIP_NOT_CONFIGURED',
-  'SLIP_TOO_MANY',
-]);
-const errorKey = (reason) =>
-  reason === 'NOT_PENDING' || reason === 'BALANCE_NOT_DUE'
-    ? 'pay.errNotPending'
-    : SLIP_ERRORS.has(reason)
-      ? `pay.err.${reason}`
-      : 'pay.errGeneric';
-
 // One payment for a room booking and the rooms booked with it:
 // - kind 'deposit': the 50% that confirms the booking.
 // - kind 'balance': the other half, paid online before arriving.
 // `amount` is what the server says is due; it is built into the QR, so the
 // guest's bank app fills it in. `booking` is the booking paid from.
+// - `fullAmount` (deposit only): the whole price. The guest then picks the
+//   50% deposit or the whole price at once (kind 'full'), and the QR and the
+//   slip check follow that choice.
 // - `promptpay` set: the real PromptPay QR. Not set: a sample QR marked
 //   "do not pay" in the same place, until the owner adds the PromptPay ID.
 // - `slipPay`: the guest uploads the transfer slip. `slipCheck` 'auto'
@@ -48,8 +28,9 @@ const errorKey = (reason) =>
 // onPaid receives the updated bookings (paid, or with the slip waiting).
 export default function PaymentPanel({
   booking,
-  kind = 'deposit',
-  amount,
+  kind: givenKind = 'deposit',
+  amount: givenAmount,
+  fullAmount,
   code,
   rooms = 1,
   slipStatus,
@@ -62,6 +43,11 @@ export default function PaymentPanel({
   onPaid,
 }) {
   const { t } = useLang();
+  // The guest's choice when the whole price may be paid now.
+  const canPayFull = givenKind === 'deposit' && fullAmount > givenAmount;
+  const [payFull, setPayFull] = useState(false);
+  const kind = canPayFull && payFull ? 'full' : givenKind;
+  const amount = canPayFull && payFull ? fullAmount : givenAmount;
   const [phase, setPhase] = useState('idle'); // idle | checking | paid
   const [error, setError] = useState(null);
   const [qrSrc, setQrSrc] = useState(null);
@@ -128,7 +114,7 @@ export default function PaymentPanel({
 
   const waiting = slipStatus === 'review';
   const turnedDown = slipStatus === 'rejected' && slipReason === 'MANUAL_REJECT';
-  const title = kind === 'deposit' ? t('pay.title') : t('pay.titleBalance');
+  const title = { deposit: t('pay.title'), full: t('pay.titleFull'), balance: t('pay.titleBalance') }[kind];
   // On a phone the QR can't be scanned from its own screen: save it, then
   // pick it from the photos in the bank app.
   const steps = promptpay
@@ -136,7 +122,7 @@ export default function PaymentPanel({
     : [t('pay.step1NoQr'), slipCheck === 'auto' ? t('pay.step2') : t('pay.step2Manual')];
 
   return (
-    <section className="pay-panel" aria-labelledby={`pay-title-${kind}-${booking.id}`}>
+    <section className="pay-panel" aria-labelledby={`pay-title-${givenKind}-${booking.id}`}>
       <div className={`pay-panel__qr pay-panel__qr--real ${promptpay ? '' : 'pay-panel__qr--sample'} is-${phase}`}>
         <span className="pay-panel__pp">{promptpay ? 'PromptPay' : t('pay.sample')}</span>
         <span className="pay-panel__code">
@@ -162,7 +148,31 @@ export default function PaymentPanel({
       </div>
 
       <div className="pay-panel__info">
-        <p className="pay-panel__title" id={`pay-title-${kind}-${booking.id}`}>
+        {canPayFull && (
+          <div className="pay-panel__choice" role="radiogroup" aria-label={t('pay.chooseLabel')}>
+            {[
+              [false, t('pay.optDeposit'), givenAmount],
+              [true, t('pay.optFull'), fullAmount],
+            ].map(([full, label, value]) => (
+              <button
+                key={label}
+                type="button"
+                role="radio"
+                aria-checked={payFull === full}
+                className={payFull === full ? 'is-on' : ''}
+                disabled={phase !== 'idle'}
+                onClick={() => {
+                  setPayFull(full);
+                  setError(null);
+                }}
+              >
+                <span>{label}</span>
+                <b>{formatBaht(value)}</b>
+              </button>
+            ))}
+          </div>
+        )}
+        <p className="pay-panel__title" id={`pay-title-${givenKind}-${booking.id}`}>
           {title} · {code}
           {rooms > 1 && ` · ${t('pay.rooms', { n: rooms })}`}
         </p>

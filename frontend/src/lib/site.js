@@ -1,5 +1,6 @@
-// Public details about the property, shared by the navbar, Home page and
-// footer. Source: the pinned post on the Baanraikongpor Pakchong Facebook page.
+// Public details about the property. The phone lines, Facebook and Maps
+// are edited in admin (lib/contact.js loads them); the values here are only
+// shown until those load. Source: the pinned post on the Facebook page.
 export const FACEBOOK_URL = 'https://www.facebook.com/baanraikongpor.pakchong';
 
 // Google Maps pin for the farmstay.

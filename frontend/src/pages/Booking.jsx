@@ -5,6 +5,7 @@ import { formatBaht } from '../lib/money';
 import { formatDay, formatStay, roomNames, toISODate } from '../lib/booking';
 import { groupStays, mergeBookings, owes, payOptions, stayNeedsAction } from '../lib/payments';
 import { roomCover } from '../lib/photos';
+import { shift } from '../lib/motion';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import { StatusBadge } from '../components/BookingBits';
@@ -30,7 +31,16 @@ function DeletedNotice({ notice, onDismiss }) {
     <div className="my-notice" role="alert">
       <div>
         <p className="my-notice__title">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
             <circle cx="12" cy="12" r="9" />
             <path d="M12 7.5v5.5M12 16.5v.01" />
           </svg>
@@ -113,7 +123,7 @@ export default function Booking() {
   const activities = (bookings ?? []).filter((b) => !b.room_id);
 
   function show(key) {
-    setFocusKey(key);
+    shift(() => setFocusKey(key), { cards: '.my-page > *' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -140,6 +150,14 @@ export default function Booking() {
       {/* Announcements for guests with a booking (none: nothing shown). */}
       <Announcements source="/api/announcements/mine" className="page-news" />
 
+      {/* A paid stay coming up: its room dashboard (activities, chat). */}
+      {stays.some((s) => s.status === 'confirmed' && s.checkOut >= today) && (
+        <Link className="my-room-link" to="/stay">
+          <span>✓ {t('stay.openHint')}</span>
+          <b>{t('stay.open')} →</b>
+        </Link>
+      )}
+
       {focus && (
         <StayView stay={focus} pay={pay} onPaid={(updated) => setBookings((list) => mergeBookings(list, updated))} />
       )}
@@ -163,12 +181,21 @@ export default function Booking() {
                       {names} · {stay.key}
                     </b>
                     <p>
-                      {formatStay(stay.checkIn, stay.checkOut, locale, t('date.wd'))} · {t('sum.guestCount', { n: stay.guests })}
+                      {formatStay(stay.checkIn, stay.checkOut, locale, t('date.wd'))} ·{' '}
+                      {t('sum.guestCount', { n: stay.guests })}
                       {restDue && ` · ${t('my.restDue', { amount: formatBaht(Number(restDue.balance_due)) })}`}
                     </p>
                   </div>
-                  {paidFull ? <span className="my-pill">{t('my.paidFull')}</span> : <StatusBadge status={stay.status} />}
-                  <button type="button" className={`bk-btn${stayNeedsAction(stay) && stay.status !== 'cancelled' ? ' bk-btn--primary' : ''}`} onClick={() => show(stay.key)}>
+                  {paidFull ? (
+                    <span className="my-pill">{t('my.paidFull')}</span>
+                  ) : (
+                    <StatusBadge status={stay.status} />
+                  )}
+                  <button
+                    type="button"
+                    className={`bk-btn${stayNeedsAction(stay) && stay.status !== 'cancelled' ? ' bk-btn--primary' : ''}`}
+                    onClick={() => show(stay.key)}
+                  >
                     {stay.status === 'pending' ? t('my.payDeposit') : restDue ? t('my.payRest') : t('my.view')}
                   </button>
                 </li>

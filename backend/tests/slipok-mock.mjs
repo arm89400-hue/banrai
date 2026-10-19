@@ -39,6 +39,7 @@ const ERRORS = {
 
 const queue = [];
 let calls = 0;
+let last = null; // the text fields of the latest check (amount, log)
 
 // The text fields of a multipart/form-data body (the slip file is skipped).
 function formFields(body, contentType) {
@@ -68,7 +69,7 @@ createServer((req, res) => {
       queue.push(body.length ? JSON.parse(body.toString()) : {});
       return send(res, 200, { queued: queue.length });
     }
-    if (req.method === 'GET' && req.url === '/__calls') return send(res, 200, { calls });
+    if (req.method === 'GET' && req.url === '/__calls') return send(res, 200, { calls, last });
 
     if (req.method !== 'POST' || !req.url.startsWith('/api/line/apikey/')) return send(res, 404, { message: 'Not found' });
     calls++;
@@ -77,6 +78,7 @@ createServer((req, res) => {
     if (code) return send(res, 400, { success: false, code, message: ERRORS[code] ?? 'Error' });
 
     const fields = formFields(body, req.headers['content-type']);
+    last = fields;
     const amount = next.amount ?? Number(fields.amount);
     const now = new Date();
     send(res, 200, {

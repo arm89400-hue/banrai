@@ -260,7 +260,7 @@ CREATE TABLE IF NOT EXISTS slip_payments (
   id SERIAL PRIMARY KEY,
   booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE, -- the booking paid from
   booking_ids INTEGER[] NOT NULL,   -- every booking this slip pays for (rooms booked together)
-  kind TEXT NOT NULL DEFAULT 'deposit' CHECK (kind IN ('deposit', 'balance')),
+  kind TEXT NOT NULL DEFAULT 'deposit' CHECK (kind IN ('deposit', 'balance', 'full')), -- full = whole price at once (020)
   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   status TEXT NOT NULL CHECK (status IN ('verified', 'rejected', 'review')), -- review = owner checks by hand
   reason TEXT,                -- why it was rejected or sent for review (SLIP_AMOUNT, SLIPOK_PACKAGE, ...)
@@ -281,3 +281,39 @@ CREATE INDEX IF NOT EXISTS idx_slip_payments_booking ON slip_payments(booking_id
 CREATE INDEX IF NOT EXISTS idx_slip_payments_booking_ids ON slip_payments USING GIN (booking_ids);
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_slip_payments_verified_ref
   ON slip_payments(trans_ref) WHERE status = 'verified';
+
+-- Owner-edited settings the website reads (see migrations/019_site_settings.sql).
+CREATE TABLE IF NOT EXISTS site_settings (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO site_settings (key, value) VALUES (
+  'contact',
+  '{
+    "phones": [
+      {"name_th": "Jit", "name_en": "Jit", "number": "089-202-9053"},
+      {"name_th": "แมว", "name_en": "Maew", "number": "081-876-2884"}
+    ],
+    "line": "",
+    "facebook": "https://www.facebook.com/baanraikongpor.pakchong",
+    "maps": "https://goo.gl/maps/EzwtcXYgctz2gkAQ6"
+  }'
+) ON CONFLICT (key) DO NOTHING;
+
+-- PromptPay QR payments through Opn (see migrations/021_opn_charges.sql).
+CREATE TABLE IF NOT EXISTS opn_charges (
+  id TEXT PRIMARY KEY,               -- Opn charge id (chrg_...)
+  booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE, -- the booking paid from
+  booking_ids INTEGER[] NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('deposit', 'balance', 'full')),
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  amount NUMERIC(10, 2) NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending', -- pending | successful | failed | expired (Opn's)
+  qr_uri TEXT,                       -- the QR picture Opn made
+  expires_at TIMESTAMPTZ,
+  settled_at TIMESTAMPTZ,            -- when the payment was recorded on the bookings
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_opn_charges_booking_ids ON opn_charges USING GIN (booking_ids);

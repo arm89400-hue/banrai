@@ -34,6 +34,14 @@ export async function api(path, options = {}) {
       localStorage.removeItem('user');
       window.location.assign('/login?expired=1');
     }
+    // A saved login the server no longer accepts (it ran out after 7 days,
+    // or the account is gone): sign out and log in again, then come back.
+    if (token && data?.reason === 'SESSION_ENDED') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      const here = window.location.pathname + window.location.search;
+      window.location.assign(`/login?session=1&next=${encodeURIComponent(here)}`);
+    }
     throw error;
   }
   return data;

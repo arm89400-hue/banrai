@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatBaht } from '../lib/money';
 import {
@@ -25,12 +25,13 @@ import {
 import { usePromotions } from '../lib/promotions';
 import { CHECK_IN_TIME, CHECK_OUT_TIME } from '../lib/site';
 import { roomCover } from '../lib/photos';
+import { shift } from '../lib/motion';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import StaySearch from '../components/StaySearch';
 import { PromoTag } from '../components/BookingBits';
-import StayView from '../components/StayView';
-import { groupStays, mergeBookings, payOptions } from '../lib/payments';
+import PayDialog from '../components/PayDialog';
+import { mergeBookings, payOptions } from '../lib/payments';
 import './BookFlow.css';
 
 const STEPS = ['step.room', 'step.details', 'step.review'];
@@ -53,8 +54,8 @@ function validateForm(form) {
 // Step-by-step room booking: choose rooms (with the dates and guests at
 // the top) -> guest details -> review & send. Anyone can browse dates and
 // rooms; from the details step on the guest must be logged in (they're sent
-// to /login and brought back). No payment is taken here: the guest sends a
-// request, gets a booking code and pays the deposit by QR on the next page.
+// to /login and brought back). Sending the request opens a pop-up with the
+// QR: the guest pays the 50% deposit or the whole price and uploads the slip.
 // A party too big for one room picks several rooms; they are booked
 // together (one booking per room, sharing a group code). A dark green box
 // keeps the stay, the price and the next button in view on every step.
@@ -78,7 +79,7 @@ export default function BookFlow() {
     (params.get('rooms') ?? params.get('room') ?? '')
       .split(',')
       .map((id) => Number.parseInt(id, 10))
-      .filter(Boolean)
+      .filter(Boolean),
   );
   const [step, setStep] = useState(() => Number.parseInt(params.get('step'), 10) || 1);
 
@@ -184,8 +185,13 @@ export default function BookFlow() {
   }, [roomIds, rooms, availableIds]);
 
   function toggleRoom(id) {
-    setRoomNotice(null);
-    setRoomIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+    shift(
+      () => {
+        setRoomNotice(null);
+        setRoomIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+      },
+      { cards: '.flow-stay, .flow-bar' }
+    );
   }
 
   // The furthest step the guest may be on given what's been chosen so far.
@@ -221,9 +227,17 @@ export default function BookFlow() {
     return () => document.body.classList.remove('has-bottom-bar');
   }, []);
 
+  // Only what every step has - the steps bar and the stay summary - moves;
+  // the step's own content (a form, a review) is simply there. Pairing a
+  // form with a review box made them stretch oddly.
   function goTo(nextStep) {
-    setStep(nextStep);
-    setSubmitError(null);
+    shift(
+      () => {
+        setStep(nextStep);
+        setSubmitError(null);
+      },
+      { cards: '.flow-top, .flow-stay' },
+    );
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -243,9 +257,7 @@ export default function BookFlow() {
   function toggleRequest(option) {
     setForm((f) => ({
       ...f,
-      requests: f.requests.includes(option)
-        ? f.requests.filter((r) => r !== option)
-        : [...f.requests, option],
+      requests: f.requests.includes(option) ? f.requests.filter((r) => r !== option) : [...f.requests, option],
     }));
   }
 
@@ -269,9 +281,14 @@ export default function BookFlow() {
           note: form.note.trim(),
         }),
       });
-      setDone(data.bookings ?? [data.booking]);
-      setPay(payOptions(data));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const sender = document.activeElement?.closest('button');
+      shift(
+        () => {
+          setDone(data.bookings ?? [data.booking]);
+          setPay(payOptions(data));
+        },
+        { from: sender, to: '.pay-dialog__box' }
+      );
     } catch (err) {
       if (err.reason === 'ROOM_TAKEN') {
         // Someone else got there first: back to the room list with fresh availability.
@@ -297,38 +314,16 @@ export default function BookFlow() {
   // Booking needs an account: from the details step on, send guests who
   // aren't logged in to /login, which brings them back to this exact step.
   if (!done && needsLogin) {
-    const back = new URLSearchParams({ in: checkIn, out: checkOut, guests: String(guests), rooms: roomIds.join(','), step: '2' });
+    const back = new URLSearchParams({
+      in: checkIn,
+      out: checkOut,
+      guests: String(guests),
+      rooms: roomIds.join(','),
+      step: '2',
+    });
     return <Navigate to={`/login?next=${encodeURIComponent(`/book?${back}`)}`} replace />;
   }
   if (isStay) return <Navigate to="/stay" replace />;
-
-  // ---------- Finished ----------
-  // The request is in: the same view as "My bookings" (pay the deposit by
-  // QR right here, then the room logins appear).
-  if (done) {
-    const sent = groupStays(done);
-    const allConfirmed = sent.every((stay) => stay.status === 'confirmed');
-    return (
-      <section className="flow-page">
-        <header className="flow-done-head">
-          <p className="flow-done-head__badge">✓ {t('done.badge')}</p>
-          <h1>{allConfirmed ? t('pay.doneTitle') : t('flow.doneTitle')}</h1>
-          <p>{allConfirmed ? t('flow.doneLeadPaid') : t('flow.doneLead')}</p>
-        </header>
-        {sent.map((stay) => (
-          <StayView key={stay.key} stay={stay} pay={pay} onPaid={(updated) => setDone((list) => mergeBookings(list, updated))} />
-        ))}
-        <div className="flow-done-actions">
-          <Link className="bk-btn bk-btn--primary" to="/booking">
-            {t('flow.checkStatus')}
-          </Link>
-          <Link className="bk-btn" to="/home">
-            {t('flow.backHome')}
-          </Link>
-        </div>
-      </section>
-    );
-  }
 
   // ---------- Steps ----------
   const extraGuests = plans.reduce((sum, p) => sum + p.extraGuests, 0);
@@ -340,12 +335,20 @@ export default function BookFlow() {
   if (current === 1) {
     if (!nights) next = { label: t('flow.needDates'), disabled: true };
     else if (!chosen.length) next = { label: t('flow.needRoom'), disabled: true };
-    else if (!split) next = { label: capacity < guests ? t('flow.needMore', { n: guests - capacity }) : t('flow.tooManyShort'), disabled: true };
+    else if (!split)
+      next = {
+        label: capacity < guests ? t('flow.needMore', { n: guests - capacity }) : t('flow.tooManyShort'),
+        disabled: true,
+      };
     else next = { label: t('flow.toDetails'), onClick: () => goTo(2) };
   } else if (current === 2) {
     next = { label: t('flow.toReview'), form: 'flow-details' };
   } else {
-    next = { label: submitting ? t('flow.submitting') : t('flow.submit'), disabled: !accepted || submitting, onClick: handleSubmit };
+    next = {
+      label: submitting ? t('flow.submitting') : t('flow.submit'),
+      disabled: !accepted || submitting,
+      onClick: handleSubmit,
+    };
   }
   // key={current}: a new button per step, so the click that moves to the
   // details step can't also submit the details form that replaces it.
@@ -365,7 +368,11 @@ export default function BookFlow() {
   return (
     <section className="flow-page">
       <div className="flow-top">
-        <button type="button" className="flow-top__back" onClick={() => (current > 1 ? goTo(current - 1) : navigate('/home'))}>
+        <button
+          type="button"
+          className="flow-top__back"
+          onClick={() => (current > 1 ? goTo(current - 1) : navigate('/home'))}
+        >
           ‹ {t('flow.back')}
         </button>
         <ol className="flow-steps">
@@ -460,7 +467,11 @@ export default function BookFlow() {
                           aria-pressed={picked}
                           onClick={() => toggleRoom(r.id)}
                         >
-                          <img src={roomCover(r)} alt="" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
+                          <img
+                            src={roomCover(r)}
+                            alt=""
+                            onError={(e) => (e.currentTarget.style.visibility = 'hidden')}
+                          />
                           <span className="flow-tile__row">
                             <strong>{names.title}</strong>
                             <b>{formatBaht(base)}</b>
@@ -470,13 +481,25 @@ export default function BookFlow() {
                               then the choose button. */}
                           <span className="flow-tile__facts">
                             <span>
-                              {r.capacity && max > r.capacity ? t('rooms.guestsRange', { from: r.capacity, to: max }) : t('rooms.guests', { n: r.capacity || max })}
+                              {r.capacity && max > r.capacity
+                                ? t('rooms.guestsRange', { from: r.capacity, to: max })
+                                : t('rooms.guests', { n: r.capacity || max })}
                               {' · '}
                               {t('rooms.breakfast')}
                             </span>
                             <em className="flow-tile__pick">
                               {picked && (
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  width="16"
+                                  height="16"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2.6"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  aria-hidden="true"
+                                >
                                   <path d="M5 12.5l4.5 4.5L19 7.5" />
                                 </svg>
                               )}
@@ -499,7 +522,10 @@ export default function BookFlow() {
                   {freeAgain && (
                     <>
                       {' · '}
-                      <button type="button" onClick={() => handleDates({ checkIn: freeAgain, checkOut: addDays(freeAgain, nights) })}>
+                      <button
+                        type="button"
+                        onClick={() => handleDates({ checkIn: freeAgain, checkOut: addDays(freeAgain, nights) })}
+                      >
                         {t('flow.freeAgain', { date: formatDayShort(freeAgain, locale, t('date.wd')) })} ›
                       </button>
                     </>
@@ -520,7 +546,13 @@ export default function BookFlow() {
                 </label>
                 <label className={`bk-field${errors.phone ? ' bk-field--error' : ''}`}>
                   <span className="bk-label">{t('flow.phone')}</span>
-                  <input type="tel" inputMode="tel" autoComplete="tel" placeholder={t('flow.phonePh')} {...field('phone')} />
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder={t('flow.phonePh')}
+                    {...field('phone')}
+                  />
                   {errors.phone && <span className="bk-error">{t(errors.phone)}</span>}
                 </label>
                 <label className={`bk-field${errors.email ? ' bk-field--error' : ''}`}>
@@ -538,7 +570,11 @@ export default function BookFlow() {
                 <legend className="bk-label">{t('flow.requests')}</legend>
                 {REQUEST_OPTIONS.map((option) => (
                   <label key={option}>
-                    <input type="checkbox" checked={form.requests.includes(option)} onChange={() => toggleRequest(option)} />
+                    <input
+                      type="checkbox"
+                      checked={form.requests.includes(option)}
+                      onChange={() => toggleRequest(option)}
+                    />
                     <span>{t(`req.${option}`)}</span>
                     <small>{t(`req.${option}.note`)}</small>
                   </label>
@@ -550,11 +586,21 @@ export default function BookFlow() {
                     <small>{t('req.pets.rule', { fee: formatBaht(petRule.fee), kg: petRule.maxKg })}</small>
                   </span>
                   <div className="bk-counter">
-                    <button type="button" onClick={() => setForm((f) => ({ ...f, pets: f.pets - 1 }))} disabled={form.pets <= 0} aria-label={t('req.pets.fewer')}>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, pets: f.pets - 1 }))}
+                      disabled={form.pets <= 0}
+                      aria-label={t('req.pets.fewer')}
+                    >
                       −
                     </button>
                     <output aria-live="polite">{form.pets}</output>
-                    <button type="button" onClick={() => setForm((f) => ({ ...f, pets: f.pets + 1 }))} disabled={form.pets >= MAX_PETS} aria-label={t('req.pets.more')}>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, pets: f.pets + 1 }))}
+                      disabled={form.pets >= MAX_PETS}
+                      aria-label={t('req.pets.more')}
+                    >
                       +
                     </button>
                     <span>{t('req.pets.unit')}</span>
@@ -585,7 +631,8 @@ export default function BookFlow() {
                   <div>
                     <dt>{t('review.room')}</dt>
                     <dd>
-                      {plans.map((p) => roomNames(p.room.name, lang).title).join(', ')} · {t('sum.guestCount', { n: guests })}
+                      {plans.map((p) => roomNames(p.room.name, lang).title).join(', ')} ·{' '}
+                      {t('sum.guestCount', { n: guests })}
                     </dd>
                   </div>
                   <div>
@@ -728,10 +775,18 @@ export default function BookFlow() {
             {nights ? t('stayBox.partyValue', { guests, nights }) : t('sum.guestCount', { n: guests })}
             {chosen.length > 0 && ` · ${t('flow.nRooms', { n: chosen.length })}`}
           </small>
-          <b>{plans.length > 0 && nights > 0 ? formatBaht(grandTotal) : t(current === 1 ? 'flow.noRoomYet' : STEPS[current - 1])}</b>
+          <b>
+            {plans.length > 0 && nights > 0
+              ? formatBaht(grandTotal)
+              : t(current === 1 ? 'flow.noRoomYet' : STEPS[current - 1])}
+          </b>
         </span>
         {nextButton('flow-bar__go')}
       </div>
+
+      {done && (
+        <PayDialog bookings={done} pay={pay} onPaid={(updated) => setDone((list) => mergeBookings(list, updated))} />
+      )}
     </section>
   );
 }

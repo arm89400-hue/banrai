@@ -11,6 +11,7 @@ import {
   KINDS,
   PAYMENT_COLUMNS,
   PAYMENT_TEST_MODE,
+  confirms,
   logPayment,
   paymentOptions,
   paymentScope,
@@ -90,21 +91,22 @@ bookingRouter.get(
   })
 );
 
-// Which payment a request is about: ?kind=deposit (the default) or ?kind=balance.
+// Which payment a request is about: ?kind=deposit (the default), ?kind=full
+// (the whole price instead of the deposit) or ?kind=balance.
 const kindOf = (req) => (KINDS.includes(req.query.kind) ? req.query.kind : 'deposit');
 
 // Answers a payment for something that isn't owed (already paid, cancelled,
 // not the member's booking).
 function notPayable(res, error, kind) {
   if (error === 'NOT_FOUND') return res.status(404).json({ error: 'Booking not found' });
-  return kind === 'deposit'
+  return confirms(kind)
     ? res.status(409).json({ error: 'This booking is not waiting for payment', reason: 'NOT_PENDING' })
     : res.status(409).json({ error: 'Nothing is left to pay on this booking', reason: 'BALANCE_NOT_DUE' });
 }
 
 // After a payment: the booking paid from plus the rooms booked with it, so
 // the page can update every card.
-async function paidResponse(bookingId) {
+export async function paidResponse(bookingId) {
   const { rows } = await pool.query(
     `SELECT ${PUBLIC_COLUMNS}
      FROM bookings b
@@ -169,8 +171,8 @@ const SLIP_MESSAGES = {
 };
 
 // Payment by bank transfer: the guest uploads the slip for one of their own
-// room bookings - ?kind=deposit (default, confirms the booking) or
-// ?kind=balance (the other half). Rooms booked together are paid with one
+// room bookings - ?kind=deposit (default, confirms the booking), ?kind=full
+// (confirms it and pays the other half too) or ?kind=balance (the other half). Rooms booked together are paid with one
 // slip for their sum (see lib/payments.js).
 // - SlipOK not set up: the slip waits for the owner to check it in admin (202).
 // - SlipOK set up: SlipOK checks it is a real transfer, for exactly the
@@ -263,7 +265,8 @@ bookingRouter.post(
       current = await paymentScope(client, target.id, { kind, userId: req.user.id, lock: true });
       if (current.error || satang(current.amount) !== satang(scope.amount)) {
         await client.query('ROLLBACK');
-        const why = current.error ? (kind === 'deposit' ? 'NOT_PENDING' : 'BALANCE_NOT_DUE') : 'SLIP_AMOUNT';
+        const notDue = confirms(kind) ? 'NOT_PENDING' : 'BALANCE_NOT_DUE';
+        const why = current.error ? notDue : 'SLIP_AMOUNT';
         await recordSlip(pool, { scope, kind, userId: req.user.id, status: 'rejected', reason: why, slip, slipFile, raw: result.raw });
         return why === 'SLIP_AMOUNT' ? fail(422, why) : notPayable(res, 'NOT_DUE', kind);
       }

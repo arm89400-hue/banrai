@@ -45,10 +45,36 @@
   --dur: 0.35s;
   --dur-slow: 0.7s;
 
+  /* Motion scale (see reports/Lively animated farmstay web design.md):
+     1 press · 2 small change · 3 panel/tab · 4 dialog · 5 page photos only.
+     Exits use --ease-exit and are a step shorter than entrances. */
+  --dur-1: 80ms;
+  --dur-2: 150ms;
+  --dur-3: 240ms;
+  --dur-4: 400ms;
+  --dur-5: 700ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* Rice-straw gold: only the one main button on a screen, always with
+     dark-green text on it (white on gold is 2.1:1 and fails; gold text on
+     the page is 2.0:1 and fails too). */
+  --straw: hsl(38, 48%, 64%);
+  --on-straw: var(--brand-dark);
+
+  /* Looped Thai for text guests read and follow (notes, chat); the
+     loopless face stays for labels, prices and buttons. */
+  --looped: 'IBM Plex Sans Thai Looped', 'IBM Plex Sans Thai', 'Noto Sans Thai', sans-serif;
+
   --sans: -apple-system, 'Segoe UI', Roboto, 'Noto Sans Thai', Helvetica, Arial, sans-serif;
   --serif: 'Baanrai Digits', Georgia, 'Noto Serif Thai', 'Times New Roman', serif;
   /* Page text (inside <main>, see below): one Thai family with even digits. */
-  --plex: 'IBM Plex Sans Thai', -apple-system, 'Segoe UI', sans-serif;
+  /* Page fonts (owner's pick, set B): numbers from Plus Jakarta Sans (a
+     digits-only download, see index.html), reading text in IBM Plex Sans
+     Thai Looped, headings in Anuphan. */
+  --body: 'Plus Jakarta Sans', 'IBM Plex Sans Thai Looped', 'IBM Plex Sans Thai', -apple-system, 'Segoe UI', sans-serif;
+  --head: 'Plus Jakarta Sans', 'Anuphan', 'IBM Plex Sans Thai', -apple-system, 'Segoe UI', sans-serif;
+  --plex: var(--body);
 
   font: 18px/145% var(--sans);
   color-scheme: light;
@@ -64,12 +90,12 @@
   }
 }
 
-/* The pages use IBM Plex Sans Thai for everything, headings included; the
+/* The pages use the body face for text and Anuphan for headings; the
    header and footer (outside <main>) keep their own faces unchanged. */
 main {
-  --sans: var(--plex);
-  --serif: var(--plex);
-  font-family: var(--plex);
+  --sans: var(--body);
+  --serif: var(--head);
+  font-family: var(--body);
 }
 
 /* Always reserve the scrollbar's space, so pages that grow or shrink past
@@ -171,18 +197,6 @@ html:lang(th) .admin__eyebrow {
   outline-offset: 3px;
 }
 
-/* Shared entrance animation. Uses `translate` (not `transform`) so it
-   stacks with any positioning transform on the element. */
-@keyframes fade-up {
-  from {
-    opacity: 0;
-    translate: 0 24px;
-  }
-  to {
-    opacity: 1;
-    translate: 0 0;
-  }
-}
 
 /* Respect the OS "reduce motion" setting: keep state changes, drop movement. */
 @media (prefers-reduced-motion: reduce) {

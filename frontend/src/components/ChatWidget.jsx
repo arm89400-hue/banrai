@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { FACEBOOK_URL, PHONES } from '../lib/site';
+import { lineUrl, useContact } from '../lib/contact';
 import { useLang } from '../i18n/lang';
 import ChatThread from './ChatThread';
 import './ChatWidget.css';
@@ -21,6 +21,7 @@ const CLOSED_POLL_MS = 20000;
 export default function ChatWidget() {
   const { user } = useAuth();
   const { t, lang, locale } = useLang();
+  const contact = useContact();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [unread, setUnread] = useState(0);
@@ -67,6 +68,8 @@ export default function ChatWidget() {
   if (user?.is_admin) return null;
   // The login page is already where a visitor would be sent.
   if (!user && pathname === '/login') return null;
+  // The room dashboard has the conversation open on the page itself.
+  if (user && pathname === '/stay') return null;
 
   async function send(body) {
     const data = await api('/api/chat', { method: 'POST', body: JSON.stringify({ body }) });
@@ -101,7 +104,7 @@ export default function ChatWidget() {
             // Visitors: a question shouldn't need an account, so the phone
             // lines and Facebook come first; website chat is for members.
             <div className="chat-widget__gate">
-              {PHONES.map((p) => (
+              {contact.phones.map((p) => (
                 <a key={p.tel} className="chat-widget__contact" href={`tel:${p.tel}`}>
                   <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
                     <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z" />
@@ -110,13 +113,24 @@ export default function ChatWidget() {
                   <span>{p.display}</span>
                 </a>
               ))}
-              <a className="chat-widget__contact" href={FACEBOOK_URL} target="_blank" rel="noreferrer">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
-                  <path d="M14 8h3V4h-3c-2.8 0-4 1.7-4 4.3V10H7v4h3v8h4v-8h3l1-4h-4V8.6c0-.4.3-.6.6-.6z" />
-                </svg>
-                <b>{t('chat.facebook')}</b>
-                <span aria-hidden="true">›</span>
-              </a>
+              {contact.line && (
+                <a className="chat-widget__contact" href={lineUrl(contact.line)} target="_blank" rel="noreferrer">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M4 5h16v11H9l-5 4z" />
+                  </svg>
+                  <b>{t('chat.lineAsk')}</b>
+                  <span>{contact.line}</span>
+                </a>
+              )}
+              {contact.facebook && (
+                <a className="chat-widget__contact" href={contact.facebook} target="_blank" rel="noreferrer">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+                    <path d="M14 8h3V4h-3c-2.8 0-4 1.7-4 4.3V10H7v4h3v8h4v-8h3l1-4h-4V8.6c0-.4.3-.6.6-.6z" />
+                  </svg>
+                  <b>{t('chat.facebook')}</b>
+                  <span aria-hidden="true">›</span>
+                </a>
+              )}
               <p>
                 {t('chat.haveAccount')}{' '}
                 <Link to={`/login?next=${encodeURIComponent(pathname + search)}`} onClick={() => setOpen(false)}>

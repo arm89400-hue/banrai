@@ -3,7 +3,7 @@
    Lines up with the header's edges. Shared pieces live in BookingBits.css. */
 .flow-page {
   min-height: 80vh;
-  padding: 112px max(20px, calc((100% - 1110px) / 2)) 96px;
+  padding: 92px max(20px, calc((100% - 1110px) / 2)) 96px;
   background: var(--bg);
   color: var(--text);
 }
@@ -99,11 +99,12 @@
   gap: 56px;
   align-items: start;
 }
+/* No entrance animation: each booking step shows at once, so the guest
+   can read and tap straight away. */
 .flow__main {
   display: grid;
   gap: 18px;
   min-width: 0;
-  animation: fade-up var(--dur) var(--ease-out) both;
 }
 .flow__title {
   margin: 0;
@@ -341,7 +342,7 @@
   padding: 0 22px;
   border: none;
   border-radius: 999px;
-  background: hsl(38, 48%, 64%);
+  background: var(--straw);
   color: hsl(150, 38%, 13%);
   font: inherit;
   font-size: 17px;
@@ -385,7 +386,7 @@
     padding-bottom: 88px;
   }
   .flow-page {
-    padding: 92px 16px 120px;
+    padding: 80px 16px 120px;
   }
   .flow-top {
     gap: 10px 14px;
@@ -636,38 +637,6 @@
 }
 .flow__accept input {
   margin-top: 3px;
-}
-
-/* ---- Finished: the request is in ---- */
-.flow-done-head {
-  display: grid;
-  gap: 6px;
-  margin-bottom: 24px;
-}
-.flow-done-head__badge {
-  justify-self: start;
-  margin: 0;
-  padding: 2px 12px;
-  border-radius: 999px;
-  background: var(--brand-soft);
-  color: var(--brand-dark);
-  font-size: 14px;
-  font-weight: 700;
-}
-.flow-done-head h1 {
-  margin: 0;
-  font-size: 34px;
-  font-weight: 600;
-}
-.flow-done-head p:last-child {
-  margin: 0;
-  color: var(--text-muted);
-}
-.flow-done-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 32px;
 }
 
 @media (max-width: 900px) {

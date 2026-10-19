@@ -11,8 +11,21 @@ services:
     ports:
       - '4010:4010'
 
+  opn-mock:
+    image: baanraireal-main-backend
+    command: ['node', '/mock/opn-mock.mjs']
+    environment:
+      MOCK_PUBLIC_URL: http://localhost:4011
+    volumes:
+      - ./backend/tests/opn-mock.mjs:/mock/opn-mock.mjs:ro
+    ports:
+      - '4011:4011'
+
   backend:
     environment:
+      # Empty = Opn off (QR + slip). The test's key = the pretend Opn.
+      OPN_SECRET_KEY: ${TEST_OPN_KEY:-}
+      OPN_API_URL: http://opn-mock:4011
       # Empty = SlipOK off (slips wait for a manual check).
       SLIPOK_API_KEY: ${TEST_SLIPOK_KEY:-}
       SLIPOK_BRANCH_ID: ${TEST_SLIPOK_BRANCH:-}

@@ -58,7 +58,8 @@
   background: var(--white);
   color: var(--text);
   box-shadow: var(--shadow-lg);
-  animation: fade-up var(--dur) var(--ease-out) both;
+  transform-origin: bottom right;
+  animation: chat-open var(--dur-3) var(--ease-standard) both;
 }
 .chat-widget__panel > header {
   display: flex;
@@ -172,5 +173,12 @@
 @media (max-width: 760px) {
   body.has-bottom-bar .chat-widget {
     bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Grows from the chat button: scale only, no fade. */
+@keyframes chat-open {
+  from {
+    transform: scale(0.6);
   }
 }

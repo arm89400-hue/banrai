@@ -1,5 +1,5 @@
 /* About: a light page like Home, the farm's photo with the title on it,
-   then the story, three highlights, photos and how to get there. */
+   then the story, three highlights and photos. */
 .about-page {
   background: var(--bg);
   color: var(--text);
@@ -37,7 +37,6 @@
   font-size: 40px;
   line-height: 1.2;
   text-wrap: balance;
-  animation: fade-up var(--dur-slow) var(--ease-out) both;
 }
 
 .about {
@@ -102,53 +101,6 @@
   grid-row: span 2;
 }
 
-/* Getting here: the map, then the two phone lines, one row each. */
-.about__visit {
-  display: grid;
-  gap: 10px;
-  max-width: 520px;
-  padding: 22px;
-  border-radius: 18px;
-  background: var(--white);
-  box-shadow: 0 0 0 1px var(--border);
-}
-.about__visit h2 {
-  margin: 0;
-  font-size: 22px;
-}
-.about__visit p {
-  margin: 0 0 6px;
-  color: var(--text-muted);
-}
-.about__visit a {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 50px;
-  padding: 0 16px;
-  border-radius: 12px;
-  box-shadow: inset 0 0 0 1px var(--border);
-  color: var(--text);
-  font-weight: 600;
-  text-decoration: none;
-  transition: background-color var(--dur-fast), box-shadow var(--dur-fast);
-}
-.about__visit a:hover {
-  background: var(--brand-soft);
-  box-shadow: inset 0 0 0 1px var(--brand);
-}
-.about__visit svg {
-  flex: none;
-  color: var(--brand);
-}
-.about__visit a span {
-  margin-left: auto;
-  color: var(--text-muted);
-  font-weight: 400;
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-}
-
 @media (max-width: 760px) {
   .about-hero {
     min-height: 260px;
@@ -171,8 +123,5 @@
   .about__photos {
     grid-template-rows: repeat(2, 110px);
     gap: 8px;
-  }
-  .about__visit {
-    padding: 18px 16px;
   }
 }

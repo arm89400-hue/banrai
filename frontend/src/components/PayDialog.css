@@ -1,0 +1,321 @@
+/* The payment pop-up that opens when a booking request is sent: one narrow
+   box, the same size for "pay" and "done". */
+.pay-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow-y: auto;
+  background: hsla(150, 30%, 8%, 0.55);
+}
+.pay-dialog__box {
+  width: min(400px, 100%);
+  padding: 18px 22px 22px;
+  border-radius: 20px;
+  background: var(--bg);
+  box-shadow: var(--shadow-lg);
+}
+.pay-dialog__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.pay-dialog__head h2 {
+  font-size: 20px;
+  line-height: 1.3;
+}
+.pay-dialog__head small {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.pay-dialog__x {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin: -6px -10px 0 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+.pay-dialog__x:hover {
+  background: var(--bg-alt);
+  color: var(--text);
+}
+
+/* Both screens in one cell: the box keeps the pay screen's size. */
+.pay-dialog__body {
+  display: grid;
+}
+.pay-dialog__pay,
+.pay-dialog__done {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+.pay-dialog__pay[aria-hidden='true'] {
+  visibility: hidden;
+}
+
+/* Screen 1: the QR card (like a bank's receive-money QR), the choice and
+   the upload button. */
+.pay-dialog__card {
+  margin-top: 16px;
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: 0 0 0 1px var(--border);
+  overflow: hidden;
+  text-align: center;
+}
+.pay-dialog__bar {
+  padding: 8px;
+  background: var(--brand-dark);
+  color: var(--white);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.pay-dialog__qr {
+  position: relative;
+  width: min(220px, 100%);
+  aspect-ratio: 1;
+  margin: 12px auto 4px;
+}
+.pay-dialog__qr img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.pay-dialog__qr.is-sample img {
+  opacity: 0.35;
+}
+.pay-dialog__stamp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  padding: 4px 12px;
+  border: 2px solid hsl(0, 65%, 42%);
+  border-radius: 8px;
+  background: var(--white);
+  color: hsl(0, 65%, 38%);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pay-dialog__amount {
+  padding: 4px 0 12px;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--brand-dark);
+  font-variant-numeric: tabular-nums;
+}
+.pay-dialog__saveqr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  border-top: 1px dashed var(--border);
+  color: var(--brand-dark);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.pay-dialog__saveqr:hover {
+  background: var(--bg-alt);
+}
+.pay-dialog__switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--bg-alt);
+}
+.pay-dialog__switch button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+.pay-dialog__switch button.is-on {
+  background: var(--white);
+  color: var(--brand-dark);
+  font-weight: 600;
+  box-shadow: 0 1px 2px hsla(0, 0%, 0%, 0.12);
+}
+.pay-dialog__wait {
+  margin-top: 12px;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+.pay-dialog__upload {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--straw);
+  color: var(--brand-dark);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pay-dialog__upload:disabled {
+  cursor: progress;
+}
+.pay-dialog__spin {
+  width: 18px;
+  height: 18px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: pay-dialog-spin 0.8s linear infinite;
+}
+@keyframes pay-dialog-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.pay-dialog__error {
+  margin-top: 10px;
+}
+/* Screen 2: the tick. */
+.pay-dialog__done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.pay-dialog__tick {
+  display: grid;
+  place-items: center;
+  width: 120px;
+  height: 120px;
+  margin-bottom: 18px;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.pay-dialog__tick svg {
+  width: 64px;
+  height: 64px;
+}
+.pay-dialog__done h3 {
+  font-size: 24px;
+}
+.pay-dialog__done p {
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+.pay-dialog__paid {
+  margin-top: 14px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow: 0 0 0 1px var(--border);
+  font-weight: 600;
+}
+/* The tick and text sit in the middle of the space; the buttons are the
+   card's footer, along its bottom edge under a line. */
+.pay-dialog__tick {
+  margin-top: auto;
+}
+/* At least this much room above the footer line. */
+.pay-dialog__done > :nth-last-child(2) {
+  margin-bottom: 28px;
+}
+.pay-dialog__btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-self: stretch;
+  margin: auto -22px 0;
+  padding: 18px 22px 0;
+  border-top: 1px solid var(--border);
+}
+.pay-dialog__btns button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 50px;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pay-dialog__home {
+  border: 1.5px solid var(--text);
+  background: var(--white);
+  color: var(--text);
+}
+.pay-dialog__save {
+  border: 0;
+  background: var(--brand);
+  color: var(--white);
+}
+
+body.has-dialog {
+  overflow: hidden;
+}
+@media (max-width: 640px) {
+  .pay-dialog {
+    padding: 12px;
+  }
+  .pay-dialog__box {
+    padding: 16px 16px 18px;
+  }
+  .pay-dialog__btns {
+    margin-inline: -16px;
+    padding-inline: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pay-dialog__spin {
+    animation: none;
+  }
+}
+.pay-dialog__upload:hover:not(:disabled) {
+  background: hsl(38, 48%, 70%);
+}
+
+/* Paying through Opn: the line under the price while the page waits. */
+.pay-dialog__waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 50px;
+  margin-top: 14px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-weight: 600;
+  text-align: center;
+}
+.pay-dialog__qr.is-gone img {
+  opacity: 0.2;
+}

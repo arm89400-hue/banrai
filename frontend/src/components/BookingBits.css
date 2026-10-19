@@ -1,7 +1,7 @@
 /* Shared pieces of the booking screens: buttons, fields, price rows, status. */
 
 .bk-page {
-  padding: 120px max(20px, calc((100% - 1100px) / 2)) 80px;
+  padding: 96px max(20px, calc((100% - 1100px) / 2)) 80px;
   background: var(--bg);
   color: var(--text);
   min-height: 80vh;
@@ -45,8 +45,8 @@
   border-color: var(--brand-hover);
 }
 .bk-btn--sun {
-  background: hsl(38, 48%, 64%);
-  border-color: hsl(38, 48%, 64%);
+  background: var(--straw);
+  border-color: var(--straw);
   color: var(--brand-dark);
 }
 .bk-btn--sun:hover:not(:disabled) {
@@ -176,7 +176,7 @@
 
 @media (max-width: 900px) {
   .bk-page {
-    padding-top: 100px;
+    padding-top: 84px;
   }
 }
 
@@ -278,7 +278,7 @@
   background: hsla(0, 0%, 100%, 0.14);
 }
 .stay-login__copy:focus-visible {
-  outline-color: hsl(38, 48%, 64%);
+  outline-color: var(--straw);
 }
 .stay-login__hint {
   font-size: 13px;

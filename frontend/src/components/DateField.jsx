@@ -1,0 +1,155 @@
+import { useEffect, useRef, useState } from 'react';
+import { useLang } from '../i18n/lang';
+import { toISODate } from '../lib/booking';
+import './InlineCalendar.css';
+import './DateField.css';
+
+const pad = (n) => String(n).padStart(2, '0');
+const HOURS = Array.from({ length: 24 }, (_, i) => pad(i));
+const MINUTES = Array.from({ length: 12 }, (_, i) => pad(i * 5));
+
+// A date (or date and time) field for the admin forms, in the site's own
+// calendar look instead of the browser's: a button showing the date in the
+// admin's language, opening a month calendar (and hour/minute picks when
+// `withTime`). `value` is "YYYY-MM-DD" or, with time, "YYYY-MM-DDTHH:mm";
+// "" is empty. `min` greys out earlier days. `clearable` adds a Clear
+// button and shows `emptyLabel` when empty. A hidden input keeps the form's
+// `required` check working.
+export default function DateField({ value, onChange, withTime = false, min, required = false, clearable = false, emptyLabel }) {
+  const { t, locale } = useLang();
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef(null);
+  const date = value ? value.slice(0, 10) : '';
+  const time = withTime && value ? value.slice(11, 16) : '12:00';
+  const minDate = min ? min.slice(0, 10) : '';
+  const [viewMonth, setViewMonth] = useState(() => {
+    const base = date ? new Date(`${date}T00:00:00`) : new Date();
+    return new Date(base.getFullYear(), base.getMonth(), 1);
+  });
+
+  // Closes on a click outside or Escape.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => !boxRef.current?.contains(e.target) && setOpen(false);
+    const onKey = (e) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const set = (d, tm = time) => onChange(withTime ? `${d}T${tm}` : d);
+
+  const label = value
+    ? new Date(`${date}T00:00:00`).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) +
+      (withTime ? ` · ${time}${t('adm.date.oclock') ? ` ${t('adm.date.oclock')}` : ''}` : '')
+    : emptyLabel ?? t('adm.date.pick');
+
+  const year = viewMonth.getFullYear();
+  const month = viewMonth.getMonth();
+  const offset = (new Date(year, month, 1).getDay() + 6) % 7; // Monday first
+  const days = new Date(year, month + 1, 0).getDate();
+  const cells = [
+    ...Array.from({ length: offset }, () => null),
+    ...Array.from({ length: days }, (_, i) => toISODate(new Date(year, month, i + 1))),
+  ];
+  const today = toISODate(new Date());
+  const [hh, mm] = time.split(':');
+
+  return (
+    <div className="date-field" ref={boxRef}>
+      <button type="button" className={`date-field__btn${value ? '' : ' is-empty'}`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+          <rect x="3" y="5" width="18" height="16" rx="2" />
+          <path d="M3 10h18M8 3v4M16 3v4" />
+        </svg>
+        {label}
+      </button>
+      {/* Keeps the form's own "please fill this in" check. */}
+      <input className="date-field__check" tabIndex={-1} aria-hidden="true" required={required} value={value} onChange={() => {}} />
+
+      {open && (
+        <div className="date-field__pop" role="dialog" aria-label={t('adm.date.pick')}>
+          <div className="inline-cal inline-cal--compact">
+            <div className="inline-cal__head">
+              <button type="button" onClick={() => setViewMonth(new Date(year, month - 1, 1))} aria-label={t('date.prev')}>
+                &#8249;
+              </button>
+              <span aria-live="polite">{viewMonth.toLocaleDateString(locale, { month: 'long', year: 'numeric' })}</span>
+              <button type="button" onClick={() => setViewMonth(new Date(year, month + 1, 1))} aria-label={t('date.next')}>
+                &#8250;
+              </button>
+            </div>
+            <div className="inline-cal__grid">
+              {t('date.weekdays').map((d) => (
+                <span key={d} className="inline-cal__dow">
+                  {d}
+                </span>
+              ))}
+              {cells.map((d, i) =>
+                d ? (
+                  <button
+                    type="button"
+                    key={d}
+                    className={`inline-cal__day${d === date ? ' is-edge' : ''}${d === today ? ' is-today' : ''}`}
+                    disabled={Boolean(minDate) && d < minDate}
+                    aria-pressed={d === date}
+                    onClick={() => {
+                      set(d);
+                      if (!withTime) setOpen(false);
+                    }}
+                  >
+                    <span className="inline-cal__n">{Number(d.slice(8))}</span>
+                  </button>
+                ) : (
+                  <span key={`pad-${i}`} />
+                ),
+              )}
+            </div>
+          </div>
+
+          {withTime && (
+            <div className="date-field__time">
+              <span>{t('adm.date.time')}</span>
+              <select aria-label={t('adm.date.hour')} value={hh} onChange={(e) => set(date || today, `${e.target.value}:${mm}`)}>
+                {HOURS.map((h) => (
+                  <option key={h}>{h}</option>
+                ))}
+              </select>
+              <b>:</b>
+              <select aria-label={t('adm.date.minute')} value={MINUTES.includes(mm) ? mm : '00'} onChange={(e) => set(date || today, `${hh}:${e.target.value}`)}>
+                {MINUTES.map((m) => (
+                  <option key={m}>{m}</option>
+                ))}
+              </select>
+              <span>{t('adm.date.oclock')}</span>
+            </div>
+          )}
+
+          <div className="date-field__foot">
+            <button type="button" className="adm-link" onClick={() => set(today)}>
+              {t('adm.date.today')}
+            </button>
+            {clearable && value && (
+              <button
+                type="button"
+                className="adm-link"
+                onClick={() => {
+                  onChange('');
+                  setOpen(false);
+                }}
+              >
+                {t('adm.date.clear')}
+              </button>
+            )}
+            <button type="button" className="admin__btn admin__btn--primary" onClick={() => setOpen(false)}>
+              {t('adm.date.done')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

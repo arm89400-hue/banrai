@@ -2,7 +2,7 @@
    on the left and the booking card on the right. Lines up with the header. */
 .room-page {
   min-height: 80vh;
-  padding: 112px max(20px, calc((100% - 1110px) / 2)) 96px;
+  padding: 92px max(20px, calc((100% - 1110px) / 2)) 96px;
   background: var(--bg);
   color: var(--text);
 }
@@ -305,7 +305,7 @@ button.room-gallery__tile:hover img {
     padding-bottom: 88px;
   }
   .room-page {
-    padding: 88px 16px 120px;
+    padding: 76px 16px 120px;
   }
   .room-gallery {
     height: 260px;
@@ -372,7 +372,7 @@ button.room-gallery__tile:hover img {
     padding: 0 22px;
     border: none;
     border-radius: 999px;
-    background: hsl(38, 48%, 64%);
+    background: var(--straw);
     color: hsl(150, 38%, 13%);
     font: inherit;
     font-size: 17px;

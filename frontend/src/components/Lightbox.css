@@ -28,7 +28,6 @@
   height: calc(100svh - 110px);
   object-fit: contain;
   filter: drop-shadow(0 24px 40px rgba(0, 0, 0, 0.6));
-  animation: lightbox-in var(--dur) var(--ease-out) both;
 }
 .lightbox__figure figcaption {
   display: flex;
@@ -61,7 +60,7 @@
   background: rgba(255, 255, 255, 0.24);
 }
 .lightbox :focus-visible {
-  outline-color: hsl(38, 48%, 64%);
+  outline-color: var(--straw);
 }
 .lightbox__close {
   position: absolute;

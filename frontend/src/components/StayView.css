@@ -41,10 +41,10 @@
   font-weight: 700;
 }
 .stay-track .is-now::before {
-  background: hsl(38, 48%, 64%);
+  background: var(--straw);
 }
 .stay-track .is-wait::before {
-  background: linear-gradient(90deg, hsl(38, 48%, 64%) 50%, var(--border) 50%);
+  background: linear-gradient(90deg, var(--straw) 50%, var(--border) 50%);
 }
 
 .stay-view__cols {

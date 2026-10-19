@@ -4,14 +4,14 @@
    The header itself ignores clicks so page content beside the capsule stays
    clickable; only the capsule (and the mobile sheet) take pointer events. */
 .navbar {
-  --sun: hsl(38, 48%, 64%);
+  --sun: var(--straw);
   --sun-hover: hsl(38, 48%, 70%);
   --on-dark: rgba(255, 255, 255, 0.8);
 
   position: fixed;
   inset: 0 0 auto;
   z-index: 50;
-  padding: 18px 32px;
+  padding: 8px 32px;
   pointer-events: none;
   transition: padding var(--dur) var(--ease-out);
 }
@@ -21,13 +21,26 @@
 .navbar::before {
   content: '';
   position: absolute;
-  inset: 0 0 -40px;
+  /* A fixed height: the header box is much taller on phones (it holds the
+     closed menu), and the shade must not spill below a short photo. */
+  inset: 0 0 auto;
+  height: 140px;
   background: linear-gradient(to bottom, rgba(8, 18, 10, 0.55), transparent);
   transition: opacity var(--dur) var(--ease-out);
 }
 .navbar--floating::before,
 .navbar--menu-open::before {
   opacity: 0;
+}
+
+/* Top of a page with no photo: the same full-width bar on a dark-green
+   band (where Home has its photo). */
+/* Drawn by ::before at the bar's own height: the header box itself is
+   much taller on phones (it holds the closed menu) and must not paint
+   over the page. */
+.navbar--band::before {
+  height: 74px;
+  background: var(--brand-dark);
 }
 
 .navbar :focus-visible {
@@ -45,7 +58,7 @@
   gap: 20px;
   max-width: 100%;
   margin: 0 auto;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border: 1px solid transparent;
   border-radius: 999px;
   pointer-events: auto;
@@ -208,6 +221,28 @@
   background: var(--white);
   color: var(--brand-dark);
 }
+/* In the bar (not the phone menu card): TH EN as text like the links, the
+   language in use white and underlined. */
+.navbar__actions .navbar__lang:not(.navbar__sheet-lang) {
+  gap: 2px;
+  padding: 0;
+  border: 0;
+}
+.navbar__actions .navbar__lang:not(.navbar__sheet-lang) button {
+  padding: 8px 6px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.navbar__actions .navbar__lang:not(.navbar__sheet-lang) button:hover {
+  color: var(--white);
+}
+.navbar__actions .navbar__lang:not(.navbar__sheet-lang) button[aria-pressed='true'] {
+  background: none;
+  color: var(--white);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
 .navbar__sheet-lang {
   align-self: flex-start;
 }
@@ -239,33 +274,33 @@
 .navbar__account {
   position: relative;
 }
+/* The account reads like the page links beside it: plain text, same size
+   and colour, a person icon in front. */
 .navbar__account-btn {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 10px 3px 3px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 8px 12px;
+  border: 0;
   border-radius: 999px;
   background: none;
-  color: var(--white);
-  transition: background-color var(--dur-fast), border-color var(--dur-fast);
+  color: var(--on-dark);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color var(--dur-fast), color var(--dur-fast);
 }
 .navbar__account-btn:hover,
 .navbar__account-btn[aria-expanded='true'] {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--white);
 }
-.navbar__avatar {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--white);
-  color: var(--brand-dark);
-  font-family: var(--serif);
-  font-size: 15px;
-  font-weight: 700;
+.navbar__person {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
 }
 .navbar__chevron {
   transition: transform var(--dur) var(--ease-out);
@@ -274,13 +309,16 @@
   transform: rotate(180deg);
 }
 
+/* Account menu, the same way as the phone menu: who is signed in (plain
+   small text), the places as rows with an icon and a chevron, log out
+   under a line. */
 .navbar__dropdown {
   position: absolute;
   top: calc(100% + 12px);
   right: 0;
   display: flex;
   flex-direction: column;
-  min-width: 230px;
+  width: 280px;
   padding: 8px;
   background: var(--white);
   border: 1px solid var(--border);
@@ -289,44 +327,73 @@
   transform-origin: top right;
   animation: navbar-pop var(--dur) var(--ease-out) both;
 }
-.navbar__dropdown-email {
+.navbar__dropdown-who {
   padding: 8px 12px 12px;
   margin-bottom: 6px;
   border-bottom: 1px solid var(--border);
-  font-size: 13px;
-  color: var(--text-muted);
+}
+.navbar__dropdown-who > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.navbar__dropdown-who b {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
 }
-.navbar__dropdown-email span {
-  display: block;
-  margin-top: 2px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--brand);
+.navbar__dropdown-who small {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.navbar__menu-icon {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .navbar__dropdown a,
-.navbar__dropdown button {
-  display: block;
+.navbar__dropdown .navbar__dropdown-logout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
   width: 100%;
-  padding: 10px 12px;
-  border: none;
+  padding: 11px 12px;
+  border: 0;
   border-radius: 10px;
   background: none;
   color: var(--text-h);
   font-family: var(--sans);
   font-size: 15px;
+  font-weight: 600;
   text-align: left;
   text-decoration: none;
   transition: background-color var(--dur-fast);
 }
 .navbar__dropdown a:hover,
-.navbar__dropdown button:hover {
+.navbar__dropdown .navbar__dropdown-logout:hover {
   background: var(--bg-alt);
 }
+.navbar__dropdown a .navbar__menu-icon {
+  color: var(--brand);
+}
+.navbar__dropdown a .navbar__chev {
+  margin-left: auto;
+  color: var(--text-muted);
+}
 .navbar__dropdown .navbar__dropdown-logout {
+  margin-top: 6px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 10px 10px;
+  padding-top: 13px;
   color: var(--error);
+  font-weight: 500;
 }
 .navbar__dropdown :focus-visible {
   outline-color: var(--brand);
@@ -389,8 +456,11 @@
 }
 
 @media (max-width: 900px) {
+  .navbar--band::before {
+    height: 68px;
+  }
   .navbar {
-    padding: 12px 14px;
+    padding: 6px 14px;
   }
   .navbar--floating {
     padding: 10px 12px;

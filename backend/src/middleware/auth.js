@@ -65,7 +65,7 @@ export async function requireAuth(req, res, next) {
     const user = rows[0];
 
     if (!user) {
-      return res.status(401).json({ error: 'User not found' });
+      return res.status(401).json({ error: 'User not found', reason: 'SESSION_ENDED' });
     }
     if (isExpired(user)) {
       return res.status(403).json({ error: 'Account expired', reason: 'ACCOUNT_EXPIRED' });
@@ -74,7 +74,7 @@ export async function requireAuth(req, res, next) {
     req.user = publicUser(user);
     next();
   } catch {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    return res.status(401).json({ error: 'Invalid or expired token', reason: 'SESSION_ENDED' });
   }
 }
 

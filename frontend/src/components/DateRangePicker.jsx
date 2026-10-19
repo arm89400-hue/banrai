@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { shift } from '../lib/motion';
 import { useLang } from '../i18n/lang';
 import { formatDayShort, formatStay, nightsBetween } from '../lib/booking';
 import { CHECK_IN_TIME, CHECK_OUT_TIME } from '../lib/site';
@@ -29,9 +30,15 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, bookedNig
     };
   }, [open]);
 
-  function show() {
-    setMode(checkIn && !checkOut ? 'out' : 'in');
-    setOpen(true);
+  function show(e) {
+    const field = e?.currentTarget;
+    shift(
+      () => {
+        setMode(checkIn && !checkOut ? 'out' : 'in');
+        setOpen(true);
+      },
+      { from: field, to: '.date-sheet__panel' }
+    );
   }
 
   // A tap sets the date of the active tab; after check-in, check-out is next.

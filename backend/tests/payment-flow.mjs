@@ -9,6 +9,10 @@
 //    (tests/slipok-mock.mjs) that answers like the real one: good slip, wrong
 //    amount, no QR, slip used twice, SlipOK quota/key problems, bank delay,
 //    two rooms paid with one slip, the balance paid online.
+// 3. Opn phase - the backend is pointed at a pretend Opn
+//    (tests/opn-mock.mjs): QR made for the exact amount, the guest waits,
+//    the payment is confirmed when Opn says it is paid (asked by the page,
+//    or Opn's webhook) - no slip.
 // It makes its own test accounts and bookings (dates in 2029), deletes them
 // and their slip images afterwards, and puts the normal backend back.
 // Prints PASS/FAIL per check; exits 1 if anything failed.
@@ -21,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const API = 'http://localhost:4001';
 const MOCK = 'http://localhost:4010';
+const OPN = 'http://localhost:4011';
 const STAMP = Date.now().toString(36);
 const GUEST = `pay-test-${STAMP}@example.test`;
 const OTHER = `pay-test-${STAMP}-other@example.test`;
@@ -54,18 +59,20 @@ async function waitFor(url) {
   throw new Error(`${url} did not come up`);
 }
 
-async function startBackend(slipok) {
-  sh(`${COMPOSE} up -d slipok-mock backend`, {
+async function startBackend(slipok, opn = false) {
+  sh(`${COMPOSE} up -d slipok-mock opn-mock backend`, {
     TEST_ADMIN_EMAILS: [realAdmins, ADMIN].filter(Boolean).join(','),
     TEST_SLIPOK_KEY: slipok ? 'test-key' : '',
     TEST_SLIPOK_BRANCH: slipok ? 'test-branch' : '',
+    TEST_OPN_KEY: opn ? 'skey_test_mock' : '',
   });
   await waitFor(`${API}/health`);
   await waitFor(`${MOCK}/__calls`);
+  await waitFor(`${OPN}/__charges`);
 }
 
 function restoreBackend() {
-  sh(`${COMPOSE} rm -sf slipok-mock`, { TEST_ADMIN_EMAILS: realAdmins });
+  sh(`${COMPOSE} rm -sf slipok-mock opn-mock`, { TEST_ADMIN_EMAILS: realAdmins });
   sh('docker compose up -d backend');
 }
 
@@ -210,6 +217,29 @@ async function manualPhase(g, other, admin) {
   check('PassPay balance -> paid in full', r.status === 200 && r.data.booking.balance_method === 'online', show(r));
   r = await call('POST', `/api/bookings/${m6.id}/pass-pay?kind=balance`, { token: g });
   check('pay balance twice -> 409 BALANCE_NOT_DUE', r.status === 409 && r.data.reason === 'BALANCE_NOT_DUE', show(r));
+
+  // M7: the whole price at once instead of the deposit.
+  const [m7] = await book(g, 1);
+  check('new booking can be paid in full (full_due = total)', money(m7.full_due) === money(m7.total), `${m7.full_due} / ${m7.total}`);
+  r = await slip(g, m7.id, 'full');
+  check('full-price slip without SlipOK -> waits for owner', r.status === 202 && r.data.booking?.slip_status === 'review', show(r));
+  row = await adminRow(admin, m7.id);
+  check('admin sees the slip, expected = whole price', row.slip_status === 'review' && money(row.slip_expected) === money(m7.total));
+  r = await call('POST', `/api/admin/slips/${row.slip_id}/approve`, { token: admin });
+  [m7.after] = await mine(g, [m7.id]);
+  check('approve -> confirmed and nothing left to pay', r.status === 200 && m7.after.status === 'confirmed' && m7.after.stay_username && m7.after.balance_method === 'online' && !m7.after.balance_due);
+
+  const [m8] = await book(g, 1);
+  await slip(g, m8.id, 'full');
+  r = await call('PATCH', `/api/admin/bookings/${m8.id}`, { token: admin, body: { status: 'confirmed' } });
+  [m8.after] = await mine(g, [m8.id]);
+  check('admin confirms a booking with a full-price slip -> rest paid too', r.status === 200 && m8.after.balance_paid_at && !m8.after.balance_due, show(r));
+
+  const [m9] = await book(g, 1);
+  r = await call('POST', `/api/bookings/${m9.id}/pass-pay?kind=full`, { token: g });
+  check('PassPay full -> confirmed and paid in full', r.status === 200 && r.data.booking.status === 'confirmed' && r.data.booking.balance_method === 'online', show(r));
+  r = await call('POST', `/api/bookings/${m9.id}/pass-pay?kind=full`, { token: g });
+  check('pay in full twice -> 409 NOT_PENDING', r.status === 409 && r.data.reason === 'NOT_PENDING', show(r));
 }
 
 async function slipokPhase(g, admin) {
@@ -287,6 +317,89 @@ async function slipokPhase(g, admin) {
   await mockNext({});
   r = await slip(g, group[1].id, 'balance');
   check('group balance slip -> both rooms paid', r.status === 200 && r.data.bookings.every((b) => b.balance_method === 'online'), show(r));
+
+  // A10: the whole price at once, checked by SlipOK.
+  const [f1] = await book(g, 1);
+  await mockNext({ amount: Number(f1.deposit) });
+  r = await slip(g, f1.id, 'full');
+  check('full-price slip for only the deposit -> 422 SLIP_AMOUNT', r.status === 422 && r.data.reason === 'SLIP_AMOUNT', show(r));
+  await mockNext({});
+  r = await slip(g, f1.id, 'full');
+  check(
+    'full-price slip -> confirmed and paid in full at once',
+    r.status === 200 && r.data.booking.status === 'confirmed' && r.data.booking.stay_username && r.data.booking.balance_method === 'online' && !r.data.booking.balance_due,
+    show(r)
+  );
+  const fullCall = (await (await fetch(`${MOCK}/__calls`)).json()).last;
+  check('SlipOK was asked for the whole price', money(fullCall.amount) === money(f1.total), JSON.stringify(fullCall));
+  const fullGroup = await book(g, 2);
+  await mockNext({});
+  r = await slip(g, fullGroup[0].id, 'full');
+  check('2 rooms paid in full with one slip -> both done', r.status === 200 && r.data.bookings.every((b) => b.status === 'confirmed' && b.balance_method === 'online'), show(r));
+}
+
+async function opnPhase(g, other, admin) {
+  console.log('\n-- Opn QR, no slip (pretend Opn) --');
+  const opnPost = (path) => fetch(OPN + path, { method: 'POST' });
+  const stats = await call('GET', '/api/admin/stats', { token: admin });
+  check('admin sees payment setup: Opn test', stats.data?.payment_setup?.opn === 'test', JSON.stringify(stats.data?.payment_setup));
+
+  // O1: deposit QR, guest waits, paid -> confirmed.
+  const [o1] = await book(g, 1);
+  let r = await call('POST', `/api/pay/${o1.id}/qr?kind=deposit`, { token: g });
+  check('QR made for the deposit', r.status === 201 && r.data.charge?.startsWith('chrg_') && r.data.qr && money(r.data.amount) === money(o1.deposit), show(r));
+  const c1 = r.data.charge;
+  const made = (await (await fetch(`${OPN}/__charges`)).json()).charges.find((c) => c.id === c1);
+  check('Opn was asked for exactly the deposit', made && made.amount === money(o1.deposit), JSON.stringify(made?.amount));
+  r = await call('POST', `/api/pay/${o1.id}/qr?kind=deposit`, { token: g });
+  check('asking again shows the same QR (no second charge)', r.status === 200 && r.data.charge === c1, show(r));
+  r = await call('GET', `/api/pay/charges/${c1}`, { token: g });
+  check('not paid yet -> pending, booking still pending', r.status === 200 && r.data.status === 'pending' && (await mine(g, [o1.id]))[0].status === 'pending', show(r));
+  r = await call('GET', `/api/pay/charges/${c1}`, { token: other });
+  check("another member can't see this payment (404)", r.status === 404, show(r));
+  await opnPost(`/__pay/${c1}`);
+  r = await call('GET', `/api/pay/charges/${c1}`, { token: g });
+  check('paid -> successful, booking confirmed with room login', r.status === 200 && r.data.status === 'successful' && r.data.booking?.status === 'confirmed' && r.data.booking?.stay_username, show(r));
+  r = await call('GET', `/api/pay/charges/${c1}`, { token: g });
+  const [o1after] = await mine(g, [o1.id]);
+  check('asking again does not pay twice; the rest still due', r.data.status === 'successful' && Number(o1after.balance_due) > 0 && !o1after.balance_paid_at);
+  r = await call('POST', `/api/pay/${o1.id}/qr?kind=deposit`, { token: g });
+  check('no deposit QR once paid -> 409 NOT_PENDING', r.status === 409 && r.data.reason === 'NOT_PENDING', show(r));
+
+  // O2: pay in full through the webhook (the page never asks).
+  const [o2] = await book(g, 1);
+  r = await call('POST', `/api/pay/${o2.id}/qr?kind=full`, { token: g });
+  check('QR made for the whole price', r.status === 201 && money(r.data.amount) === money(o2.total), show(r));
+  const c2 = r.data.charge;
+  r = await call('POST', '/api/pay/opn-webhook', { body: { key: 'charge.complete', data: { id: c2 } } });
+  let [o2after] = await mine(g, [o2.id]);
+  check('webhook before paying changes nothing', r.status === 200 && o2after.status === 'pending');
+  await opnPost(`/__pay/${c2}`);
+  r = await call('POST', '/api/pay/opn-webhook', { body: { key: 'charge.complete', data: { id: c2 } } });
+  [o2after] = await mine(g, [o2.id]);
+  check('webhook after paying -> confirmed and paid in full', r.status === 200 && o2after.status === 'confirmed' && o2after.balance_method === 'online' && !o2after.balance_due);
+  r = await call('POST', '/api/pay/opn-webhook', { body: { key: 'charge.complete', data: { id: 'chrg_made_up' } } });
+  check('webhook for an unknown charge is ignored', r.status === 200);
+
+  // O3: balance QR; expired QR; two rooms.
+  r = await call('POST', `/api/pay/${o1.id}/qr?kind=balance`, { token: g });
+  const c3 = r.data.charge;
+  check('QR for the rest = other half', r.status === 201 && money(r.data.amount) === money(o1.total) - money(o1.deposit), show(r));
+  await opnPost(`/__expire/${c3}`);
+  r = await call('GET', `/api/pay/charges/${c3}`, { token: g });
+  check('expired QR -> expired, nothing paid', r.data.status === 'expired' && !(await mine(g, [o1.id]))[0].balance_paid_at, show(r));
+  r = await call('POST', `/api/pay/${o1.id}/qr?kind=balance`, { token: g });
+  check('after it expires a new QR is made', r.status === 201 && r.data.charge !== c3, show(r));
+  await opnPost(`/__pay/${r.data.charge}`);
+  r = await call('GET', `/api/pay/charges/${r.data.charge}`, { token: g });
+  check('rest paid -> paid in full', r.data.status === 'successful' && r.data.booking?.balance_method === 'online', show(r));
+
+  const group = await book(g, 2);
+  r = await call('POST', `/api/pay/${group[1].id}/qr?kind=deposit`, { token: g });
+  check('2 rooms: one QR for both deposits', r.status === 201 && money(r.data.amount) === group.reduce((n, b) => n + money(b.deposit), 0), show(r));
+  await opnPost(`/__pay/${r.data.charge}`);
+  r = await call('GET', `/api/pay/charges/${r.data.charge}`, { token: g });
+  check('paid -> both rooms confirmed', r.data.status === 'successful' && r.data.bookings.every((b) => b.status === 'confirmed'), show(r));
 }
 
 function cleanup() {
@@ -319,6 +432,10 @@ try {
   console.log('\nRestarting the backend with the pretend SlipOK...');
   await startBackend(true);
   await slipokPhase(g, admin);
+
+  console.log('\nRestarting the backend with the pretend Opn...');
+  await startBackend(false, true);
+  await opnPhase(g, other, admin);
 } catch (err) {
   failed = true;
   console.error('\nTest stopped:', err.message);

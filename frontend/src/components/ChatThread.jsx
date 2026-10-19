@@ -5,8 +5,9 @@ import './ChatThread.css';
 // (ChatWidget.jsx) and the admin's Chat section (AdminChat.jsx).
 // `mine(message)` says which messages sit on the right; `onSend(text)`
 // resolves once the message is stored. `labels` holds the visible strings:
-// { empty, placeholder, send }.
-export default function ChatThread({ messages, mine, onSend, labels, locale }) {
+// { empty, placeholder, send }. `starters` (optional): ready questions shown
+// while the conversation is empty; tapping one puts it in the box to edit.
+export default function ChatThread({ messages, mine, onSend, labels, locale, starters }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
@@ -48,6 +49,15 @@ export default function ChatThread({ messages, mine, onSend, labels, locale }) {
     <div className="chat-thread">
       <div className="chat-thread__list" ref={listRef} aria-live="polite">
         {count === 0 && <p className="chat-thread__empty">{labels.empty}</p>}
+        {count === 0 && starters?.length > 0 && (
+          <div className="chat-thread__starters">
+            {starters.map((q) => (
+              <button key={q} type="button" onClick={() => setText(q)}>
+                {q}
+              </button>
+            ))}
+          </div>
+        )}
         {messages.map((m) => (
           <div key={m.id} className={`chat-msg${mine(m) ? ' chat-msg--mine' : ''}`}>
             <p>{m.body}</p>

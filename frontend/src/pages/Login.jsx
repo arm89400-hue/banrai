@@ -13,11 +13,12 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 // Where to land after signing in: admins go to their dashboard, room
 // accounts to their room dashboard, and everyone else back to where they
 // were heading (`next`, e.g. the booking they were in the middle of) or to
-// their bookings.
+// their room dashboard (which sends them on to their bookings when they
+// have no paid stay yet).
 function homeFor(user, next) {
   if (user?.is_admin) return '/admin';
   if (user?.is_stay) return '/stay';
-  return next || '/booking';
+  return next || '/stay';
 }
 
 // Server `reason` codes -> translated messages.
@@ -49,6 +50,7 @@ export default function Login() {
   const googleButtonRef = useRef(null);
 
   const expired = params.get('expired') === '1';
+  const sessionEnded = params.get('session') === '1';
 
   // Renders Google's real "Sign in with Google" button once the GIS script
   // and a Client ID are both available, and wires its callback to our
@@ -153,6 +155,7 @@ export default function Login() {
             <h1>{mode === 'login' ? t('login.title') : t('login.createTitle')}</h1>
           )}
           {expired && !error && <p role="alert">{t('login.errExpired')}</p>}
+          {sessionEnded && !error && <p role="alert">{t('login.sessionEnded')}</p>}
 
           {GOOGLE_CLIENT_ID ? (
             <div ref={googleButtonRef} className="google-button" />

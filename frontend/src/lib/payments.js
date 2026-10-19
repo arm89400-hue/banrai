@@ -4,6 +4,7 @@
 
 // The server's payment options -> PaymentPanel props.
 export const payOptions = (data) => ({
+  qrPay: data?.qr_pay ?? null,
   testPay: Boolean(data?.test_pay),
   slipPay: Boolean(data?.slip_pay),
   slipCheck: data?.slip_check ?? 'manual',
@@ -78,3 +79,29 @@ export function groupStays(bookings) {
 // Whether a stay still needs something from the guest (deposit or the rest).
 export const stayNeedsAction = (stay) =>
   stay.status === 'pending' || stay.bookings.some((b) => owes(b, 'balance'));
+
+// What the sample QR holds: plain text, so a bank app that scans it finds
+// nothing to pay.
+export const SAMPLE_QR_TEXT = 'Baanrai 344 - SAMPLE QR, NOT FOR PAYMENT / ตัวอย่าง ห้ามโอน';
+
+// Slip errors the server explains with a reason code.
+const SLIP_ERRORS = new Set([
+  'SLIP_UNREADABLE',
+  'SLIP_NOT_FOUND',
+  'SLIP_PENDING',
+  'SLIP_DUPLICATE',
+  'SLIP_AMOUNT',
+  'SLIP_RECEIVER',
+  'SLIP_OLD',
+  'SLIP_SERVICE',
+  'SLIP_NOT_CONFIGURED',
+  'SLIP_TOO_MANY',
+  'QR_SERVICE',
+  'QR_NOT_CONFIGURED',
+]);
+export const errorKey = (reason) =>
+  reason === 'NOT_PENDING' || reason === 'BALANCE_NOT_DUE'
+    ? 'pay.errNotPending'
+    : SLIP_ERRORS.has(reason)
+      ? `pay.err.${reason}`
+      : 'pay.errGeneric';

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api, mediaUrl } from '../lib/api';
 import { shrinkImage } from '../lib/imageResize';
+import { useLang } from '../i18n/lang';
 
 export const MAX_PHOTOS = 6;
 
@@ -22,6 +23,7 @@ export default function AdminPhotos({ kind, itemId, photos, onChange, pending, o
 let nextKey = 0;
 
 function PendingPhotos({ pending, onChange }) {
+  const { t } = useLang();
   const [note, setNote] = useState(null);
   const free = MAX_PHOTOS - pending.length;
 
@@ -29,7 +31,7 @@ function PendingPhotos({ pending, onChange }) {
     const files = [...fileList].filter(isImage);
     if (!files.length) return;
     const skipped = files.length - free;
-    setNote(skipped > 0 ? `Only ${free} more fit (max ${MAX_PHOTOS}), so ${skipped} skipped.` : null);
+    setNote(skipped > 0 ? t('adm.photos.skipped', { free, max: MAX_PHOTOS, skipped }) : null);
     const added = files.slice(0, free).map((file) => ({ key: `p${nextKey++}`, file, url: URL.createObjectURL(file) }));
     onChange([...pending, ...added]);
   }
@@ -51,13 +53,14 @@ function PendingPhotos({ pending, onChange }) {
       onAdd={add}
       onRemove={remove}
       onMove={move}
-      hint="Photos upload when you press Save."
+      hint={t('adm.photos.uploadOnSave')}
       note={note}
     />
   );
 }
 
 function SavedPhotos({ kind, itemId, photos, onChange }) {
+  const { t } = useLang();
   const [busy, setBusy] = useState(null); // status text while working
   const [error, setError] = useState(null);
   const [note, setNote] = useState(null);
@@ -68,12 +71,12 @@ function SavedPhotos({ kind, itemId, photos, onChange }) {
     if (!files.length) return;
     setError(null);
     const skipped = files.length - free;
-    setNote(skipped > 0 ? `Only ${free} more fit (max ${MAX_PHOTOS}), so ${skipped} skipped.` : null);
+    setNote(skipped > 0 ? t('adm.photos.skipped', { free, max: MAX_PHOTOS, skipped }) : null);
     const batch = files.slice(0, free);
     try {
       // One at a time, in the order picked, so the limit and order hold.
       for (let i = 0; i < batch.length; i++) {
-        setBusy(`Uploading ${i + 1} of ${batch.length}…`);
+        setBusy(t('adm.photos.uploading', { n: i + 1, total: batch.length }));
         const body = await shrinkImage(batch[i]);
         const data = await api(`/api/admin/${kind}/${itemId}/photos`, {
           method: 'POST',
@@ -83,7 +86,7 @@ function SavedPhotos({ kind, itemId, photos, onChange }) {
         onChange(data.photos);
       }
     } catch (err) {
-      setError(err.status === 413 ? 'That photo is too large (max 8 MB).' : err.message);
+      setError(err.status === 413 ? t('adm.photos.tooBig') : err.message);
     } finally {
       setBusy(null);
     }
@@ -91,9 +94,9 @@ function SavedPhotos({ kind, itemId, photos, onChange }) {
 
   async function remove(index) {
     const photo = photos[index];
-    if (!window.confirm('Delete this photo? This can’t be undone.')) return;
+    if (!window.confirm(t('adm.photos.askDelete'))) return;
     setError(null);
-    setBusy('Deleting…');
+    setBusy(t('adm.del.deleting'));
     try {
       const data = await api(`/api/admin/photos/${photo.id}`, { method: 'DELETE' });
       onChange(data.photos);
@@ -108,7 +111,7 @@ function SavedPhotos({ kind, itemId, photos, onChange }) {
     const ids = photos.map((p) => p.id);
     [ids[index], ids[index + step]] = [ids[index + step], ids[index]];
     setError(null);
-    setBusy('Saving order…');
+    setBusy(t('adm.photos.savingOrder'));
     try {
       const data = await api(`/api/admin/${kind}/${itemId}/photos/order`, {
         method: 'PUT',
@@ -137,33 +140,34 @@ function SavedPhotos({ kind, itemId, photos, onChange }) {
 
 // The 6-slot grid both modes share: tiles with ← → ✕, then an "Add" tile.
 function PhotoGrid({ items, onAdd, onRemove, onMove, busy = null, hint = null, note = null, error = null }) {
+  const { t } = useLang();
   const free = MAX_PHOTOS - items.length;
 
   return (
-    <section className="admin-photos" aria-label="Photos">
+    <section className="admin-photos" aria-label={t('adm.list.photos')}>
       <header className="admin-photos__head">
         <h3>
-          Photos <span className="admin-photos__count">{items.length} / {MAX_PHOTOS}</span>
+          {t('adm.list.photos')} <span className="admin-photos__count">{items.length} / {MAX_PHOTOS}</span>
         </h3>
       </header>
 
       <ol className="admin-photos__grid">
         {items.map((item, i) => (
           <li key={item.key} className="admin-photos__tile">
-            <img src={item.src} alt={i === 0 ? 'Cover' : `Number ${i + 1}`} loading="lazy" />
-            {i === 0 && <span className="admin-photos__cover">Cover</span>}
+            <img src={item.src} alt={i === 0 ? t('adm.photos.cover') : t('adm.photos.number', { n: i + 1 })} loading="lazy" />
+            {i === 0 && <span className="admin-photos__cover">{t('adm.photos.cover')}</span>}
             <div className="admin-photos__tools">
               {i > 0 && (
-                <button type="button" onClick={() => onMove(i, -1)} disabled={Boolean(busy)} aria-label={`Move photo ${i + 1} left`}>
+                <button type="button" onClick={() => onMove(i, -1)} disabled={Boolean(busy)} aria-label={t('adm.photos.left', { n: i + 1 })}>
                   ←
                 </button>
               )}
               {i < items.length - 1 && (
-                <button type="button" onClick={() => onMove(i, 1)} disabled={Boolean(busy)} aria-label={`Move photo ${i + 1} right`}>
+                <button type="button" onClick={() => onMove(i, 1)} disabled={Boolean(busy)} aria-label={t('adm.photos.right', { n: i + 1 })}>
                   →
                 </button>
               )}
-              <button type="button" className="is-danger" onClick={() => onRemove(i)} disabled={Boolean(busy)} aria-label={`Delete photo ${i + 1}`}>
+              <button type="button" className="is-danger" onClick={() => onRemove(i)} disabled={Boolean(busy)} aria-label={t('adm.photos.delete', { n: i + 1 })}>
                 ✕
               </button>
             </div>
@@ -183,7 +187,7 @@ function PhotoGrid({ items, onAdd, onRemove, onMove, busy = null, hint = null, n
                 }}
               />
               <span aria-hidden="true">+</span>
-              {busy ?? `Add photo${free > 1 ? 's' : ''} (${free} left)`}
+              {busy ?? t('adm.photos.add', { free })}
             </label>
           </li>
         )}
@@ -192,7 +196,7 @@ function PhotoGrid({ items, onAdd, onRemove, onMove, busy = null, hint = null, n
         ))}
       </ol>
 
-      {free === 0 && <p className="admin__muted">This has the maximum of {MAX_PHOTOS} photos. Delete one to add another.</p>}
+      {free === 0 && <p className="admin__muted">{t('adm.photos.full', { max: MAX_PHOTOS })}</p>}
       {busy && free === 0 && <p className="admin__muted">{busy}</p>}
       {hint && items.length > 0 && <p className="admin__muted">{hint}</p>}
       {note && <p className="admin__muted">{note}</p>}

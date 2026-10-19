@@ -39,7 +39,7 @@ adminRouter.get(
         (SELECT count(DISTINCT x.kind || x.booking_ids::text) FROM slip_payments x
           WHERE x.status = 'review' AND EXISTS (
             SELECT 1 FROM bookings y WHERE y.id = ANY(x.booking_ids)
-              AND CASE WHEN x.kind = 'deposit' THEN y.status = 'pending'
+              AND CASE WHEN x.kind <> 'balance' THEN y.status = 'pending'
                        ELSE y.status = 'confirmed' AND y.balance_paid_at IS NULL END))::int AS slips_to_review,
         (SELECT coalesce(sum(coalesce(b.total,
                    r.price * greatest(1, extract(day FROM b.booked_until - b.booked_for)))), 0)
@@ -81,7 +81,7 @@ adminRouter.get(
          SELECT x.id, x.status, x.reason, x.amount, x.expected, x.trans_ref, x.slip_file,
                 cardinality(x.booking_ids) AS rooms, count(*) OVER ()::int AS slips
          FROM slip_payments x
-         WHERE b.id = ANY(x.booking_ids) AND x.kind = 'deposit'
+         WHERE b.id = ANY(x.booking_ids) AND x.kind IN ('deposit', 'full')
          ORDER BY (x.status = 'verified') DESC, (x.status = 'review') DESC, x.created_at DESC
          LIMIT 1
        ) sp ON true
@@ -144,13 +144,21 @@ adminRouter.patch(
       );
 
       // Slips waiting for a manual check follow the booking: confirming it
-      // approves them, cancelling it turns them down.
+      // approves them, cancelling it turns them down. An approved slip for
+      // the whole price also marks the other half paid.
       if (status !== 'pending') {
-        await client.query(
+        const closed = await client.query(
           `UPDATE slip_payments SET status = $2, reason = $3, reviewed_at = now()
-           WHERE $1 = ANY(booking_ids) AND kind = 'deposit' AND status = 'review'`,
+           WHERE $1 = ANY(booking_ids) AND kind IN ('deposit', 'full') AND status = 'review'
+           RETURNING kind`,
           [req.params.id, status === 'confirmed' ? 'verified' : 'rejected', status === 'confirmed' ? 'MANUAL' : 'BOOKING_CANCELLED']
         );
+        if (status === 'confirmed' && closed.rows.some((s) => s.kind === 'full')) {
+          await client.query(
+            "UPDATE bookings SET balance_paid_at = now(), balance_method = 'online' WHERE id = $1 AND balance_paid_at IS NULL",
+            [req.params.id]
+          );
+        }
       }
 
       let stay = null;
@@ -608,7 +616,8 @@ adminRouter.post(
       );
       await client.query(
         `UPDATE slip_payments SET status = 'rejected', reason = 'SUPERSEDED', reviewed_at = now()
-         WHERE id <> $1 AND status = 'review' AND kind = $2 AND booking_ids && $3::int[]`,
+         WHERE id <> $1 AND status = 'review' AND booking_ids && $3::int[]
+           AND (kind = $2 OR ($2 <> 'balance' AND kind <> 'balance'))`,
         [slip.id, slip.kind, ids]
       );
       await client.query('COMMIT');
