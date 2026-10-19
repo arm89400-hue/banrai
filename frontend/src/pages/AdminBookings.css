@@ -1143,6 +1143,24 @@
   }
 }
 
+/* A phone number on a computer: plain text to read, not a button. */
+.adm-phone-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-h);
+  white-space: nowrap;
+  user-select: all;
+}
+.adm-phone-text svg {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
 /* ======================================================================
    Overview: four figures, the stay calendar, what needs doing.
    ====================================================================== */

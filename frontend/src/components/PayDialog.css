@@ -120,6 +120,48 @@
   color: var(--brand-dark);
   font-variant-numeric: tabular-nums;
 }
+/* What the amount pays for, and (several rooms) each room's price. */
+.pay-dialog__for {
+  margin: -2px 0 10px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.pay-dialog__rooms {
+  margin: 0 16px 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg);
+  text-align: left;
+  font-size: 14px;
+}
+.pay-dialog__rooms > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+}
+.pay-dialog__rooms dt {
+  font-weight: 600;
+  color: var(--text-h);
+}
+.pay-dialog__rooms dt small {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.pay-dialog__rooms dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.pay-dialog__rooms .pay-dialog__rooms-total {
+  margin-top: 4px;
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+}
+.pay-dialog__rooms-total dt,
+.pay-dialog__rooms-total dd {
+  font-weight: 700;
+}
 .pay-dialog__saveqr {
   display: flex;
   align-items: center;

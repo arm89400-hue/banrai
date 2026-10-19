@@ -55,7 +55,8 @@ export default function PayDialog({ bookings, pay, onPaid }) {
   });
 
   const code = stay ? payCode(stay.lead) : '';
-  const rooms = (stay?.bookings ?? []).map((b) => roomNames(b.room_name, lang).title).join(', ');
+  const liveRooms = (stay?.bookings ?? []).filter((b) => b.status !== 'cancelled');
+  const rooms = liveRooms.map((b) => roomNames(b.room_name, lang).title).join(', ');
   const nights = stay ? nightsBetween(stay.checkIn, stay.checkOut) : 0;
   const sub = `${code} · ${rooms} · ${t('pay.dlgNights', { n: nights })}`;
 
@@ -160,6 +161,33 @@ export default function PayDialog({ bookings, pay, onPaid }) {
                 {sample && <span className="pay-dialog__stamp">{t('pay.sampleStamp')}</span>}
               </div>
               <p className="pay-dialog__amount">{formatBaht(amount)}</p>
+              <p className="pay-dialog__for">
+                {kind === 'full'
+                  ? t('pay.forFull', { n: liveRooms.length })
+                  : t('pay.forDeposit', { n: liveRooms.length, total: formatBaht(full) })}
+              </p>
+              {/* More than one room: what each costs, so the one QR amount
+                  is easy to check against the booking. */}
+              {liveRooms.length > 1 && (
+                <dl className="pay-dialog__rooms">
+                  {liveRooms.map((b) => (
+                    <div key={b.id}>
+                      <dt>
+                        {roomNames(b.room_name, lang).title}
+                        <small>
+                          {' '}
+                          · {t('sum.guestCount', { n: b.guests })} · {t('pay.dlgNights', { n: nights })}
+                        </small>
+                      </dt>
+                      <dd className="num">{formatBaht(Number(b.total))}</dd>
+                    </div>
+                  ))}
+                  <div className="pay-dialog__rooms-total">
+                    <dt>{t('pay.roomsTotal', { n: liveRooms.length })}</dt>
+                    <dd className="num">{formatBaht(full)}</dd>
+                  </div>
+                </dl>
+              )}
               {/* On a phone the QR can't be scanned from its own screen: save
                   it, then pick it from the photos in the bank app. */}
               {qrShown && !sample && !qrGone && (
@@ -175,7 +203,7 @@ export default function PayDialog({ bookings, pay, onPaid }) {
             {full > deposit && (
               <div className="pay-dialog__switch" role="radiogroup" aria-label={t('pay.chooseLabel')}>
                 {[
-                  [false, t('pay.optDeposit')],
+                  [false, `${t('pay.optDeposit')} ${formatBaht(deposit)}`],
                   [true, `${t('pay.optFull')} ${formatBaht(full)}`],
                 ].map(([value, label]) => (
                   <button

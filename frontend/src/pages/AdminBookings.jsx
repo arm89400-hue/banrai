@@ -110,11 +110,35 @@ function useBookingActions(reload, setError, t) {
   };
 }
 
+// A guest's phone number. On a phone (touch screen) it is a button that
+// starts the call; on a computer, which can't call, it is just the number
+// to read and dial - no button that does nothing.
+const CAN_CALL = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+
+function Phone({ phone, label, className = 'admin__btn' }) {
+  const shown = formatThaiPhone(phone);
+  if (CAN_CALL) {
+    return (
+      <a className={`${className} num`} href={`tel:${phone}`} onClick={(e) => e.stopPropagation()}>
+        {label ? `${label} ${shown}` : shown}
+      </a>
+    );
+  }
+  return (
+    <span className="adm-phone-text num" title={shown}>
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+        <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z" />
+      </svg>
+      {shown}
+    </span>
+  );
+}
+
 // The one next step for a booking (or null): look at a slip, call about
 // the deposit, or take the rest of the price at the farm.
 function nextStep(g, actions, today, t, open) {
   if (g.depositReview || g.balanceReview) return { label: t('adm.bk.step.checkSlip'), primary: true, run: open };
-  if (g.isRoom && g.status === 'pending' && g.lead.guest_phone) return { label: t('adm.bk.step.call'), href: `tel:${g.lead.guest_phone}` };
+  if (g.isRoom && g.status === 'pending' && g.lead.guest_phone) return { phone: g.lead.guest_phone, label: t('adm.bk.step.call') };
   if (g.restDue > 0 && g.checkOut >= today) return { label: t('adm.act.paidAtFarm'), primary: true, run: () => actions.paidAtFarm(g) };
   return null;
 }
@@ -122,11 +146,8 @@ function nextStep(g, actions, today, t, open) {
 function StepButton({ step }) {
   if (!step) return null;
   const cls = `admin__btn${step.primary ? ' admin__btn--primary' : ''}`;
-  return step.href ? (
-    <a className={cls} href={step.href} onClick={(e) => e.stopPropagation()}>
-      {step.label}
-    </a>
-  ) : (
+  if (step.phone) return <Phone phone={step.phone} label={step.label} className={cls} />;
+  return (
     <button
       type="button"
       className={cls}
@@ -360,9 +381,7 @@ export function Today() {
                   </button>
                 )}
                 {!slip && g.status === 'pending' && g.lead.guest_phone && (
-                  <a className="admin__btn num" href={`tel:${g.lead.guest_phone}`}>
-                    {t('adm.dash.contact', { phone: formatThaiPhone(g.lead.guest_phone) })}
-                  </a>
+                  <Phone phone={g.lead.guest_phone} label={t('adm.bk.step.call')} />
                 )}
                 {!slip && g.status === 'confirmed' && (
                   <button type="button" className="admin__btn admin__btn--primary" onClick={() => actions.paidAtFarm(g)}>
@@ -624,9 +643,7 @@ function BookingPanel({ g, actions, today, onClose, onEditPrice, onDelete }) {
       {(b.guest_phone || b.guest_line || b.guest_email || b.user_email) && (
         <div className="abk-contact">
           {b.guest_phone && (
-            <a className="admin__btn adm-btn-lg" href={`tel:${b.guest_phone}`}>
-              {t('adm.act.call', { phone: b.guest_phone })}
-            </a>
+            <Phone phone={b.guest_phone} label={t('adm.bk.step.call')} className="admin__btn adm-btn-lg" />
           )}
           {b.guest_line && <span className="abk-chip">LINE {b.guest_line}</span>}
           {(b.guest_email || b.user_email) && <span className="abk-chip">{b.guest_email || b.user_email}</span>}

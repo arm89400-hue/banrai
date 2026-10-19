@@ -704,8 +704,6 @@ export default function BookFlow() {
                 </div>
               </dl>
 
-              <p className="flow__hint">{t('flow.depositInfo')}</p>
-
               <label className="flow__accept">
                 <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
                 <span>{t('flow.accept')}</span>
