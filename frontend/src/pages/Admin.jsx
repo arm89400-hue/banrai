@@ -9,7 +9,7 @@ import { ADMIN_SECTIONS, OLD_SECTIONS, adminPath } from '../lib/adminSections';
 import { useLang } from '../i18n/lang';
 import AdminIcon from '../components/AdminIcons';
 import { Bookings, Today } from './AdminBookings';
-import AdminChat from './AdminChat';
+import AdminChat, { ChatFab } from './AdminChat';
 import AdminPromotions from './AdminPromotions';
 import AdminAnnouncements from './AdminAnnouncements';
 import AdminContact from './AdminContact';
@@ -187,6 +187,7 @@ export default function Admin() {
           {panel === 'users' && <Users />}
           {panel === 'log' && <ActivityLog />}
         </div>
+        {panel !== 'chat' && <ChatFab />}
       </section>
     </div>
   );

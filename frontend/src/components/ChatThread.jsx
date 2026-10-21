@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import './ChatThread.css';
 
-export default function ChatThread({ messages, mine, onSend, labels, locale, starters }) {
+export default function ChatThread({ messages, mine, onSend, labels, locale, starters, quick }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
@@ -59,6 +59,15 @@ export default function ChatThread({ messages, mine, onSend, labels, locale, sta
       </div>
 
       {error && <p className="chat-thread__error" role="alert">{error}</p>}
+      {quick?.length > 0 && (
+        <div className="chat-thread__quick">
+          {quick.map((q) => (
+            <button key={q.label} type="button" onClick={() => setText(q.text)}>
+              {q.label}
+            </button>
+          ))}
+        </div>
+      )}
       <form className="chat-thread__form" onSubmit={handleSubmit}>
         <textarea
           rows={1}

@@ -784,7 +784,8 @@ adminRouter.get(
   '/chats',
   wrap(async (_req, res) => {
     const { rows } = await pool.query(
-      `SELECT u.id AS user_id, u.email, u.stay_booking_id, b.guest_name, r.name AS room_name,
+      `SELECT u.id AS user_id, u.email, u.stay_booking_id, b.guest_name, b.guest_phone,
+              b.booked_for, b.booked_until, r.name AS room_name,
               last.body AS last_body, last.from_admin AS last_from_admin, last.created_at AS last_at,
               (SELECT count(*) FROM chat_messages m
                 WHERE m.user_id = u.id AND NOT m.from_admin AND m.read_at IS NULL)::int AS unread
