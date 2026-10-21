@@ -84,7 +84,7 @@ function useThread(id, onSent) {
     const load = () =>
       api(`/api/admin/chats/${id}`)
         .then((data) => {
-          if (!cancelled) setMessages(data.messages);
+          if (!cancelled) setMessages(data.messages ?? []);
         })
         .catch(() => {});
     load();

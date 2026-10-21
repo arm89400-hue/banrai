@@ -1,0 +1,43 @@
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 16px;
+}
+.pager__count {
+  margin-right: auto;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+.pager__gap {
+  min-width: 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+.pager button {
+  min-width: 42px;
+  height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--white);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-h);
+  cursor: pointer;
+}
+.pager button:hover:not(:disabled) {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.pager button.on {
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+  color: var(--white);
+}
+.pager button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { roomNames } from '../lib/booking';
 import { useLang } from '../i18n/lang';
+import Pager, { usePaged } from '../components/Pager';
 import DateField from '../components/DateField';
 
 const EMPTY_FORM = { name: '', percent: '', starts_on: '', ends_on: '', room_id: '', active: true };
@@ -114,6 +115,7 @@ export default function AdminPromotions() {
     onChange: (e) => setForm({ ...form, [key]: e.target.value }),
   });
 
+  const paged = usePaged(promotions ?? [], 8, '');
   return (
     <>
       <div className="admin__toolbar">
@@ -178,7 +180,8 @@ export default function AdminPromotions() {
       {error && <p className="admin__error" role="alert">{error}</p>}
       {!promotions && !error && <p className="admin__muted">{t('adm.loading')}</p>}
       {promotions && (
-        <div className="admin__table-wrap">
+        <>
+        <div className="admin__table-wrap" ref={paged.boxRef} style={paged.boxStyle}>
           <table className="admin__table">
             <thead>
               <tr>
@@ -191,7 +194,7 @@ export default function AdminPromotions() {
               </tr>
             </thead>
             <tbody>
-              {promotions.map((p) => {
+              {paged.rows.map((p) => {
                 const [state, tone] = promoState(p);
                 return (
                   <tr key={p.id} className={editing === p.id ? 'is-editing' : ''}>
@@ -223,6 +226,8 @@ export default function AdminPromotions() {
           </table>
           {promotions.length === 0 && <p className="admin__empty">{t('adm.promo.empty')}</p>}
         </div>
+        <Pager {...paged.pager} />
+        </>
       )}
     </>
   );

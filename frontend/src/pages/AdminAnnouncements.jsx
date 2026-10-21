@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, mediaUrl } from '../lib/api';
 import { useLang } from '../i18n/lang';
+import Pager, { usePaged } from '../components/Pager';
 import DateField from '../components/DateField';
 import AdminPhotos, { MAX_PHOTOS } from './AdminPhotos';
 import { uploadPending } from '../lib/uploadPending';
@@ -154,6 +155,7 @@ export default function AdminAnnouncements() {
   const previewBody = pick(form.body, form.body_th);
   const previewUntil = form.ends_at && new Date(form.ends_at).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
 
+  const paged = usePaged(list ?? [], 8, '');
   return (
     <>
       <div className="admin__toolbar admin__toolbar--end">
@@ -264,7 +266,8 @@ export default function AdminAnnouncements() {
       )}
       {!list && !error && <p className="admin__muted">{t('adm.loading')}</p>}
       {list && (
-        <div className="admin__table-wrap">
+        <>
+        <div className="admin__table-wrap" ref={paged.boxRef} style={paged.boxStyle}>
           <table className="admin__table">
             <thead>
               <tr>
@@ -277,7 +280,7 @@ export default function AdminAnnouncements() {
               </tr>
             </thead>
             <tbody>
-              {list.map((a) => {
+              {paged.rows.map((a) => {
                 const [state, tone] = stateOf(a);
                 return (
                   <tr key={a.id} className={editing === a.id ? 'is-editing' : ''}>
@@ -324,6 +327,8 @@ export default function AdminAnnouncements() {
           </table>
           {list.length === 0 && <p className="admin__empty">{t('adm.ann.empty')}</p>}
         </div>
+        <Pager {...paged.pager} />
+        </>
       )}
     </>
   );

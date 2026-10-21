@@ -7,6 +7,7 @@ import { dayOf, groupRows, needsYou, roomTitle } from '../lib/adminBookings';
 import { useLang } from '../i18n/lang';
 import { shift } from '../lib/motion';
 import { formatThaiPhone } from '../lib/contact';
+import Pager, { usePaged } from '../components/Pager';
 import './AdminBookings.css';
 
 const day = (iso) => new Date(`${iso}T00:00:00`);
@@ -421,8 +422,9 @@ export function Bookings() {
     )
     .sort((a, b) => (tab === 'todo' || tab === 'upcoming' ? a.checkIn.localeCompare(b.checkIn) : b.checkIn.localeCompare(a.checkIn)));
 
+  const paged = usePaged(rows, 8, `${tab}|${q}`);
   const months = [];
-  for (const g of rows) {
+  for (const g of paged.rows) {
     const key = g.checkIn.slice(0, 7);
     if (months.at(-1)?.key !== key) months.push({ key, list: [] });
     months.at(-1).list.push(g);
@@ -455,7 +457,7 @@ export function Bookings() {
 
       {data && (
         <div className={`ab-listing${selected ? ' has-panel' : ''}`}>
-          <div className="abk-list">
+          <div className="abk-list" ref={paged.boxRef} style={paged.boxStyle}>
             {months.map(({ key, list }) => (
               <section key={key}>
                 <h3 className="abk-month">{monthName(key)}</h3>
@@ -492,6 +494,7 @@ export function Bookings() {
               </section>
             ))}
             {rows.length === 0 && <p className="adt-empty">{tab === 'todo' ? t('adm.bk.noneTodo') : t('adm.bk.none')}</p>}
+            <Pager {...paged.pager} />
           </div>
 
           {selected && (

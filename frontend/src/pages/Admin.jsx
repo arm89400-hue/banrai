@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { ADMIN_SECTIONS, OLD_SECTIONS, adminPath } from '../lib/adminSections';
 import { useLang } from '../i18n/lang';
 import AdminIcon from '../components/AdminIcons';
+import Pager, { usePaged } from '../components/Pager';
 import { Bookings, Today } from './AdminBookings';
 import AdminChat, { ChatFab } from './AdminChat';
 import AdminPromotions from './AdminPromotions';
@@ -463,11 +464,13 @@ function Listings({ kind }) {
 function Users() {
   const { t, locale } = useLang();
   const { data, error, loading } = useAdminData('/api/admin/users');
+  const paged = usePaged(data?.users ?? [], 10, '');
   return (
     <>
       <Status loading={loading && !data} error={error} />
       {data && (
-        <div className="admin__table-wrap">
+        <>
+        <div className="admin__table-wrap" ref={paged.boxRef} style={paged.boxStyle}>
           <table className="admin__table">
             <thead>
               <tr>
@@ -480,7 +483,7 @@ function Users() {
               </tr>
             </thead>
             <tbody>
-              {data.users.map((u) => (
+              {paged.rows.map((u) => (
                 <tr key={u.id}>
                   <td className="admin__muted">{u.stay_booking_id ? '-' : u.member_code}</td>
                   <td>{u.email}</td>
@@ -498,6 +501,8 @@ function Users() {
           </table>
           {data.users.length === 0 && <p className="admin__empty">{t('adm.users.empty')}</p>}
         </div>
+        <Pager {...paged.pager} />
+        </>
       )}
     </>
   );
@@ -600,6 +605,7 @@ function ActivityLog() {
     });
   }, [data, group, query, t]);
 
+  const paged = usePaged(rows, 12, `${group}|${query}`);
   return (
     <>
       <div className="admin__toolbar">
@@ -631,7 +637,8 @@ function ActivityLog() {
       </div>
       <Status loading={loading && !data} error={error} />
       {data && (
-        <div className="admin__table-wrap">
+        <>
+        <div className="admin__table-wrap" ref={paged.boxRef} style={paged.boxStyle}>
           <table className="admin__table">
             <thead>
               <tr>
@@ -642,7 +649,7 @@ function ActivityLog() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((entry) => {
+              {paged.rows.map((entry) => {
                 const meta = LOG_TYPES[entry.type] ?? { tone: 'neutral' };
                 return (
                   <tr key={entry.id}>
@@ -661,6 +668,8 @@ function ActivityLog() {
           </table>
           {rows.length === 0 && <p className="admin__empty">{t('adm.log.empty')}</p>}
         </div>
+        <Pager {...paged.pager} />
+        </>
       )}
     </>
   );
