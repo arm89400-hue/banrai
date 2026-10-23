@@ -18,10 +18,13 @@ export function usePaged(list, perPage, resetKey) {
     setMinHeight(0);
   }, [resetKey]);
 
+  // Measure a full page once per list. The box's min-height counts its border
+  // (border-box below); measuring with offsetHeight while min-height was
+  // content-box made the box grow 2px on every render until React gave up.
   useLayoutEffect(() => {
     if (rows.length === perPage && boxRef.current) {
-      const h = boxRef.current.offsetHeight;
-      setMinHeight((old) => (h > old ? h : old));
+      const h = Math.ceil(boxRef.current.getBoundingClientRect().height);
+      setMinHeight((old) => (h > old + 1 ? h : old));
     }
   });
 
@@ -33,7 +36,7 @@ export function usePaged(list, perPage, resetKey) {
   return {
     rows,
     boxRef,
-    boxStyle: pages > 1 && minHeight ? { minHeight } : undefined,
+    boxStyle: pages > 1 && minHeight ? { minHeight, boxSizing: 'border-box' } : undefined,
     pager: { page: current, pages, start, shown: rows.length, total: list.length, go },
   };
 }
@@ -53,7 +56,7 @@ function pageList(page, pages) {
 
 export default function Pager({ page, pages, start, shown, total, go }) {
   const { t } = useLang();
-  if (pages <= 1) return null;
+  if (total === 0) return null;
   return (
     <nav className="pager" aria-label={t('adm.pager.label')}>
       <span className="pager__count">{t('adm.pager.showing', { from: start + 1, to: start + shown, total })}</span>

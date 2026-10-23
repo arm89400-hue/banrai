@@ -1,0 +1,643 @@
+/* ==========================================================================
+   Motion and feel across the guest pages.
+   - Things rise into view once as you scroll (lib/reveal.js adds .rv/.rv-in).
+   - Cards lift on hover and their photo comes forward.
+   - The gold "main action" buttons catch the light.
+   - Links and outline buttons answer the pointer.
+   Transform and opacity only; all of it is off with reduced motion.
+   ========================================================================== */
+
+/* ---------- Scroll reveal ---------- */
+
+.rv {
+  opacity: 0;
+  translate: 0 32px;
+}
+.rv.rv-in {
+  opacity: 1;
+  /* none (not 0) so nothing fixed inside gets trapped after the reveal */
+  translate: none;
+  transition:
+    opacity 0.7s ease calc(var(--rv-i, 0) * 90ms),
+    translate 0.9s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--rv-i, 0) * 90ms);
+}
+/* Photos inside a revealed card settle from a little closer. */
+.rv img {
+  scale: 1.06;
+}
+.rv.rv-in img {
+  scale: none;
+  transition: scale 1.4s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--rv-i, 0) * 90ms);
+}
+
+/* ---------- Cards: lift and bring the photo forward ---------- */
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  /* Photo cards in grids */
+  :is(.act-card, .fruit-row > li, .day-line figure, .ripe > li > button, .flow-tile, .about__photos > *, .room-others a) {
+    transition: translate 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  :is(.act-card, .fruit-row > li, .day-line figure, .ripe > li > button, .flow-tile, .about__photos > *):hover {
+    translate: 0 -6px;
+  }
+  :is(.act-card, .fruit-row > li, .day-line figure, .ripe > li > button, .flow-tile) img {
+    transition:
+      box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+      filter 0.45s ease,
+      scale 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  :is(.act-card, .fruit-row > li, .day-line figure, .ripe > li > button, .flow-tile):hover img {
+    box-shadow: 0 22px 40px -22px hsla(150, 40%, 12%, 0.55);
+    filter: brightness(1.06) saturate(1.08);
+  }
+
+  /* Room rows on the home page: the photo comes forward, the name steps in */
+  .room-row .room-card img {
+    transition:
+      scale 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.45s ease,
+      filter 0.45s ease;
+  }
+  .room-row .room-card:hover img {
+    scale: 1.04;
+    box-shadow: 0 20px 36px -20px hsla(150, 40%, 12%, 0.55);
+  }
+  .room-row__text strong {
+    transition: translate 0.45s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s ease;
+  }
+  .room-row .room-card:hover .room-row__text strong {
+    translate: 6px 0;
+    color: var(--brand);
+  }
+  .room-row__go::after {
+    content: '→';
+    display: inline-block;
+    margin-left: 6px;
+    transition: translate 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .room-row .room-card:hover .room-row__go::after {
+    translate: 4px 0;
+  }
+
+  /* Small "other rooms" list on a room page */
+  .room-others a:hover {
+    translate: 4px 0;
+  }
+
+  /* Call buttons and stay tiles lift a little */
+  :is(.home-call__btn, .stay-go) {
+    transition: translate 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, background-color 0.2s ease;
+  }
+  :is(.home-call__btn, .stay-go):hover {
+    translate: 0 -3px;
+    box-shadow: 0 0 0 1px var(--border), 0 14px 26px -16px hsla(150, 40%, 12%, 0.45);
+  }
+}
+
+/* ---------- The gold main buttons catch the light ---------- */
+
+html :is(.home-search__go, .bk-btn--sun, .flow-bar__go, .flow-stay__go, .room-bar__go:not(.room-bar__go--todo), .navbar__cta) {
+  background-image: linear-gradient(
+    105deg,
+    transparent 38%,
+    hsla(45, 100%, 96%, 0.75) 50%,
+    transparent 62%
+  );
+  background-size: 260% 100%;
+  background-position: 130% 0;
+  background-repeat: no-repeat;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html :is(.home-search__go, .bk-btn--sun, .flow-bar__go, .flow-stay__go, .room-bar__go:not(.room-bar__go--todo), .navbar__cta) {
+    transition:
+      background-position 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 0.2s ease,
+      box-shadow 0.35s ease,
+      translate 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  html :is(.home-search__go, .bk-btn--sun, .flow-bar__go, .flow-stay__go, .room-bar__go:not(.room-bar__go--todo), .navbar__cta):where(:hover, :focus-visible):not(:disabled) {
+    background-position: -30% 0;
+    box-shadow: 0 12px 26px -12px hsla(38, 70%, 35%, 0.6);
+    translate: 0 -2px;
+  }
+  /* The big search button glints by itself now and then, so the eye finds it. */
+  html .home-search__go {
+    animation: wow-glint 7s ease-in-out 2.4s infinite;
+  }
+  html .home-search__go:hover {
+    animation: none;
+  }
+}
+@keyframes wow-glint {
+  0%,
+  78% {
+    background-position: 130% 0;
+  }
+  92%,
+  100% {
+    background-position: -30% 0;
+  }
+}
+
+/* ---------- Links and outline buttons ---------- */
+
+/* Underline that draws itself in */
+.home-link {
+  text-decoration: none;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1.5px no-repeat;
+  padding-bottom: 2px;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .home-link {
+    transition: background-size 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .home-link:hover {
+    background-size: 0 1.5px;
+    background-position: 100% 100%;
+    animation: wow-underline 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+  }
+}
+@keyframes wow-underline {
+  from {
+    background-position: 0 100%;
+    background-size: 0 1.5px;
+  }
+  to {
+    background-position: 0 100%;
+    background-size: 100% 1.5px;
+  }
+}
+
+/* Outline buttons fill with farm green from the bottom */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :is(.flow-tile__pick, .room-row__go) {
+    background-image: linear-gradient(var(--brand-soft), var(--brand-soft));
+    background-size: 100% 0;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    transition: background-size 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease;
+  }
+  :is(.flow-tile:hover .flow-tile__pick, .room-row .room-card:hover .room-row__go) {
+    background-size: 100% 100%;
+  }
+}
+
+/* ---------- Reduced motion: everything shows, nothing moves ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .rv,
+  .rv img {
+    opacity: 1;
+    translate: none;
+    scale: none;
+  }
+}
+
+/* ==========================================================================
+   Booking: the steps, the rooms, the total, the forms, paying, my bookings.
+   Here motion confirms what the guest just did; it never makes them wait.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Rooms to choose from arrive one after another. */
+  .flow-tiles > .flow-tile {
+    animation: wow-card-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .flow-tiles > .flow-tile:nth-child(2) { animation-delay: 70ms; }
+  .flow-tiles > .flow-tile:nth-child(3) { animation-delay: 140ms; }
+  .flow-tiles > .flow-tile:nth-child(4) { animation-delay: 210ms; }
+  .flow-tiles > .flow-tile:nth-child(5) { animation-delay: 280ms; }
+  .flow-tiles > .flow-tile:nth-child(n + 6) { animation-delay: 350ms; }
+
+  /* Picking a room: the photo gets a green frame and the button pops to "chosen". */
+  .flow-tile img {
+    transition: box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), scale 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .flow-tile.is-on img {
+    box-shadow: 0 0 0 3px var(--brand), 0 18px 32px -20px hsla(150, 40%, 12%, 0.6);
+  }
+  .flow-tile.is-on .flow-tile__pick {
+    animation: wow-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Steps: the new step's number pops, the line to it fills in. */
+  .flow-steps .is-now i,
+  .flow-steps .is-done i {
+    animation: wow-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .flow-steps li + li::before {
+    background: linear-gradient(var(--brand), var(--brand)) 0 0 / 0 100% no-repeat, var(--border);
+    transition: background-size 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .flow-steps li.is-done + li::before {
+    background: linear-gradient(var(--brand), var(--brand)) 0 0 / 100% 100% no-repeat, var(--border);
+  }
+
+  /* The summary card and the phone's bottom bar slide in once. */
+  .flow-stay {
+    animation: wow-card-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.15s backwards;
+  }
+  .flow-bar,
+  .room-bar {
+    animation: wow-bar-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s backwards;
+  }
+
+  /* Review step: each line of the summary lands in order. */
+  .flow-review > *,
+  .flow-list > * {
+    animation: wow-card-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .flow-review > :nth-child(2), .flow-list > :nth-child(2) { animation-delay: 60ms; }
+  .flow-review > :nth-child(3), .flow-list > :nth-child(3) { animation-delay: 120ms; }
+  .flow-review > :nth-child(4), .flow-list > :nth-child(4) { animation-delay: 180ms; }
+  .flow-review > :nth-child(n + 5), .flow-list > :nth-child(n + 5) { animation-delay: 240ms; }
+
+  /* Fields: the focus ring grows in; a wrong field gives one small shake. */
+  .bk-field input,
+  .bk-field textarea {
+    transition: border-color 0.2s ease, box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .bk-field input:focus,
+  .bk-field textarea:focus {
+    box-shadow: 0 0 0 4px var(--brand-soft);
+  }
+  .bk-field--error input {
+    animation: wow-shake 0.4s ease;
+  }
+  .bk-error {
+    animation: wow-drop 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+
+  /* Paying: the QR card arrives like a ticket being handed over. */
+  .pay-dialog__box {
+    animation: wow-dialog-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .pay-dialog__card {
+    animation: wow-card-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s backwards;
+  }
+
+  /* Paid: a ring of light bursts from the tick, once. */
+  .pay-dialog__tick {
+    position: relative;
+    animation: wow-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  }
+  .pay-dialog__tick::before,
+  .pay-dialog__tick::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .pay-dialog__tick::before {
+    box-shadow: 0 0 0 3px var(--brand);
+    animation: wow-ring 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+  }
+  .pay-dialog__tick::after {
+    background:
+      radial-gradient(circle, var(--straw) 0 4px, transparent 5px) 50% 0 / 12px 12px no-repeat,
+      radial-gradient(circle, var(--brand) 0 4px, transparent 5px) 100% 50% / 12px 12px no-repeat,
+      radial-gradient(circle, var(--straw) 0 4px, transparent 5px) 50% 100% / 12px 12px no-repeat,
+      radial-gradient(circle, var(--brand) 0 4px, transparent 5px) 0 50% / 12px 12px no-repeat,
+      radial-gradient(circle, var(--brand) 0 3px, transparent 4px) 15% 15% / 10px 10px no-repeat,
+      radial-gradient(circle, var(--straw) 0 3px, transparent 4px) 85% 15% / 10px 10px no-repeat,
+      radial-gradient(circle, var(--straw) 0 3px, transparent 4px) 85% 85% / 10px 10px no-repeat,
+      radial-gradient(circle, var(--brand) 0 3px, transparent 4px) 15% 85% / 10px 10px no-repeat;
+    animation: wow-sparks 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
+  }
+
+  /* Paying from My bookings: the QR panel opens in place; paid gets the same burst. */
+  .pay-panel {
+    animation: wow-card-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .pay-panel__tick::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 96px;
+    height: 96px;
+    margin: -48px 0 0 -48px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px var(--success);
+    animation: wow-ring 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+  }
+
+  /* My bookings: the progress bars fill in, the cards land one by one. */
+  .stay-track li::before {
+    transform-origin: left center;
+    animation: wow-fill 0.8s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .stay-track li:nth-child(2)::before { animation-delay: 120ms; }
+  .stay-track li:nth-child(3)::before { animation-delay: 240ms; }
+  .stay-track li:nth-child(4)::before { animation-delay: 360ms; }
+  .stay-view__main > *,
+  .stay-box {
+    animation: wow-card-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .stay-view__main > :nth-child(2) { animation-delay: 80ms; }
+  .stay-view__main > :nth-child(3) { animation-delay: 160ms; }
+  .stay-view__main > :nth-child(n + 4) { animation-delay: 240ms; }
+  .stay-box {
+    animation-delay: 200ms;
+  }
+  .stay-login__copy.is-copied {
+    animation: wow-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border-color: var(--brand);
+    background: var(--brand);
+    color: var(--white);
+  }
+
+  /* A total that just changed glows for a moment (see Baht.jsx). */
+  .baht-bump {
+    display: inline-block;
+    animation: wow-bump 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes wow-card-in {
+  from {
+    opacity: 0;
+    translate: 0 22px;
+  }
+}
+@keyframes wow-bar-in {
+  from {
+    translate: 0 100%;
+  }
+}
+@keyframes wow-dialog-in {
+  from {
+    opacity: 0;
+    translate: 0 40px;
+    scale: 0.96;
+  }
+}
+@keyframes wow-pop {
+  0% {
+    scale: 0.85;
+  }
+  60% {
+    scale: 1.08;
+  }
+  100% {
+    scale: 1;
+  }
+}
+@keyframes wow-shake {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  20% {
+    translate: -6px 0;
+  }
+  40% {
+    translate: 5px 0;
+  }
+  60% {
+    translate: -3px 0;
+  }
+  80% {
+    translate: 2px 0;
+  }
+}
+@keyframes wow-drop {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+}
+@keyframes wow-ring {
+  from {
+    opacity: 0.9;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 1.7;
+  }
+}
+@keyframes wow-sparks {
+  from {
+    opacity: 1;
+    scale: 0.6;
+  }
+  70% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 1.9;
+  }
+}
+@keyframes wow-fill {
+  from {
+    scale: 0 1;
+  }
+}
+@keyframes wow-bump {
+  0% {
+    color: inherit;
+    scale: 1;
+  }
+  30% {
+    color: var(--brand);
+    scale: 1.08;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+/* ==========================================================================
+   Every other page: its top photo opens like a scene, and its own content
+   moves in a way that fits it.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Page photos (Activities, About, the stay page) settle in; the title rises. */
+  :is(.acts-top, .about-hero) > img,
+  .stay-stage__slides {
+    animation: wow-photo-settle 1.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .acts-top__in > *,
+  .about-hero h1,
+  .stay-stage__in > * {
+    animation: wow-card-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .acts-top__in > :nth-child(1),
+  .stay-stage__in > :nth-child(1) { animation-delay: 0.25s; }
+  .acts-top__in > :nth-child(2),
+  .stay-stage__in > :nth-child(2) { animation-delay: 0.4s; }
+  .acts-top__in > :nth-child(n + 3),
+  .stay-stage__in > :nth-child(n + 3) { animation-delay: 0.55s; }
+  .about-hero h1 { animation-delay: 0.3s; }
+
+  /* Activities: the fruit calendar's season bars sweep in month by month. */
+  .fruit-cal.rv td.is-on span {
+    scale: 0 1;
+    transform-origin: left center;
+  }
+  .fruit-cal.rv-in td.is-on span {
+    scale: none;
+    transition: scale 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .fruit-cal.rv-in td:nth-child(3) span { transition-delay: 0.05s; }
+  .fruit-cal.rv-in td:nth-child(4) span { transition-delay: 0.1s; }
+  .fruit-cal.rv-in td:nth-child(5) span { transition-delay: 0.15s; }
+  .fruit-cal.rv-in td:nth-child(6) span { transition-delay: 0.2s; }
+  .fruit-cal.rv-in td:nth-child(7) span { transition-delay: 0.25s; }
+  .fruit-cal.rv-in td:nth-child(8) span { transition-delay: 0.3s; }
+  .fruit-cal.rv-in td:nth-child(9) span { transition-delay: 0.35s; }
+  .fruit-cal.rv-in td:nth-child(10) span { transition-delay: 0.4s; }
+  .fruit-cal.rv-in td:nth-child(11) span { transition-delay: 0.45s; }
+  .fruit-cal.rv-in td:nth-child(12) span { transition-delay: 0.5s; }
+  .fruit-cal.rv-in td:nth-child(13) span { transition-delay: 0.55s; }
+  /* This month's column glows once the calendar is in view. */
+  .fruit-cal.rv-in td.is-now,
+  .fruit-cal.rv-in th.is-now {
+    animation: wow-glow 1.6s ease 0.7s backwards;
+  }
+
+  /* Room page: the side photos slide in beside the main one; the booking
+     card rises; the facilities pop in one by one as they come into view. */
+  .room-gallery__tile:not(.room-gallery__tile--main) {
+    animation: wow-slide-left 0.9s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .room-gallery__tile:nth-child(2) { animation-delay: 0.15s; }
+  .room-gallery__tile:nth-child(3) { animation-delay: 0.28s; }
+  .room-book {
+    animation: wow-card-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s backwards;
+  }
+  .room-facts li {
+    animation: wow-card-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .room-facts li:nth-child(2) { animation-delay: 60ms; }
+  .room-facts li:nth-child(3) { animation-delay: 120ms; }
+  .room-facts li:nth-child(n + 4) { animation-delay: 180ms; }
+  .room-page__block.rv svg {
+    scale: 0.4;
+    opacity: 0;
+  }
+  .room-page__block.rv-in svg {
+    scale: none;
+    opacity: 1;
+    transition: scale 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.25s, opacity 0.3s ease 0.25s;
+  }
+
+  /* Stay page: the tiles land in turn and the check-in to check-out line draws itself. */
+  .stay-dash > .stay-tile {
+    animation: wow-card-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .stay-dash > .stay-tile:nth-child(2) { animation-delay: 80ms; }
+  .stay-dash > .stay-tile:nth-child(3) { animation-delay: 160ms; }
+  .stay-dash > .stay-tile:nth-child(4) { animation-delay: 240ms; }
+  .stay-dash > .stay-tile:nth-child(n + 5) { animation-delay: 320ms; }
+  .stay-line__mid i {
+    transform-origin: left center;
+    animation: wow-fill 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.35s backwards;
+  }
+  .stay-line__mid i:last-child {
+    transform-origin: right center;
+  }
+  .stay-line__mid i::after {
+    animation: wow-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1.1s backwards;
+  }
+
+  /* Sign-in: the card rises over the slideshow; the booking reminder slides down. */
+  .auth-card {
+    animation: wow-dialog-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .auth-booking {
+    animation: wow-drop 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s backwards;
+  }
+  .auth-tabs button {
+    transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, scale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .auth-tabs button[aria-pressed='true'] {
+    animation: wow-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Phone menu: its links drop in one after another when it opens. */
+  .navbar--menu-open .navbar__sheet-links > *,
+  .navbar--menu-open .navbar__sheet-more > * {
+    animation: wow-drop 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .navbar--menu-open .navbar__sheet-links > :nth-child(2) { animation-delay: 40ms; }
+  .navbar--menu-open .navbar__sheet-links > :nth-child(3) { animation-delay: 80ms; }
+  .navbar--menu-open .navbar__sheet-links > :nth-child(4) { animation-delay: 120ms; }
+  .navbar--menu-open .navbar__sheet-links > :nth-child(n + 5) { animation-delay: 160ms; }
+  .navbar--menu-open .navbar__sheet-more > * { animation-delay: 180ms; }
+
+  /* Chat bubble: answers a hover with a small lift. */
+  .chat-widget__toggle {
+    transition: translate 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, scale 0.12s ease;
+  }
+  .chat-widget__toggle:hover {
+    translate: 0 -3px;
+    box-shadow: 0 16px 30px -12px hsla(150, 40%, 12%, 0.55);
+  }
+
+  /* --------------------------------------------------------------------
+     Admin: quick and quiet (it's used all day). Rows and cards arrive in
+     a short cascade when a page opens; nothing that slows the work.
+     -------------------------------------------------------------------- */
+  .adm-main > * {
+    animation: wow-card-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .adm-main > :nth-child(2) { animation-delay: 40ms; }
+  .adm-main > :nth-child(3) { animation-delay: 80ms; }
+  .adm-main > :nth-child(n + 4) { animation-delay: 120ms; }
+  .adm-rows > .adm-row:not(.adm-row--sk) {
+    animation: wow-row-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .adm-rows > .adm-row:nth-child(2) { animation-delay: 30ms; }
+  .adm-rows > .adm-row:nth-child(3) { animation-delay: 60ms; }
+  .adm-rows > .adm-row:nth-child(4) { animation-delay: 90ms; }
+  .adm-rows > .adm-row:nth-child(5) { animation-delay: 120ms; }
+  .adm-rows > .adm-row:nth-child(6) { animation-delay: 150ms; }
+  .adm-rows > .adm-row:nth-child(n + 7) { animation-delay: 180ms; }
+  @media (hover: hover) {
+    .adm-btn--primary,
+    .adm-btn--sun {
+      transition: translate 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, background-color 0.2s ease;
+    }
+    .adm-btn--primary:hover:not(:disabled),
+    .adm-btn--sun:hover:not(:disabled) {
+      translate: 0 -1px;
+      box-shadow: 0 8px 18px -10px hsla(150, 40%, 12%, 0.55);
+    }
+  }
+}
+
+@keyframes wow-photo-settle {
+  from {
+    opacity: 0;
+    scale: 1.12;
+  }
+  35% {
+    opacity: 1;
+  }
+}
+@keyframes wow-slide-left {
+  from {
+    opacity: 0;
+    translate: 40px 0;
+  }
+}
+@keyframes wow-row-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+@keyframes wow-glow {
+  0%,
+  100% {
+    box-shadow: none;
+  }
+  40% {
+    box-shadow: inset 0 0 0 999px hsla(38, 60%, 70%, 0.35);
+  }
+}

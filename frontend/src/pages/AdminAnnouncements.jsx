@@ -5,6 +5,7 @@ import Pager, { usePaged } from '../components/Pager';
 import DateField from '../components/DateField';
 import AdminPhotos, { MAX_PHOTOS } from './AdminPhotos';
 import { uploadPending } from '../lib/uploadPending';
+import { Drawer, Empty, ErrorNote, PageHead, Pill, RowsSkeleton, useConfirm, Seg } from '../components/AdminUI';
 
 const AUDIENCES = ['home', 'booked', 'both'];
 
@@ -51,6 +52,7 @@ function stateOf(a) {
 
 export default function AdminAnnouncements() {
   const { t, lang, locale } = useLang();
+  const confirm = useConfirm();
   const [list, setList] = useState(null);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null);
@@ -134,7 +136,7 @@ export default function AdminAnnouncements() {
   }
 
   async function remove(a) {
-    if (!window.confirm(t('adm.ann.askDelete', { title: a.title_th || a.title }))) return;
+    if (!(await confirm({ title: t('adm.ann.askDelete', { title: a.title_th || a.title }), ok: t('adm.list.deleteBtn'), danger: true }))) return;
     try {
       await api(`/api/admin/announcements/${a.id}`, { method: 'DELETE' });
       if (editing === a.id) setEditing(null);
@@ -158,63 +160,119 @@ export default function AdminAnnouncements() {
   const paged = usePaged(list ?? [], 8, '');
   return (
     <>
-      <div className="admin__toolbar admin__toolbar--end">
-        <button type="button" className="admin__btn admin__btn--primary adm-btn-lg" onClick={() => startEdit(null)}>
-          {t('adm.ann.add')}
+      <PageHead title={t('adm.tab.announcements')} lead={t('adm.page.announcements.lead')}>
+        <button type="button" className="adm-btn adm-btn--primary" onClick={() => startEdit(null)}>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          {t('adm.ann.add').replace(/^\+\s*/, '')}
         </button>
+      </PageHead>
+      <ErrorNote>{error}</ErrorNote>
+
+      <div className="adm-card" ref={paged.boxRef} style={paged.boxStyle}>
+        {!list ? (
+          <RowsSkeleton rows={3} thumb />
+        ) : list.length === 0 ? (
+          <Empty title={t('adm.ann.empty')} hint={t('adm.ann.emptyHint')}>
+            <button type="button" className="adm-btn" onClick={() => startEdit(null)}>
+              {t('adm.ann.add')}
+            </button>
+          </Empty>
+        ) : (
+          <div className="adm-rows">
+            {paged.rows.map((a) => {
+              const [state, tone] = stateOf(a);
+              return (
+                <div key={a.id} className={`adm-row is-click${editing === a.id ? ' is-sel' : ''}`} onClick={() => startEdit(a)}>
+                  <span className="adm-row__thumb">
+                    {a.photos[0] && <img src={mediaUrl(a.photos[0].file)} alt="" loading="lazy" />}
+                    <em>
+                      {a.photos.length}/{MAX_PHOTOS}
+                    </em>
+                  </span>
+                  <div className="adm-row__main">
+                    <b>{a.title_th || a.title}</b>
+                    <span className="num">
+                      {t(`adm.ann.aud.${a.audience}`)} · {fmtWhen(a.starts_at, locale)} → {a.ends_at ? fmtWhen(a.ends_at, locale) : t('adm.ann.noEnd')}
+                    </span>
+                  </div>
+                  <div className="adm-row__meta">
+                    <Pill tone={tone}>{t(state)}</Pill>
+                  </div>
+                  <div className="adm-row__acts" onClick={(e) => e.stopPropagation()}>
+                    <button type="button" className="adm-btn adm-btn--sm" onClick={() => toggle(a)}>
+                      {a.active ? t('adm.ann.switchOff') : t('adm.ann.switchOn')}
+                    </button>
+                    <button type="button" className="adm-btn adm-btn--sm adm-btn--ghost abk-del" onClick={() => remove(a)}>
+                      {t('adm.list.deleteBtn')}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
+      {list && <Pager {...paged.pager} />}
 
       {editing !== null && (
-        <form className="admin__form" onSubmit={save}>
-          <h2>{editing === 'new' ? t('adm.ann.new') : t('adm.ann.edit')}</h2>
-          {savedNote && <p className="admin__notice">{savedNote}</p>}
-          <div className="admin__form-grid">
-            <label>
+        <Drawer
+          wide
+          title={editing === 'new' ? t('adm.ann.new') : t('adm.ann.edit')}
+          onClose={() => setEditing(null)}
+          onSubmit={save}
+          footer={
+            <>
+              <button type="button" className="adm-btn" onClick={() => setEditing(null)}>
+                {editing === 'new' ? t('adm.list.cancel') : t('adm.list.close')}
+              </button>
+              <button type="submit" className="adm-btn adm-btn--primary" disabled={saving}>
+                {saving ? t('adm.contact.saving') : t('adm.contact.save')}
+              </button>
+            </>
+          }
+        >
+          {savedNote && <p className="adm-note">{savedNote}</p>}
+          <div className="adm-fields">
+            <label className="adm-field">
               <span>{t('adm.ann.titleTh')}</span>
               <input lang="th" maxLength={120} placeholder="ปิดปรับปรุงสระว่ายน้ำ" {...field('title_th')} />
             </label>
-            <label>
+            <label className="adm-field">
               <span>{t('adm.ann.titleEn')}</span>
               <input maxLength={120} placeholder="Pool closed for cleaning" {...field('title')} />
             </label>
-            <label className="admin__form-wide">
+            <label className="adm-field adm-field--wide">
               <span>{t('adm.ann.bodyTh')}</span>
               <textarea lang="th" rows={3} maxLength={2000} {...field('body_th')} />
             </label>
-            <label className="admin__form-wide">
+            <label className="adm-field adm-field--wide">
               <span>{t('adm.ann.bodyEn')}</span>
               <textarea rows={3} maxLength={2000} {...field('body')} />
             </label>
 
-            <div className="admin__form-wide admin-ann__who">
-              <span className="admin-ann__label" id="ann-who">
-                {t('adm.ann.who')}
-              </span>
-              <div className="admin__segmented" role="group" aria-labelledby="ann-who">
+            <div className="adm-field adm-field--wide">
+              <span id="ann-who">{t('adm.ann.who')}</span>
+              <Seg active={form.audience} role="group" aria-labelledby="ann-who">
                 {AUDIENCES.map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    aria-pressed={form.audience === id}
-                    className={form.audience === id ? 'is-active' : ''}
-                    onClick={() => setForm({ ...form, audience: id })}
-                  >
+                  <button key={id} type="button" aria-pressed={form.audience === id} onClick={() => setForm({ ...form, audience: id })}>
                     {t(`adm.ann.aud.${id}`)}
                   </button>
                 ))}
-              </div>
-              <p className="admin__muted admin-ann__hint">{t(`adm.ann.hint.${form.audience}`)}</p>
+              </Seg>
+              <small className="adm-field__hint">{t(`adm.ann.hint.${form.audience}`)}</small>
             </div>
 
-            <label>
+            <label className="adm-field">
               <span>{t('adm.ann.from')}</span>
               <DateField withTime required value={form.starts_at} onChange={(v) => setForm({ ...form, starts_at: v })} />
             </label>
-            <label>
+            <label className="adm-field">
               <span>{t('adm.ann.until')}</span>
               <DateField withTime clearable emptyLabel={t('adm.ann.noEnd')} min={form.starts_at} value={form.ends_at} onChange={(v) => setForm({ ...form, ends_at: v })} />
             </label>
-            <label className="admin__check">
+            <label className="adm-check adm-field--wide">
               <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
               <span>{t('adm.ann.on')}</span>
             </label>
@@ -230,7 +288,7 @@ export default function AdminAnnouncements() {
           />
 
           {previewTitle && (
-            <div className="adm-ann-preview">
+            <div>
               <p className="adm-preview-label">{t('adm.ann.preview')}</p>
               <article className={`adm-ann-card${previewPhoto ? '' : ' is-text'}`}>
                 {previewPhoto && <img src={previewPhoto} alt="" />}
@@ -242,93 +300,8 @@ export default function AdminAnnouncements() {
               </article>
             </div>
           )}
-
-          {formError && (
-            <p className="admin__error" role="alert">
-              {formError}
-            </p>
-          )}
-          <div className="admin__form-actions">
-            <button type="button" className="admin__btn adm-btn-lg" onClick={() => setEditing(null)}>
-              {editing === 'new' ? t('adm.list.cancel') : t('adm.list.close')}
-            </button>
-            <button type="submit" className="admin__btn admin__btn--primary adm-btn-lg" disabled={saving}>
-              {saving ? t('adm.contact.saving') : t('adm.contact.save')}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {error && (
-        <p className="admin__error" role="alert">
-          {error}
-        </p>
-      )}
-      {!list && !error && <p className="admin__muted">{t('adm.loading')}</p>}
-      {list && (
-        <>
-        <div className="admin__table-wrap" ref={paged.boxRef} style={paged.boxStyle}>
-          <table className="admin__table">
-            <thead>
-              <tr>
-                <th>{t('adm.list.photos')}</th>
-                <th>{t('adm.ann.col')}</th>
-                <th>{t('adm.ann.who')}</th>
-                <th>{t('adm.log.when')}</th>
-                <th>{t('adm.ann.status')}</th>
-                <th aria-label={t('adm.list.actions')} />
-              </tr>
-            </thead>
-            <tbody>
-              {paged.rows.map((a) => {
-                const [state, tone] = stateOf(a);
-                return (
-                  <tr key={a.id} className={editing === a.id ? 'is-editing' : ''}>
-                    <td>
-                      <button
-                        type="button"
-                        className="admin-thumb"
-                        onClick={() => startEdit(a)}
-                        aria-label={t('adm.list.photosOf', { name: a.title_th || a.title, n: a.photos.length, max: MAX_PHOTOS })}
-                      >
-                        {a.photos[0] ? <img src={mediaUrl(a.photos[0].file)} alt="" loading="lazy" /> : <span>{t('adm.list.noPhoto')}</span>}
-                        <em>
-                          {a.photos.length}/{MAX_PHOTOS}
-                        </em>
-                      </button>
-                    </td>
-                    <td>
-                      <strong>{a.title_th || a.title}</strong>
-                      {a.title && a.title_th && <div className="admin__muted">{a.title}</div>}
-                    </td>
-                    <td>{t(`adm.ann.aud.${a.audience}`)}</td>
-                    <td className="admin__nowrap">
-                      {fmtWhen(a.starts_at, locale)}
-                      <div className="admin__sub">→ {a.ends_at ? fmtWhen(a.ends_at, locale) : t('adm.ann.noEnd')}</div>
-                    </td>
-                    <td>
-                      <span className={`admin__status admin__status--${tone}`}>{t(state)}</span>
-                    </td>
-                    <td className="admin__actions">
-                      <button type="button" className="admin__btn" onClick={() => toggle(a)}>
-                        {a.active ? t('adm.ann.switchOff') : t('adm.ann.switchOn')}
-                      </button>
-                      <button type="button" className="admin__btn" onClick={() => startEdit(a)}>
-                        {t('adm.list.editBtn')}
-                      </button>
-                      <button type="button" className="admin__btn admin__btn--danger" onClick={() => remove(a)}>
-                        {t('adm.list.deleteBtn')}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {list.length === 0 && <p className="admin__empty">{t('adm.ann.empty')}</p>}
-        </div>
-        <Pager {...paged.pager} />
-        </>
+          <ErrorNote>{formError}</ErrorNote>
+        </Drawer>
       )}
     </>
   );

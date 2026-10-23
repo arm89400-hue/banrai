@@ -257,6 +257,19 @@
   width: 64px;
   height: 64px;
 }
+/* The tick is drawn once, like a pen mark, when the deposit is confirmed. */
+.pay-dialog__tick path {
+  stroke-dasharray: 1;
+  animation: pay-tick-draw var(--dur-4) var(--ease-standard) 120ms both;
+}
+@keyframes pay-tick-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
 .pay-dialog__done h3 {
   font-size: 24px;
 }

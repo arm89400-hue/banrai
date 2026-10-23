@@ -89,7 +89,13 @@ export default function Navbar() {
   useLayoutEffect(() => {
     function measure() {
       const active = linksRef.current?.querySelector('a.active');
-      setIndicator(active ? { x: active.offsetLeft, w: active.offsetWidth } : null);
+      // With no active link, keep the pill where it was and only fade it out,
+      // instead of letting it slide to the left edge and shrink to a sliver.
+      setIndicator((prev) =>
+        active
+          ? { x: active.offsetLeft, w: active.offsetWidth, visible: true }
+          : prev && { ...prev, visible: false }
+      );
       if (active && !hasMeasuredRef.current && indicatorRef.current) {
         hasMeasuredRef.current = true;
         const el = indicatorRef.current;
@@ -174,7 +180,7 @@ export default function Navbar() {
             ref={indicatorRef}
             className="navbar__indicator"
             aria-hidden="true"
-            data-visible={Boolean(indicator)}
+            data-visible={Boolean(indicator?.visible)}
             style={indicator ? { '--x': `${indicator.x}px`, '--w': `${indicator.w}px` } : undefined}
           />
           {links.map((link) => (

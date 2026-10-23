@@ -3,15 +3,15 @@ import './PhotoSlides.css';
 
 const SLIDE_MS = 6000;
 
-export default function PhotoSlides({ photos }) {
+export default function PhotoSlides({ photos, paused = false }) {
   const [step, setStep] = useState(0);
   const active = step % photos.length;
 
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (paused || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
     const timer = setInterval(() => setStep((s) => s + 1), SLIDE_MS);
     return () => clearInterval(timer);
-  }, []);
+  }, [paused]);
 
   return (
     <div className="photo-slides" aria-hidden="true">

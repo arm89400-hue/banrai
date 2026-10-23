@@ -10,6 +10,7 @@ import { fruitImage, fruitPhoto, fruitsIn } from '../lib/seasons';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import Announcements from '../components/Announcements';
+import { Loading, Sk, SkText } from '../components/Skeleton';
 import ChatThread from '../components/ChatThread';
 import { shift } from '../lib/motion';
 import StayStage from '../components/StayStage';
@@ -170,7 +171,28 @@ export default function StayDashboard() {
       </section>
     );
   }
-  if (!data) return <section className="bk-page" aria-busy="true" />;
+  if (!data) {
+    return (
+      <Loading label={t('loading')}>
+        <section className="stay-stage">
+          <div className="stay-stage__in">
+            <Sk w="min(320px, 70%)" h="2.2em" style={{ background: 'hsla(0, 0%, 100%, 0.18)' }} />
+            <Sk w="min(220px, 50%)" h="1em" style={{ marginTop: 12, background: 'hsla(0, 0%, 100%, 0.14)' }} />
+          </div>
+        </section>
+        <section className="bk-page stay">
+          <div className="stay-sk">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="stay-tile">
+                <Sk w="40%" h="1.1em" />
+                <SkText lines={3} last="60%" />
+              </div>
+            ))}
+          </div>
+        </section>
+      </Loading>
+    );
+  }
 
   const { stay, rooms } = data;
   const checkIn = dayOf(stay.booked_for);
@@ -325,9 +347,10 @@ export default function StayDashboard() {
                 <small className="stay-tile__farm">{t(user.is_stay ? 'stay.payAtFarmOnly' : 'stay.orAtFarm')}</small>
               </>
             ) : (
-              <b className="stay-money stay-money--done">
-                {total > 0 ? t('stay.paidAll', { amount: formatBaht(total) }) : t('my.paidFull')}
-              </b>
+              <>
+                {total > 0 && <b className="stay-money">{formatBaht(total)}</b>}
+                <span className="stay-paid-tag">✓ {t('my.paidFull')}</span>
+              </>
             )}
           </article>
 

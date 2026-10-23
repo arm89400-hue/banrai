@@ -1,0 +1,277 @@
+.hero-life {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.hero.is-still .hero-life *,
+.hero.is-offscreen .hero-life *,
+.hero-life.is-still *,
+.stay-stage:not(.is-playing) .hero-life * {
+  animation-play-state: paused !important;
+}
+
+/* ---------- The sun: a warm glow that drifts and breathes ---------- */
+
+.hero-life__sun {
+  position: absolute;
+  top: -40vmax;
+  right: -30vmax;
+  width: 95vmax;
+  height: 95vmax;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, hsla(40, 100%, 82%, 0.75), hsla(38, 100%, 70%, 0.28) 45%, transparent 72%);
+  mix-blend-mode: screen;
+  animation: life-sun 18s ease-in-out infinite alternate;
+}
+@keyframes life-sun {
+  from {
+    opacity: 0.55;
+    translate: 0 0;
+    scale: 1;
+  }
+  to {
+    opacity: 0.9;
+    translate: -6vmax 4vmax;
+    scale: 1.12;
+  }
+}
+
+/* ---------- Rays: light through the trees, swinging slowly ---------- */
+
+.hero-life__rays {
+  position: absolute;
+  inset: -20% -10% 0 -10%;
+  background: repeating-conic-gradient(
+    from 206deg at 88% -8%,
+    transparent 0deg,
+    hsla(42, 100%, 88%, 0.32) 3deg,
+    transparent 7deg,
+    transparent 11deg,
+    hsla(42, 100%, 88%, 0.2) 13deg,
+    transparent 17deg
+  );
+  -webkit-mask-image: radial-gradient(ellipse 80% 90% at 88% 0%, #000 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse 80% 90% at 88% 0%, #000 20%, transparent 75%);
+  mix-blend-mode: screen;
+  transform-origin: 88% -8%;
+  animation: life-rays 14s ease-in-out infinite alternate;
+}
+@keyframes life-rays {
+  from {
+    rotate: -3deg;
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+  to {
+    rotate: 3deg;
+    opacity: 0.7;
+  }
+}
+
+/* ---------- Leaves: one falls, its inner part sways and turns ---------- */
+
+.hero-life__leaf {
+  position: absolute;
+  top: -40px;
+  left: var(--left);
+  width: var(--size);
+  height: var(--size);
+  animation: life-fall var(--fall) linear var(--delay) infinite;
+}
+.hero-life__leaf > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: life-sway calc(var(--fall) / 4) ease-in-out var(--delay) infinite alternate;
+}
+.hero-life__leaf svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
+}
+.hero-life__leaf path {
+  fill: currentColor;
+}
+.hero-life__leaf .hero-life__rib {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.18);
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+.hero-life__leaf--a {
+  color: hsl(95, 42%, 46%);
+}
+.hero-life__leaf--b {
+  color: hsl(40, 62%, 62%);
+}
+.hero-life__leaf--c {
+  color: hsl(140, 34%, 36%);
+}
+/* Far leaves: smaller, softer, slower, so the photo gets depth. */
+.hero-life__leaf.is-far {
+  opacity: 0.7;
+}
+.hero-life__leaf.is-far svg {
+  filter: blur(1.2px);
+}
+@keyframes life-fall {
+  from {
+    translate: 0 0;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  to {
+    translate: calc(var(--sway) * -1.5) var(--fall-h, min(110svh, 960px));
+    opacity: 0;
+  }
+}
+@keyframes life-sway {
+  from {
+    translate: calc(var(--sway) * -0.5) 0;
+    rotate: calc(var(--spin) * -0.25);
+  }
+  to {
+    translate: calc(var(--sway) * 0.5) 0;
+    rotate: calc(var(--spin) * 0.25);
+  }
+}
+
+/* ---------- Motes: dust in the sunlight by day, fireflies at night ---------- */
+
+.hero-life__mote {
+  position: absolute;
+  top: var(--top);
+  left: var(--left);
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: hsla(45, 100%, 92%, 0.9);
+  box-shadow: 0 0 calc(var(--size) * 3) hsla(45, 100%, 80%, 0.8);
+  opacity: 0;
+  animation: life-mote var(--dur) ease-in-out var(--delay) infinite;
+}
+@keyframes life-mote {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+  }
+  30% {
+    opacity: 0.85;
+  }
+  70% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    translate: 24px -70px;
+  }
+}
+
+/* ---------- The hour changes the light ---------- */
+
+.hero-life--morning .hero-life__sun {
+  background: radial-gradient(closest-side, hsla(44, 100%, 86%, 0.85), hsla(40, 100%, 72%, 0.3) 45%, transparent 72%);
+}
+.hero-life--day .hero-life__rays {
+  opacity: 0.6;
+}
+.hero-life--evening .hero-life__sun {
+  top: auto;
+  bottom: -55vmax;
+  right: -25vmax;
+  background: radial-gradient(closest-side, hsla(24, 100%, 62%, 0.55), hsla(18, 90%, 50%, 0.18) 50%, transparent 72%);
+}
+.hero-life--evening .hero-life__rays {
+  display: none;
+}
+/* Fireflies wander and blink instead of drifting up. */
+.hero-life--evening .hero-life__mote {
+  background: hsla(70, 100%, 75%, 0.95);
+  box-shadow: 0 0 calc(var(--size) * 5) hsla(70, 100%, 60%, 0.9);
+  animation-name: life-firefly;
+}
+@keyframes life-firefly {
+  0%,
+  100% {
+    opacity: 0;
+    translate: 0 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  35% {
+    opacity: 0.2;
+    translate: 30px -16px;
+  }
+  55% {
+    opacity: 0.95;
+    translate: 52px 10px;
+  }
+  80% {
+    opacity: 0.3;
+    translate: 18px 28px;
+  }
+}
+
+/* Phones: fewer leaves, so the heading stays the focus. */
+@media (max-width: 760px) {
+  .hero-life__leaf:nth-child(2n + 1) {
+    display: none;
+  }
+  .hero-life__leaf {
+    width: calc(var(--size) * 0.7);
+    height: calc(var(--size) * 0.7);
+  }
+  .hero-life__mote:nth-child(2n) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-life__leaf,
+  .hero-life__mote,
+  .hero-life__rays {
+    display: none;
+  }
+}
+
+/* Smaller page photos: leaves fall only as far as the photo is tall, and the
+   pause button sits in the corner. */
+:is(.acts-top, .about-hero, .stay-stage) .hero-life {
+  --fall-h: 520px;
+}
+.hero-life__btn {
+  position: absolute;
+  right: max(16px, calc((100% - 1110px) / 2));
+  bottom: 20px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  background: rgba(12, 28, 18, 0.35);
+  color: var(--white);
+  cursor: pointer;
+}
+.hero-life__btn:focus-visible {
+  outline: 2px solid var(--straw);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-life__btn {
+    display: none;
+  }
+}

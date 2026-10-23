@@ -162,13 +162,44 @@ html:lang(th) .admin__eyebrow {
   outline-offset: 3px;
 }
 
+/* Bigger touch areas for small controls without changing how they look: an
+   invisible margin around each catches near-misses (many guests are older
+   and on phones). Elements here must not use ::after for anything else. */
+:is(.flow-steps button, .flow-top__back, .home-link, .room-page__back, .link-button, .stay-login__copy, .stay-search__guests button, .bk-counter button, .room-book__step button) {
+  position: relative;
+}
+:is(.flow-steps button, .flow-top__back, .home-link, .room-page__back, .link-button, .stay-login__copy, .stay-search__guests button, .bk-counter button, .room-book__step button, .password-input__eye)::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+/* Press feedback: anything you can tap gives a little the moment your finger
+   lands, before any network call, so nobody taps twice wondering. Big cards
+   give less than buttons. Rules on a component's own :active still win. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(button, [role='button'], input[type='submit'], .bk-btn):where(:not(:disabled, [aria-disabled='true'])):active {
+    scale: 0.97;
+  }
+  :where(.room-card, .flow-tile):active {
+    scale: 0.985;
+  }
+  /* Wide rows and menu items would shrink too far; they darken instead. */
+  :where(.adm-row, .adm-nav__item, .achat__item):active {
+    scale: none;
+  }
+}
+
+/* Reduced motion: nothing moves or changes size, but colour and fade changes
+   stay (W3C 2.3.3 allows them), so buttons still answer a tap. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-property: color, background-color, border-color, outline-color, opacity, box-shadow, visibility !important;
+    transition-duration: var(--dur-2) !important;
     scroll-behavior: auto !important;
   }
 }

@@ -1,19 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useLang } from '../i18n/lang';
 import { roomNames } from '../lib/booking';
 import { useContact } from '../lib/contact';
 import ChatThread from '../components/ChatThread';
+import { Empty, ErrorNote, PageHead, Seg } from '../components/AdminUI';
+import { Loading, Sk } from '../components/Skeleton';
 import './AdminChat.css';
 
 const POLL_MS = 4000;
-const SIDE_MAX = 5;
-const PER_PAGE = 6;
 const TABS = ['nobook', 'today', 'all'];
 
 const dayStart = (d) => new Date(new Date(d).toDateString());
 
-function chatName(c) {
+export function chatName(c) {
   return c.stay_booking_id ? c.guest_name || c.email : c.email;
 }
 
@@ -25,12 +25,12 @@ function stayLine(c, t, lang, locale) {
   return [room, dates].filter(Boolean).join(' · ');
 }
 
-function waitMinutes(c) {
+export function waitMinutes(c) {
   if (!c.last_at || c.last_from_admin) return 0;
   return Math.max(1, Math.round((Date.now() - new Date(c.last_at)) / 60000));
 }
 
-function waitLabel(min, t) {
+export function waitLabel(min, t) {
   if (min < 60) return t('adm.chat.min', { n: min });
   if (min < 60 * 24) return t('adm.chat.hr', { n: Math.round(min / 60) });
   return t('adm.chat.day', { n: Math.round(min / 1440) });
@@ -56,7 +56,7 @@ function sortChats(list) {
   });
 }
 
-function useChats() {
+export function useChats() {
   const [chats, setChats] = useState(null);
   const [error, setError] = useState(null);
   const load = useCallback(() => {
@@ -113,7 +113,7 @@ function useQuickReplies() {
   ].filter(Boolean);
 }
 
-function Avatar({ c }) {
+export function Avatar({ c }) {
   const name = chatName(c) || '?';
   return (
     <span className={`achat__av achat__av--${c.user_id % 5}`} aria-hidden="true">
@@ -132,109 +132,53 @@ function Status({ c }) {
   );
 }
 
-function Tabs({ chats, tab, onTab, counts }) {
+function Tabs({ chats, tab, onTab }) {
   const { t } = useLang();
   return (
-    <nav className="achat__tabs" aria-label={t('adm.chat.allTitle')}>
+    <Seg active={tab} className="achat__tabs" role="tablist" aria-label={t('adm.chat.allTitle')}>
       {TABS.map((id) => {
         const list = chats.filter((c) => inTab(c, id));
         const waiting = list.filter((c) => waitMinutes(c) > 0).length;
         return (
-          <button key={id} type="button" className={id === tab ? 'on' : ''} aria-pressed={id === tab} onClick={() => onTab(id)}>
+          <button key={id} type="button" role="tab" aria-selected={id === tab} onClick={() => onTab(id)}>
             {t(`adm.chat.tab.${id}`)}
-            {counts && <em>{list.length}</em>}
-            {waiting > 0 && <i>{waiting}</i>}
+            {waiting > 0 && <em>{waiting}</em>}
           </button>
         );
       })}
-    </nav>
+    </Seg>
   );
 }
 
-function Thread({ chat, onSent }) {
+export function Thread({ chat, onSent, onBack }) {
   const { t, lang, locale } = useLang();
   const quick = useQuickReplies();
   const { messages, send } = useThread(chat?.user_id, onSent);
   const labels = { empty: t('adm.chat.empty'), placeholder: t('adm.chat.placeholder'), send: t('adm.chat.send') };
-  if (!chat) return <p className="admin__empty achat__pick">{t('adm.chat.pick')}</p>;
+  if (!chat) return <Empty title={t('adm.chat.pick')} />;
   return (
     <>
       <header className="achat__head">
+        {onBack && (
+          <button type="button" className="adm-x achat__back" onClick={onBack} aria-label={t('adm.chat.back')}>
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <path d="M15 5l-7 7 7 7" />
+            </svg>
+          </button>
+        )}
         <Avatar c={chat} />
         <div className="achat__who">
           <strong>{chatName(chat)}</strong>
           <span>{chat.stay_booking_id ? stayLine(chat, t, lang, locale) : t('adm.logd.member', { code: chat.member_code })}</span>
         </div>
         {chat.guest_phone && (
-          <a className="achat__phone" href={`tel:${chat.guest_phone.replace(/[^\d+]/g, '')}`}>
+          <a className="adm-btn adm-btn--sm achat__phone" href={`tel:${chat.guest_phone.replace(/[^\d+]/g, '')}`}>
             {chat.guest_phone}
           </a>
         )}
       </header>
       <ChatThread messages={messages} mine={(m) => m.from_admin} onSend={send} labels={labels} locale={locale} quick={quick} />
     </>
-  );
-}
-
-function AllChats({ chats, tab, onTab, query, onQuery, onOpen, onBack }) {
-  const { t, lang, locale } = useLang();
-  const [page, setPage] = useState(1);
-  const list = useMemo(() => filterChats(chats, tab, query), [chats, tab, query]);
-  const pages = Math.max(1, Math.ceil(list.length / PER_PAGE));
-  const current = Math.min(page, pages);
-  const start = (current - 1) * PER_PAGE;
-  const rows = list.slice(start, start + PER_PAGE);
-  const fillers = list.length > PER_PAGE ? PER_PAGE - rows.length : 0;
-
-  return (
-    <div className="achat-all">
-      <button type="button" className="achat__link" onClick={onBack}>
-        {t('adm.chat.back')}
-      </button>
-      <div className="achat-all__top">
-        <h2>{t('adm.chat.allTitle')}</h2>
-        <input type="search" className="admin__search" placeholder={t('adm.chat.search')} value={query} onChange={(e) => { onQuery(e.target.value); setPage(1); }} />
-      </div>
-      <Tabs chats={chats} tab={tab} onTab={(x) => { onTab(x); setPage(1); }} counts />
-      <div className="achat-table">
-        <div className="achat-row achat-row--head">
-          <span>{t('adm.chat.col.guest')}</span>
-          <span>{t('adm.chat.col.booking')}</span>
-          <span>{t('adm.chat.col.last')}</span>
-          <span>{t('adm.chat.col.status')}</span>
-          <span />
-        </div>
-        {rows.length === 0 && <p className="admin__empty">{query ? t('adm.chat.noMatch') : t('adm.chat.listEmpty')}</p>}
-        {rows.map((c) => (
-          <div key={c.user_id} className="achat-row">
-            <span className="achat-row__name"><Avatar c={c} />{chatName(c)}</span>
-            <span className="achat-row__sub">{stayLine(c, t, lang, locale)}</span>
-            <span className="achat-row__last">{c.last_body ? `${c.last_from_admin ? t('adm.chat.you') : ''}${c.last_body}` : t('adm.chat.none')}</span>
-            <span><Status c={c} /></span>
-            <button type="button" className="admin__btn" onClick={() => onOpen(c.user_id)}>{t('adm.chat.open')}</button>
-          </div>
-        ))}
-        {Array.from({ length: fillers }, (_, i) => (
-          <div key={`f${i}`} className="achat-row achat-row--fill" aria-hidden="true">
-            <span className="achat-row__name"><span className="achat__av" />&nbsp;</span>
-            <span /><span /><span />
-            <button type="button" className="admin__btn" tabIndex={-1}>&nbsp;</button>
-          </div>
-        ))}
-      </div>
-      {list.length > PER_PAGE && (
-        <nav className="achat-pager" aria-label={t('adm.chat.allTitle')}>
-          <span>{t('adm.chat.showing', { from: start + 1, to: start + rows.length, total: list.length })}</span>
-          <button type="button" disabled={current === 1} onClick={() => setPage(current - 1)} aria-label="‹">‹</button>
-          {Array.from({ length: pages }, (_, i) => (
-            <button key={i} type="button" className={i + 1 === current ? 'on' : ''} aria-current={i + 1 === current ? 'page' : undefined} onClick={() => setPage(i + 1)}>
-              {i + 1}
-            </button>
-          ))}
-          <button type="button" disabled={current === pages} onClick={() => setPage(current + 1)} aria-label="›">›</button>
-        </nav>
-      )}
-    </div>
   );
 }
 
@@ -245,17 +189,22 @@ function filterChats(chats, tab, query) {
   );
 }
 
-function SideList({ chats, activeId, onOpen }) {
+export function ChatList({ chats, activeId, onOpen }) {
   const { t, lang, locale } = useLang();
   return (
     <ul className="achat__list">
       {chats.map((c) => (
         <li key={c.user_id}>
-          <button type="button" className={`achat__item${c.user_id === activeId ? ' is-active' : ''}`} onClick={() => onOpen(c.user_id)}>
+          <button
+            type="button"
+            className={`achat__item${c.user_id === activeId ? ' is-active' : ''}`}
+            aria-current={c.user_id === activeId ? 'true' : undefined}
+            onClick={() => onOpen(c.user_id)}
+          >
             <Avatar c={c} />
             <span className="achat__item-text">
               <b>{chatName(c)}</b>
-              <span>{c.stay_booking_id ? stayLine(c, t, lang, locale) : c.last_body || t('adm.chat.none')}</span>
+              <span>{c.last_body ? `${c.last_from_admin ? t('adm.chat.you') : ''}${c.last_body}` : stayLine(c, t, lang, locale)}</span>
             </span>
             <Status c={c} />
           </button>
@@ -265,94 +214,122 @@ function SideList({ chats, activeId, onOpen }) {
   );
 }
 
+function ChatSkeleton() {
+  const { t } = useLang();
+  return (
+    <Loading label={t('adm.loading')} className="achat">
+      <aside className="achat__side adm-card">
+        <div className="achat__side-top">
+          <Sk h="44px" r="10px" />
+          <Sk w="70%" h="38px" r="12px" />
+        </div>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="achat__item">
+            <Sk w="40px" h="40px" r="50%" />
+            <span className="achat__item-text">
+              <Sk w={`${60 - i * 6}%`} h="1em" />
+              <Sk w="80%" h="0.8em" style={{ marginTop: 6 }} />
+            </span>
+          </div>
+        ))}
+      </aside>
+      <section className="achat__main adm-card achat__main--sk">
+        <Sk w="40%" h="1.2em" />
+      </section>
+    </Loading>
+  );
+}
+
 export default function AdminChat() {
   const { t } = useLang();
   const { chats, error, reload } = useChats();
   const [activeId, setActiveId] = useState(null);
   const [tab, setTab] = useState('all');
   const [query, setQuery] = useState('');
-  const [view, setView] = useState('main');
+  const narrow = useNarrow();
 
-  const id = activeId ?? chats?.[0]?.user_id ?? null;
-  const active = chats?.find((c) => c.user_id === id);
+  const waiting = chats?.filter((c) => waitMinutes(c) > 0).length ?? 0;
+  const head = (
+    <PageHead
+      title={t('adm.nav.chat')}
+      lead={chats ? (waiting > 0 ? t('adm.chat.leadWaiting', { n: waiting }) : t('adm.chat.leadDone')) : t('adm.page.chat.lead')}
+    />
+  );
 
-  if (error && !chats) return <p className="admin__error" role="alert">{error}</p>;
-  if (!chats) return <p className="admin__muted">{t('adm.loading')}</p>;
-  if (chats.length === 0) return <p className="admin__empty">{t('adm.chat.noAccounts')}</p>;
-
-  if (view === 'all') {
+  if (error && !chats) {
     return (
-      <AllChats
-        chats={chats}
-        tab={tab}
-        onTab={setTab}
-        query={query}
-        onQuery={setQuery}
-        onBack={() => setView('main')}
-        onOpen={(x) => { setActiveId(x); setView('main'); }}
-      />
+      <>
+        {head}
+        <ErrorNote>{error}</ErrorNote>
+      </>
+    );
+  }
+  if (!chats) {
+    return (
+      <>
+        {head}
+        <ChatSkeleton />
+      </>
+    );
+  }
+  if (chats.length === 0) {
+    return (
+      <>
+        {head}
+        <div className="adm-card">
+          <Empty title={t('adm.chat.noAccounts')} />
+        </div>
+      </>
     );
   }
 
   const list = filterChats(chats, tab, query);
-  return (
-    <div className="achat">
-      <section className="achat__main">
-        <Thread chat={active} onSent={reload} />
-      </section>
-      <aside className="achat__side">
-        <input type="search" className="admin__search" placeholder={t('adm.chat.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
-        <Tabs chats={chats} tab={tab} onTab={setTab} />
-        {list.length === 0 ? (
-          <p className="admin__empty">{query ? t('adm.chat.noMatch') : t('adm.chat.listEmpty')}</p>
-        ) : (
-          <SideList chats={list.slice(0, SIDE_MAX)} activeId={id} onOpen={setActiveId} />
-        )}
-        {list.length > SIDE_MAX && (
-          <button type="button" className="achat__link" onClick={() => setView('all')}>
-            {t('adm.chat.seeAll', { n: list.length })}
-          </button>
-        )}
-      </aside>
-    </div>
-  );
-}
-
-export function ChatFab() {
-  const { t } = useLang();
-  const { chats, reload } = useChats();
-  const [open, setOpen] = useState(false);
-  const [activeId, setActiveId] = useState(null);
-  const [tab, setTab] = useState('all');
-  const waiting = chats?.filter((c) => waitMinutes(c) > 0).length ?? 0;
-  const active = chats?.find((c) => c.user_id === activeId);
+  // On a computer the first guest opens straight away; on a phone the list shows first.
+  const id = activeId ?? (narrow ? null : list[0]?.user_id ?? chats[0]?.user_id ?? null);
+  const active = chats.find((c) => c.user_id === id);
+  const showThread = !narrow || active;
 
   return (
     <>
-      {open && (
-        <div className="achat-pop" role="dialog" aria-label={t('adm.chat.fab')}>
-          <div className="achat-pop__bar">
-            {active ? (
-              <button type="button" className="achat__link" onClick={() => setActiveId(null)}>←</button>
-            ) : (
-              <b>{t('adm.chat.fab')}</b>
-            )}
-            <button type="button" className="achat-pop__x" onClick={() => setOpen(false)} aria-label={t('adm.chat.close')}>✕</button>
-          </div>
-          {active ? (
-            <div className="achat-pop__thread"><Thread chat={active} onSent={reload} /></div>
-          ) : (
-            <div className="achat-pop__list">
-              {chats && <Tabs chats={chats} tab={tab} onTab={setTab} />}
-              {chats && <SideList chats={chats.filter((c) => inTab(c, tab))} activeId={null} onOpen={setActiveId} />}
+      {(!narrow || !active) && head}
+      <div className={`achat${narrow && active ? ' is-thread' : ''}`}>
+        {(!narrow || !active) && (
+          <aside className="achat__side adm-card">
+            <div className="achat__side-top">
+              <label className="adm-search">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="6.5" />
+                  <path d="M20 20l-4-4" />
+                </svg>
+                <input type="search" placeholder={t('adm.chat.search')} aria-label={t('adm.chat.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
+              </label>
+              <Tabs chats={chats} tab={tab} onTab={setTab} />
             </div>
-          )}
-        </div>
-      )}
-      <button type="button" className="achat-fab" onClick={() => setOpen((o) => !o)} aria-label={t('adm.chat.fab')} aria-expanded={open}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>
-        {waiting > 0 && <em>{waiting}</em>}
-      </button>
+            {list.length === 0 ? (
+              <Empty title={query ? t('adm.chat.noMatch') : t('adm.chat.listEmpty')} />
+            ) : (
+              <ChatList chats={list} activeId={id} onOpen={setActiveId} />
+            )}
+          </aside>
+        )}
+        {showThread && (
+          <section className="achat__main adm-card">
+            <Thread chat={active} onSent={reload} onBack={narrow ? () => setActiveId(null) : undefined} />
+          </section>
+        )}
+      </div>
     </>
   );
+}
+
+function useNarrow() {
+  const query = '(max-width: 860px)';
+  const [narrow, setNarrow] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setNarrow(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return narrow;
 }

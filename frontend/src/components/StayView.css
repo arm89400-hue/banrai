@@ -25,6 +25,27 @@
   border-radius: 4px;
   background: var(--border);
 }
+.stay-track__short {
+  display: none;
+}
+/* Phones: four full labels don't fit and Thai would break mid-phrase, so
+   each step shows a short name instead (the full one stays for readers). */
+@media (max-width: 560px) {
+  .stay-track li {
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .stay-track__full {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .stay-track__short {
+    display: inline;
+  }
+}
 .stay-track .is-done {
   color: var(--brand-dark);
   font-weight: 600;
@@ -131,12 +152,6 @@
   }
   .stay-box {
     position: static;
-  }
-}
-@media (max-width: 560px) {
-  .stay-track li {
-    font-size: 12.5px;
-    line-height: 1.35;
   }
 }
 

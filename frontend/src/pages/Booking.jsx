@@ -6,6 +6,7 @@ import { formatDay, formatStay, roomNames, toISODate } from '../lib/booking';
 import { groupStays, mergeBookings, owes, payOptions, stayNeedsAction } from '../lib/payments';
 import { roomCover } from '../lib/photos';
 import { shift } from '../lib/motion';
+import { Loading, Sk, SkText } from '../components/Skeleton';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import { StatusBadge } from '../components/BookingBits';
@@ -138,6 +139,28 @@ export default function Booking() {
       ))}
 
       <Announcements source="/api/announcements/mine" className="page-news" />
+
+      {bookings === null && !error && (
+        <Loading label={t('loading')} className="my-sk">
+          <div className="my-sk__card">
+            <Sk className="my-sk__photo" h="auto" r="12px" />
+            <div className="my-sk__text">
+              <Sk w="55%" h="1.5em" />
+              <SkText lines={3} last="40%" />
+              <Sk w="160px" h="44px" r="999px" />
+            </div>
+          </div>
+          {[0, 1].map((i) => (
+            <div key={i} className="my-sk__row">
+              <Sk w="88px" h="60px" r="10px" />
+              <div className="my-sk__text">
+                <Sk w={`${50 - i * 10}%`} h="1.05em" />
+                <Sk w="70%" h="0.9em" />
+              </div>
+            </div>
+          ))}
+        </Loading>
+      )}
 
       {stays.some((s) => s.status === 'confirmed' && s.checkOut >= today) && (
         <Link className="my-room-link" to="/stay">

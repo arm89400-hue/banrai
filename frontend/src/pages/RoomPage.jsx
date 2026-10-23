@@ -17,20 +17,27 @@ import { useLang } from '../i18n/lang';
 import DateRangePicker from '../components/DateRangePicker';
 import { PriceRows, PromoTag } from '../components/BookingBits';
 import Lightbox from '../components/Lightbox';
+import Baht from '../components/Baht';
 import RoomAmenities from '../components/RoomAmenities';
 import { roomCover, roomPhotos } from '../lib/photos';
 import { shift } from '../lib/motion';
+import { Loading, Sk, SkText } from '../components/Skeleton';
+import { cachedRoom, cachedRooms, rememberRooms } from '../lib/roomCache';
 import './RoomPage.css';
+
+const petRuleFrom = (data) => ({ fee: Number(data?.pet_fee) || 0, maxKg: Number(data?.pet_max_kg) || 0 });
+const otherRooms = (data, id) =>
+  (data?.rooms ?? []).filter((r) => String(r.id) !== String(id)).sort((a, b) => b.price - a.price);
 
 export default function RoomPage() {
   const { id } = useParams();
   const { t, lang } = useLang();
   const navigate = useNavigate();
 
-  const [room, setRoom] = useState(null);
-  const [fee, setFee] = useState(0);
-  const [petRule, setPetRule] = useState({ fee: 0, maxKg: 0 });
-  const [others, setOthers] = useState([]);
+  const [room, setRoom] = useState(() => cachedRoom(id)?.room ?? null);
+  const [fee, setFee] = useState(() => Number(cachedRoom(id)?.extra_guest_fee) || 0);
+  const [petRule, setPetRule] = useState(() => petRuleFrom(cachedRoom(id)));
+  const [others, setOthers] = useState(() => otherRooms(cachedRooms(), id));
   const [booked, setBooked] = useState([]);
   const [missing, setMissing] = useState(false);
   const [dates, setDates] = useState({ checkIn: '', checkOut: '' });
@@ -39,7 +46,13 @@ export default function RoomPage() {
 
   useEffect(() => {
     let stale = false;
-    setRoom(null);
+    const cached = cachedRoom(id);
+    setRoom(cached?.room ?? null);
+    if (cached) {
+      setFee(Number(cached.extra_guest_fee) || 0);
+      setPetRule(petRuleFrom(cached));
+    }
+    setOthers(otherRooms(cachedRooms(), id));
     setMissing(false);
     setDates({ checkIn: '', checkOut: '' });
     setViewing(null);
@@ -49,16 +62,17 @@ export default function RoomPage() {
         if (stale) return;
         setRoom(data.room);
         setFee(Number(data.extra_guest_fee) || 0);
-        setPetRule({ fee: Number(data.pet_fee) || 0, maxKg: Number(data.pet_max_kg) || 0 });
+        setPetRule(petRuleFrom(data));
       })
       .catch(() => !stale && setMissing(true));
     api(`/api/rooms/${id}/booked`)
       .then((data) => !stale && setBooked(data.booked))
       .catch(() => !stale && setBooked([]));
     api('/api/rooms')
+      .then(rememberRooms)
       .then((data) => {
         if (stale) return;
-        setOthers(data.rooms.filter((r) => String(r.id) !== String(id)).sort((a, b) => b.price - a.price));
+        setOthers(otherRooms(data, id));
       })
       .catch(() => {});
 
@@ -87,7 +101,33 @@ export default function RoomPage() {
       </section>
     );
   }
-  if (!room) return <section className="room-page" aria-busy="true" />;
+  if (!room) {
+    return (
+      <Loading as="section" className="room-page" label={t('loading')}>
+        <Sk w="120px" h="1em" style={{ marginBottom: 14 }} />
+        <div className="room-gallery room-gallery--stack" aria-hidden="true">
+          <Sk className="room-gallery__tile room-gallery__tile--main" h="auto" r="0" />
+          <Sk className="room-gallery__tile" h="auto" r="0" />
+          <Sk className="room-gallery__tile" h="auto" r="0" />
+        </div>
+        <div className="room-page__cols">
+          <div className="room-page__main">
+            <div>
+              <Sk w="34%" h="2.1em" />
+              <Sk w="22%" h="1em" style={{ marginTop: 10 }} />
+            </div>
+            <SkText lines={4} last="55%" gap="1.1em" />
+          </div>
+          <div className="room-book" aria-hidden="true">
+            <Sk w="45%" h="1.8em" />
+            <Sk h="56px" r="10px" />
+            <Sk h="56px" r="10px" />
+            <Sk h="48px" r="999px" />
+          </div>
+        </div>
+      </Loading>
+    );
+  }
 
   const names = roomNames(room.name, lang);
   const gallery = roomPhotos(room).map((p) => ({ ...p, caption: names.title }));
@@ -338,7 +378,7 @@ export default function RoomPage() {
       <div className="room-bar">
         <span className="room-bar__info">
           <small>{nights > 0 ? `${names.title} · ${t('flow.nights', { n: nights })}` : names.title}</small>
-          <b>{nights > 0 ? formatBaht(quote.total) : `${formatBaht(room.price)} ${perNight}`}</b>
+          <b>{nights > 0 ? <Baht value={quote.total} /> : `${formatBaht(room.price)} ${perNight}`}</b>
         </span>
         {nights > 0 ? (
           <button type="button" className="room-bar__go" onClick={reserve}>

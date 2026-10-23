@@ -1,9 +1,128 @@
+/* Messages: guest list on the left, the open conversation on the right. */
+
 .achat {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 20px;
-  height: calc(100svh - 190px);
+  grid-template-columns: 370px minmax(0, 1fr);
+  gap: 16px;
+  height: calc(100svh - 170px);
   min-height: 520px;
+}
+
+.achat__side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.achat__side-top {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-bottom: 1px solid var(--adm-line-soft);
+}
+.achat__side-top .adm-search {
+  width: 100%;
+}
+.achat__tabs {
+  display: flex;
+}
+.adm-seg.achat__tabs button {
+  flex: 1 1 auto;
+  justify-content: center;
+  padding: 0 8px;
+  font-size: 14px;
+}
+.achat__list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+}
+.achat__item {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px;
+  border: 0;
+  border-radius: var(--adm-r);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-2) var(--ease-standard);
+}
+.achat__item:hover {
+  background: var(--adm-hover);
+}
+.achat__item:active {
+  background: hsl(40, 22%, 90%);
+  transition-duration: 0s;
+}
+.achat__item.is-active {
+  background: var(--brand-soft);
+}
+.achat__item-text {
+  display: grid;
+  min-width: 0;
+}
+.achat__item-text b {
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.achat__item-text span {
+  overflow: hidden;
+  color: var(--adm-muted);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.achat__wait {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--straw);
+  color: hsl(150, 38%, 13%);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.achat__done {
+  color: var(--adm-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.achat__av {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: hsl(150, 30%, 88%);
+  color: var(--brand-dark);
+  font-size: 16px;
+  font-weight: 650;
+}
+.achat__av--1 {
+  background: hsl(38, 60%, 86%);
+}
+.achat__av--2 {
+  background: hsl(15, 55%, 89%);
+}
+.achat__av--3 {
+  background: hsl(205, 40%, 89%);
+}
+.achat__av--4 {
+  background: hsl(80, 35%, 86%);
 }
 
 .achat__main {
@@ -11,444 +130,104 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 16px;
 }
-.achat__pick {
+.achat__main > .adm-empty {
   margin: auto;
 }
-
+.achat__main--sk {
+  padding: 20px;
+}
 .achat__head {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--adm-line-soft);
 }
 .achat__who {
   display: grid;
   min-width: 0;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 .achat__who strong {
-  font-size: 19px;
-}
-.achat__who span {
-  font-size: 15px;
-  color: var(--text-muted);
-}
-.achat__phone {
-  margin-left: auto;
-  font-weight: 600;
-  color: var(--brand-dark);
-  white-space: nowrap;
-  text-decoration: none;
-}
-.achat__phone:hover {
-  text-decoration: underline;
-}
-
-.achat__av {
-  flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-weight: 600;
-  font-size: 16px;
-  color: var(--brand-dark);
-  background: hsl(150, 30%, 88%);
-}
-.achat__av--1 { background: hsl(38, 60%, 86%); }
-.achat__av--2 { background: hsl(15, 55%, 89%); }
-.achat__av--3 { background: hsl(205, 40%, 89%); }
-.achat__av--4 { background: hsl(80, 35%, 86%); }
-
-.achat__side {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 0;
-}
-.achat__side .admin__search {
-  width: 100%;
-}
-
-.achat__tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 18px;
-  border-bottom: 1px solid var(--border);
-}
-.achat__tabs button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 0 10px;
-  margin-bottom: -1px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: none;
-  font: inherit;
-  font-size: 16px;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.achat__tabs button.on {
-  color: var(--brand-dark);
-  font-weight: 600;
-  border-color: var(--brand);
-}
-.achat__tabs em {
-  font-style: normal;
-  font-weight: 600;
-}
-.achat__tabs i {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 10px;
-  display: inline-grid;
-  place-items: center;
-  background: var(--straw);
-  color: var(--brand-dark);
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 700;
-}
-
-.achat__list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 14px;
   overflow: hidden;
-}
-.achat__list li + li {
-  border-top: 1px solid var(--border);
-}
-.achat__item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  width: 100%;
-  padding: 12px 14px;
-  border: 0;
-  background: none;
-  font: inherit;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-}
-.achat__item:hover {
-  background: var(--bg-alt);
-}
-.achat__item.is-active {
-  background: var(--brand-soft);
-  box-shadow: inset 3px 0 0 var(--brand);
-}
-.achat__item-text {
-  display: grid;
-  min-width: 0;
-  line-height: 1.3;
-}
-.achat__item-text b {
-  font-size: 16px;
-  font-weight: 600;
-}
-.achat__item-text span {
-  font-size: 14px;
-  color: var(--text-muted);
-  overflow: hidden;
+  font-size: 17px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.achat__wait {
-  padding: 3px 10px;
-  border-radius: 8px;
-  background: var(--straw);
-  color: var(--brand-dark);
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.achat__done {
+.achat__who span {
+  color: var(--adm-muted);
   font-size: 14px;
-  color: var(--text-muted);
-  white-space: nowrap;
+}
+.achat__phone {
+  margin-left: auto;
+}
+.achat__back {
+  margin-left: -6px;
 }
 
-.achat__link {
-  align-self: flex-start;
-  padding: 4px 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--brand);
-  cursor: pointer;
+.achat .chat-thread__list {
+  background: hsl(40, 30%, 97.5%);
 }
-.achat__link:hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
+.achat .chat-thread__form textarea {
+  min-height: 44px;
 }
-
 .chat-thread__quick {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px 16px 0;
-  border-top: 1px solid var(--border);
+  gap: 6px;
+  padding: 10px 14px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 .chat-thread__quick button {
-  height: 34px;
+  flex: none;
+  min-height: 36px;
   padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
+  border: 1px solid var(--adm-line);
+  border-radius: 999px;
   background: var(--white);
+  color: var(--adm-ink);
   font: inherit;
   font-size: 14px;
-  color: var(--brand-dark);
   cursor: pointer;
 }
 .chat-thread__quick button:hover {
   border-color: var(--brand);
-  background: var(--brand-soft);
-}
-
-.achat-all {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.achat-all__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.achat-all__top h2 {
-  margin: 0;
-  font-size: 28px;
-}
-.achat-table {
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  overflow: hidden;
-}
-.achat-row {
-  display: grid;
-  grid-template-columns: minmax(170px, 1.1fr) minmax(170px, 1fr) minmax(0, 2fr) 120px 110px;
-  gap: 16px;
-  align-items: center;
-  padding: 12px 18px;
-  border-top: 1px solid var(--border);
-}
-.achat-row:first-child {
-  border-top: 0;
-}
-.achat-row--head {
-  padding: 10px 18px;
-  background: var(--bg-alt);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-.achat-row--fill {
-  visibility: hidden;
-}
-.achat-row__name {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  font-weight: 600;
-}
-.achat-row__sub {
-  font-size: 15px;
-  color: var(--text-muted);
-}
-.achat-row__last {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.achat-row .admin__btn {
-  justify-self: end;
-}
-
-.achat-pager {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-}
-.achat-pager span {
-  margin-right: auto;
-  font-size: 15px;
-  color: var(--text-muted);
-}
-.achat-pager button {
-  min-width: 42px;
-  height: 42px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--white);
-  font: inherit;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.achat-pager button:hover:not(:disabled) {
-  border-color: var(--brand);
-  background: var(--brand-soft);
-}
-.achat-pager button.on {
-  background: var(--brand-dark);
-  border-color: var(--brand-dark);
-  color: var(--white);
-}
-.achat-pager button:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.achat-fab {
-  position: fixed;
-  z-index: 40;
-  right: 24px;
-  bottom: 24px;
-  width: 62px;
-  height: 62px;
-  border: 0;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--brand-dark);
-  color: var(--white);
-  box-shadow: var(--shadow-lg);
-  cursor: pointer;
-}
-.achat-fab:hover {
-  background: var(--brand);
-}
-.achat-fab svg {
-  width: 26px;
-  height: 26px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linejoin: round;
-}
-.achat-fab em {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 6px;
-  border: 2px solid var(--bg);
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: var(--straw);
   color: var(--brand-dark);
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 700;
-}
-.achat-pop {
-  position: fixed;
-  z-index: 40;
-  right: 24px;
-  bottom: 98px;
-  width: min(400px, calc(100vw - 32px));
-  height: min(580px, calc(100svh - 140px));
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  box-shadow: var(--shadow-lg);
-  animation: achat-grow 0.2s var(--ease-out);
-}
-@keyframes achat-grow {
-  from { opacity: 0; transform: scale(0.95); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .achat-pop { animation: none; }
-}
-.achat-pop__bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: 18px;
-}
-.achat-pop__x {
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 10px;
-  background: none;
-  font-size: 16px;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.achat-pop__x:hover {
-  background: var(--bg-alt);
-}
-.achat-pop__list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-}
-.achat-pop__thread {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.achat-pop__thread .achat__head {
-  padding: 10px 14px;
 }
 
 @media (max-width: 1100px) {
   .achat {
-    grid-template-columns: minmax(0, 1fr);
-    height: auto;
+    grid-template-columns: 330px minmax(0, 1fr);
   }
-  .achat__main {
-    height: 70svh;
+  .adm-seg.achat__tabs button {
+    padding: 0 6px;
+    font-size: 13.5px;
   }
 }
+
 @media (max-width: 860px) {
-  .achat-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 6px 12px;
+  .achat {
+    display: block;
+    height: auto;
+    min-height: 0;
   }
-  .achat-row--head {
-    display: none;
+  .achat__side {
+    overflow: visible;
   }
-  .achat-row__sub,
-  .achat-row__last {
-    grid-column: 1 / -1;
+  .achat__list {
+    overflow: visible;
+  }
+  .achat.is-thread {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    background: var(--bg);
+  }
+  .achat.is-thread .achat__main {
+    flex: 1;
+    border: 0;
+    border-radius: 0;
   }
 }

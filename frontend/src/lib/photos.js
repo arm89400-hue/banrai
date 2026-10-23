@@ -13,6 +13,27 @@ export const HERO_SLIDES = [
   'home-swimmingpool2',
 ].map(src);
 
+// The home photos open on the time of day it is at the farm (Bangkok time):
+// sunrise and breakfast in the morning, the pool by day, the grill at night.
+const HERO_BY_TIME = {
+  morning: ['booking-sunrise', 'home-background1', 'home-coffe'],
+  day: ['home-outside7', 'home-swimmingpool2', 'home-background2'],
+  evening: ['home-bbq5', 'home-mainwall', 'home-outside6'],
+};
+
+export function partOfDay(date = new Date()) {
+  const hour = Number(
+    new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Bangkok' }).format(date)
+  );
+  return hour >= 5 && hour < 11 ? 'morning' : hour >= 11 && hour < 17 ? 'day' : 'evening';
+}
+
+export function heroSlidesNow(date = new Date()) {
+  const part = partOfDay(date);
+  const first = HERO_BY_TIME[part].map(src);
+  return [...first, ...HERO_SLIDES.filter((s) => !first.includes(s))];
+}
+
 export const LOGIN_SLIDES = [
   '/images/rooms/room-1-1.jpg',
   src('home-swimmingpool2'),

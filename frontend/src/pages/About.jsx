@@ -1,3 +1,5 @@
+import HeroLife from '../components/HeroLife';
+import { partOfDay } from '../lib/photos';
 import { useLang } from '../i18n/lang';
 import './About.css';
 
@@ -16,6 +18,7 @@ export default function About() {
     <div className="about-page">
       <header className="about-hero">
         <img src="/images/farm/around-orchard.jpg" alt="" />
+        <HeroLife part={partOfDay()} pausable />
         <h1>{t('about.title')}</h1>
       </header>
 

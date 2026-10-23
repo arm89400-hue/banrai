@@ -33,7 +33,10 @@ export default function LanguageProvider({ children }) {
     const t = (key, vars) => {
       const raw = STRINGS[lang][key] ?? STRINGS.en[key] ?? key;
       if (typeof raw !== 'string' || !vars) return raw;
-      return raw.replace(/\{(\w+)\}/g, (m, name) => (name in vars ? vars[name] : m));
+      return raw
+        // {n|night|nights}: the word that fits the number (English needs it, Thai doesn't).
+        .replace(/\{(\w+)\|([^|}]*)\|([^}]*)\}/g, (m, name, one, many) => (name in vars ? (Number(vars[name]) === 1 ? one : many) : m))
+        .replace(/\{(\w+)\}/g, (m, name) => (name in vars ? vars[name] : m));
     };
     return { lang, setLang, t, locale: lang === 'th' ? 'th-TH' : 'en-US' };
   }, [lang, setLang]);

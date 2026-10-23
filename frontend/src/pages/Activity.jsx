@@ -1,11 +1,13 @@
+import HeroLife from '../components/HeroLife';
 import { useEffect, useRef, useState } from 'react';
 import { FRUIT_SEASONS, fruitPhoto, inRange } from '../lib/seasons';
 import { api } from '../lib/api';
-import { listingPhotos } from '../lib/photos';
+import { listingPhotos, partOfDay } from '../lib/photos';
 import { formatBaht } from '../lib/money';
 import { shift } from '../lib/motion';
 import { useLang } from '../i18n/lang';
 import FruitViewer from '../components/FruitViewer';
+import { Loading, Sk, SkText } from '../components/Skeleton';
 import Lightbox from '../components/Lightbox';
 import './Activity.css';
 
@@ -59,6 +61,24 @@ function ActivityCard({ item, onOpen }) {
       </div>
       {(item.tag || item.text) && <p>{[item.tag, item.text].filter(Boolean).join(' · ')}</p>}
     </li>
+  );
+}
+
+// Same shape as the real cards, so the page doesn't jump when they arrive.
+function ActivitiesSkeleton() {
+  const { t } = useLang();
+  const card = (i) => (
+    <li key={i} className="act-card">
+      <Sk className="act-card__photo" h="auto" r="12px" />
+      <Sk w={`${44 - (i % 3) * 8}%`} h="1.3em" />
+      <SkText lines={2} last="70%" size="0.9em" />
+    </li>
+  );
+  return (
+    <Loading label={t('loading')}>
+      <ul className="act-cards act-cards--big">{[0, 1].map(card)}</ul>
+      <ul className="act-cards act-cards--small">{[2, 3, 4].map(card)}</ul>
+    </Loading>
   );
 }
 
@@ -117,6 +137,7 @@ export default function Activity() {
     <div className="acts">
       <header className="acts-top">
         <img src="/images/farm/around-planting.jpg" alt="" />
+        <HeroLife part={partOfDay()} pausable />
         <div className="acts-top__in">
           <h1>{t('activities.title')}</h1>
           <p>{t('activities.lead')}</p>
@@ -125,6 +146,7 @@ export default function Activity() {
 
       <section className="acts-sec" aria-labelledby="acts-list">
         <h2 id="acts-list">{t('activities.listTitle')}</h2>
+        {!ready && <ActivitiesSkeleton />}
         {big.length > 0 && (
           <ul className="act-cards act-cards--big">
             {big.map((item) => (

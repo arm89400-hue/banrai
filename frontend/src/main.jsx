@@ -5,6 +5,10 @@ import { AuthProvider } from './context/AuthContext.jsx'
 import LanguageProvider from './i18n/LanguageProvider.jsx'
 import './index.css'
 import App from './App.jsx'
+import './wow.css'
+import { startReveal } from './lib/reveal.js'
+
+startReveal()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

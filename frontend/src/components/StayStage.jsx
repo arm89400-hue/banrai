@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLang } from '../i18n/lang';
+import HeroLife from './HeroLife';
+import { partOfDay } from '../lib/photos';
 import './StayStage.css';
 
 const SLIDE_MS = 6000;
@@ -32,6 +34,7 @@ export default function StayStage({ slides, children }) {
         ))}
       </div>
 
+      <HeroLife part={partOfDay()} />
       <div className="stay-stage__in">
         {children}
 
@@ -42,16 +45,42 @@ export default function StayStage({ slides, children }) {
             </p>
             {count > 1 && (
               <div className="stay-stage__dots">
-                {slides.map((s, i) => (
-                  <button
-                    key={s.src}
-                    type="button"
-                    className={i === index ? 'is-on' : ''}
-                    aria-label={s.caption}
-                    aria-current={i === index}
-                    onClick={() => setIndex(i)}
-                  />
-                ))}
+                {count <= 6 ? (
+                  slides.map((s, i) => (
+                    <button
+                      key={s.src}
+                      type="button"
+                      className={i === index ? 'is-on' : ''}
+                      aria-label={s.caption}
+                      aria-current={i === index}
+                      onClick={() => setIndex(i)}
+                    />
+                  ))
+                ) : (
+                  // Many photos: a counter with arrows instead of a row of
+                  // tiny dots nobody can hit with a thumb.
+                  <>
+                    <button
+                      type="button"
+                      className="stay-stage__step"
+                      aria-label={t('gallery.prev')}
+                      onClick={() => setIndex((i) => (i - 1 + count) % count)}
+                    >
+                      ‹
+                    </button>
+                    <span className="stay-stage__count">
+                      {index + 1} / {count}
+                    </span>
+                    <button
+                      type="button"
+                      className="stay-stage__step"
+                      aria-label={t('gallery.next')}
+                      onClick={() => setIndex((i) => (i + 1) % count)}
+                    >
+                      ›
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   className="stay-stage__play"

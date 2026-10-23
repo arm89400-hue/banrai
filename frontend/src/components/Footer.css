@@ -89,9 +89,16 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 14px;
+  gap: 0;
 }
+.footer__col > :not(a) + a {
+  margin-top: 4px;
+}
+/* Same spacing as before, but each link is a 40px-tall tap target. */
 .footer__col a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
   font-size: 15px;
   font-weight: 500;
   color: var(--on-dark);

@@ -1,18 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api, mediaUrl } from '../lib/api';
 import { formatBaht } from '../lib/money';
-import { addDays, toISODate } from '../lib/booking';
+import { toISODate } from '../lib/booking';
 import { dayOf, groupRows, needsYou, roomTitle } from '../lib/adminBookings';
+import { useAdminData } from '../lib/adminData';
 import { useLang } from '../i18n/lang';
-import { shift } from '../lib/motion';
 import { formatThaiPhone } from '../lib/contact';
+import { Drawer, Empty, ErrorNote, PageHead, Pill, RowsSkeleton, useConfirm, Seg } from '../components/AdminUI';
 import Pager, { usePaged } from '../components/Pager';
+import Baht from '../components/Baht';
 import './AdminBookings.css';
 
 const day = (iso) => new Date(`${iso}T00:00:00`);
 const nightsOf = (a, b) => Math.max(0, Math.round((day(b) - day(a)) / 86_400_000));
-const who = (b) => b.guest_name || b.user_email || '-';
+export const who = (b) => b.guest_name || b.user_email || '-';
 
 function useFmt() {
   const { t, lang, locale } = useLang();
@@ -34,29 +36,21 @@ function useFmt() {
   };
 }
 
-function useLoad(path) {
-  const [state, setState] = useState({ data: null, error: null, loading: true });
-  const reload = useCallback(() => {
-    setState((s) => ({ ...s, loading: true }));
-    api(path)
-      .then((data) => setState({ data, error: null, loading: false }))
-      .catch((err) => setState({ data: null, error: err.message, loading: false }));
-  }, [path]);
-  useEffect(reload, [reload]);
-  return { ...state, reload };
-}
-
+// The money state of a booking in a few words, with a tone for its colour.
 function moneyLine(g, t) {
-  if (!g.isRoom) return g.status === 'cancelled' ? [t('adm.bk.money.cancelled'), 'off'] : [t('adm.bk.money.activity'), 'ok'];
-  if (g.status === 'cancelled') return [t('adm.bk.money.cancelled'), 'off'];
+  if (!g.isRoom) return g.status === 'cancelled' ? [t('adm.bk.money.cancelled'), 'cancelled'] : [t('adm.bk.money.activity'), 'confirmed'];
+  if (g.status === 'cancelled') return [t('adm.bk.money.cancelled'), 'cancelled'];
   if (g.depositReview) return [t('adm.bk.money.depositSlip'), 'check'];
   if (g.balanceReview) return [t('adm.bk.money.restSlip'), 'check'];
-  if (g.status === 'pending') return [t('adm.bk.money.noDeposit', { money: formatBaht(g.deposit) }), 'wait'];
-  if (g.restDue > 0) return [t('adm.bk.money.rest', { money: formatBaht(g.restDue) }), 'ok'];
-  return [t('adm.bk.money.paid'), 'ok'];
+  if (g.status === 'pending') return [t('adm.bk.money.noDeposit', { money: formatBaht(g.deposit) }), 'pending'];
+  if (g.restDue > 0) return [t('adm.bk.money.rest', { money: formatBaht(g.restDue) }), 'confirmed'];
+  return [t('adm.bk.money.paid'), 'confirmed'];
 }
 
-function useBookingActions(reload, setError, t) {
+// Every booking action asks first in our own dialog, then reloads the list.
+export function useBookingActions(reload, setError) {
+  const { t } = useLang();
+  const confirm = useConfirm();
   const run = async (fn) => {
     setError(null);
     try {
@@ -66,26 +60,28 @@ function useBookingActions(reload, setError, t) {
       setError(err.message);
     }
   };
+  const slipRow = (g, kind) =>
+    g.rows.find((r) => (kind === 'deposit' ? r.slip_status === 'review' : r.balance_slip_status === 'review')) ?? g.lead;
   return {
-    approve(g, kind) {
-      const row = g.rows.find((r) => (kind === 'deposit' ? r.slip_status === 'review' : r.balance_slip_status === 'review')) ?? g.lead;
+    async approve(g, kind) {
+      const row = slipRow(g, kind);
       const amount = kind === 'deposit' ? row.slip_expected : row.balance_slip_expected;
       const ask = kind === 'deposit' ? 'adm.ask.approveDeposit' : 'adm.ask.approveRest';
-      if (!window.confirm(t(ask, { code: g.code, money: formatBaht(amount) }))) return;
-      run(() => api(`/api/admin/slips/${kind === 'deposit' ? row.slip_id : row.balance_slip_id}/approve`, { method: 'POST' }));
+      const ok = await confirm({ title: t(ask, { code: g.code, money: formatBaht(amount) }), ok: t('adm.today.approve') });
+      if (ok) run(() => api(`/api/admin/slips/${kind === 'deposit' ? row.slip_id : row.balance_slip_id}/approve`, { method: 'POST' }));
     },
-    reject(g, kind) {
-      const row = g.rows.find((r) => (kind === 'deposit' ? r.slip_status === 'review' : r.balance_slip_status === 'review')) ?? g.lead;
-      if (!window.confirm(t('adm.ask.reject', { code: g.code }))) return;
-      run(() => api(`/api/admin/slips/${kind === 'deposit' ? row.slip_id : row.balance_slip_id}/reject`, { method: 'PATCH' }));
+    async reject(g, kind) {
+      const row = slipRow(g, kind);
+      const ok = await confirm({ title: t('adm.ask.reject', { code: g.code }), ok: t('adm.act.reject'), danger: true });
+      if (ok) run(() => api(`/api/admin/slips/${kind === 'deposit' ? row.slip_id : row.balance_slip_id}/reject`, { method: 'PATCH' }));
     },
-    paidAtFarm(g, paid = true) {
-      const q = paid ? t('adm.ask.paidAtFarm', { code: g.code, money: formatBaht(g.restDue) }) : t('adm.ask.undoFarm', { code: g.code });
-      if (!window.confirm(q)) return;
-      run(() => api(`/api/admin/bookings/${g.lead.id}/balance`, { method: 'PATCH', body: JSON.stringify({ paid }) }));
+    async paidAtFarm(g, paid = true) {
+      const title = paid ? t('adm.ask.paidAtFarm', { code: g.code, money: formatBaht(g.restDue) }) : t('adm.ask.undoFarm', { code: g.code });
+      const ok = await confirm({ title, ok: paid ? t('adm.act.paidAtFarm') : t('adm.panel.undoFarm') });
+      if (ok) run(() => api(`/api/admin/bookings/${g.lead.id}/balance`, { method: 'PATCH', body: JSON.stringify({ paid }) }));
     },
-    setStatus(g, status, question) {
-      if (question && !window.confirm(question)) return;
+    async setStatus(g, status, question, { danger = false, ok: okLabel } = {}) {
+      if (question && !(await confirm({ title: question, danger, ok: okLabel }))) return;
       run(async () => {
         for (const r of g.rows) {
           if (r.status !== status) await api(`/api/admin/bookings/${r.id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
@@ -97,7 +93,8 @@ function useBookingActions(reload, setError, t) {
 
 const CAN_CALL = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
 
-function Phone({ phone, label, className = 'admin__btn' }) {
+// On a phone the number is a call button; on a computer it's plain text to read.
+export function Phone({ phone, label, className = 'adm-btn' }) {
   const shown = formatThaiPhone(phone);
   if (CAN_CALL) {
     return (
@@ -125,7 +122,7 @@ function nextStep(g, actions, today, t, open) {
 
 function StepButton({ step }) {
   if (!step) return null;
-  const cls = `admin__btn${step.primary ? ' admin__btn--primary' : ''}`;
+  const cls = `adm-btn adm-btn--sm${step.primary ? ' adm-btn--primary' : ''}`;
   if (step.phone) return <Phone phone={step.phone} label={step.label} className={cls} />;
   return (
     <button
@@ -141,245 +138,52 @@ function StepButton({ step }) {
   );
 }
 
-export function Today() {
-  const navigate = useNavigate();
-  const fmt = useFmt();
-  const { t, lang, locale } = fmt;
-  const bookings = useLoad('/api/admin/bookings');
-  const stats = useLoad('/api/admin/stats');
-  const roomsLoad = useLoad('/api/rooms');
-  const [error, setError] = useState(null);
+// Money for one month of check-ins: what was booked, what came in, what's owed.
+function MonthMoney({ groups }) {
+  const { t, locale } = useLang();
   const [month, setMonth] = useState(() => toISODate(new Date()).slice(0, 7));
-  const [view, setView] = useState('calendar');
-  const reload = () => {
-    bookings.reload();
-    stats.reload();
-  };
-  const actions = useBookingActions(reload, setError, t);
-  const today = toISODate(new Date());
-  const groups = useMemo(() => groupRows(bookings.data?.bookings ?? [], lang).filter((g) => g.isRoom), [bookings.data, lang]);
-  const live = groups.filter((g) => g.status !== 'cancelled');
-  const rooms = [...(roomsLoad.data?.rooms ?? [])].sort((a, b) => b.price - a.price);
-  const open = (g) => navigate(`/admin/bookings?open=${encodeURIComponent(g.key)}`);
-  const short = (iso) => day(iso).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
-
   const [y, m] = month.split('-').map(Number);
-  const daysIn = new Date(y, m, 0).getDate();
-  const iso = (d) => `${month}-${String(d).padStart(2, '0')}`;
-  const moveMonth = (n) => setMonth(toISODate(new Date(y, m - 1 + n, 1)).slice(0, 7));
-  const monthName = day(`${month}-01`).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
-
-  const inMonth = live.filter((g) => g.checkIn.slice(0, 7) === month);
+  const move = (n) => setMonth(toISODate(new Date(y, m - 1 + n, 1)).slice(0, 7));
+  const inMonth = groups.filter((g) => g.isRoom && g.status !== 'cancelled' && g.checkIn.slice(0, 7) === month);
   const rows = inMonth.flatMap((g) => g.live);
-  const revenue = rows.reduce((n, r) => n + (Number(r.total) || 0), 0);
+  const booked = rows.reduce((n, r) => n + (Number(r.total) || 0), 0);
   const received = rows.reduce((n, r) => {
     if (r.status !== 'confirmed') return n;
     const dep = Number(r.deposit) || 0;
     return n + dep + (r.balance_paid_at ? Math.max(0, Number(r.total) - dep) : 0);
   }, 0);
-  const first = iso(1);
-  const after = addDays(iso(daysIn), 1);
-  const nightsTaken = live
-    .flatMap((g) => g.live)
-    .reduce((n, r) => {
-      const from = dayOf(r.booked_for) > first ? dayOf(r.booked_for) : first;
-      const to = dayOf(r.booked_until) < after ? dayOf(r.booked_until) : after;
-      return n + Math.max(0, Math.round((day(to) - day(from)) / 86_400_000));
-    }, 0);
-  const occupancy = rooms.length ? Math.round((nightsTaken / (rooms.length * daysIn)) * 100) : 0;
-
-  const staying = (d) =>
-    live.flatMap((g) => g.live.filter((r) => dayOf(r.booked_for) <= d && d < dayOf(r.booked_until)).map((r) => ({ g, r })));
-
-  const rank = (g) => (g.depositReview || g.balanceReview ? 0 : g.status === 'pending' ? 1 : 2);
-  const todo = groups.filter((g) => needsYou(g, today)).sort((a, b) => rank(a) - rank(b) || a.checkIn.localeCompare(b.checkIn));
-  const unread = stats.data?.stats?.unread_chats ?? 0;
-  const next = live
-    .flatMap((g) => [
-      { d: g.checkIn, kind: 'in', g },
-      { d: g.checkOut, kind: 'out', g },
-    ])
-    .filter((x) => x.d > today)
-    .sort((a, b) => a.d.localeCompare(b.d))[0];
-
-  const lead = (day(first).getDay() + 6) % 7;
-  const cells = [...Array(lead).fill(null), ...Array.from({ length: daysIn }, (_, k) => k + 1)];
-  while (cells.length % 7) cells.push(null);
-  const weekdays = Array.from({ length: 7 }, (_, k) => day(addDays('2024-01-01', k)).toLocaleDateString(locale, { weekday: 'long' }).replace(/^วัน/, ''));
+  const name = new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
 
   return (
-    <div className="ov">
-      <header className="ov-head">
-        <h1>{monthName}</h1>
-        <div className="ov-nav">
-          <button type="button" onClick={() => moveMonth(-1)} aria-label={t('adm.dash.prev')}>
-            ‹
-          </button>
-          <button type="button" onClick={() => moveMonth(1)} aria-label={t('adm.dash.nextMonth')}>
-            ›
-          </button>
-          <button type="button" className="ov-today" onClick={() => setMonth(today.slice(0, 7))}>
-            {t('adm.dash.today')}
-          </button>
-        </div>
-      </header>
-      {(bookings.error || error) && <p className="admin__error" role="alert">{bookings.error || error}</p>}
-
-      <dl className="ov-figs">
+    <section className="abk-month-money adm-card" aria-label={t('adm.bk.moneyTitle', { month: name })}>
+      <div className="abk-mm__nav">
+        <button type="button" className="adm-btn adm-btn--sm adm-btn--icon" onClick={() => move(-1)} aria-label={t('adm.dash.prev')}>
+          ‹
+        </button>
+        <b>{name}</b>
+        <button type="button" className="adm-btn adm-btn--sm adm-btn--icon" onClick={() => move(1)} aria-label={t('adm.dash.nextMonth')}>
+          ›
+        </button>
+      </div>
+      <dl className="abk-mm__figs num">
         <div>
           <dt>{t('adm.dash.bookings')}</dt>
-          <dd className="num">{inMonth.length}</dd>
-        </div>
-        <div>
-          <dt>{t('adm.dash.occupancy')}</dt>
-          <dd className="num">{occupancy}%</dd>
+          <dd>{inMonth.length}</dd>
         </div>
         <div>
           <dt>{t('adm.dash.revenue')}</dt>
-          <dd className="num">{formatBaht(revenue)}</dd>
+          <dd><Baht value={booked} /></dd>
         </div>
-        <div className="is-due">
+        <div>
+          <dt>{t('adm.bk.received')}</dt>
+          <dd><Baht value={received} /></dd>
+        </div>
+        <div className={booked - received > 0 ? 'is-due' : ''}>
           <dt>{t('adm.dash.outstanding')}</dt>
-          <dd className="num">{formatBaht(Math.max(0, revenue - received))}</dd>
+          <dd><Baht value={Math.max(0, booked - received)} /></dd>
         </div>
       </dl>
-
-      <div className="ov-two">
-        <section className="ov-cal" aria-label={t('adm.dash.calendar')}>
-          <div className="ov-cal__hd">
-            <h2>{t('adm.dash.calendar')}</h2>
-            <div className="ov-seg" role="tablist">
-              {['calendar', 'list'].map((v) => (
-                <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? 'is-on' : ''} onClick={() => setView(v)}>
-                  {t(`adm.dash.view.${v}`)}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {view === 'calendar' ? (
-            <div className="ov-grid">
-              {weekdays.map((w) => (
-                <div key={w} className="ov-grid__wd">
-                  {w}
-                </div>
-              ))}
-              {cells.map((d, k) => {
-                if (!d) return <div key={`x${k}`} className="ov-day is-out" />;
-                const date = iso(d);
-                const here = staying(date);
-                return (
-                  <div key={date} className={`ov-day${date === today ? ' is-today' : ''}${date < today ? ' is-past' : ''}`}>
-                    <b className="num">{d}</b>
-                    {here.map(({ g, r }) => (
-                      <button
-                        key={r.id}
-                        type="button"
-                        className={g.status === 'pending' ? 'is-wait' : ''}
-                        title={`${who(r)} · ${g.code}`}
-                        onClick={() => open(g)}
-                      >
-                        {roomTitle(r.room_name, lang)}
-                      </button>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <ul className="ov-list">
-              {inMonth.length === 0 && <li className="ov-empty">{t('adm.dash.noneMonth')}</li>}
-              {[...inMonth]
-                .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
-                .map((g) => (
-                  <li key={g.key}>
-                    <button type="button" onClick={() => open(g)}>
-                      <b className="num">
-                        {short(g.checkIn)} – {short(g.checkOut)}
-                      </b>
-                      <span>
-                        {who(g.lead)} · {g.rooms}
-                      </span>
-                      <em className={g.status === 'pending' ? 'is-wait' : ''}>
-                        {g.status === 'pending' ? t('adm.dash.legend.wait') : t('adm.dash.legend.ok')}
-                      </em>
-                    </button>
-                  </li>
-                ))}
-            </ul>
-          )}
-          <p className="ov-key">
-            <span>
-              <i /> {t('adm.dash.legend.ok')}
-            </span>
-            <span>
-              <i className="is-wait" /> {t('adm.dash.legend.wait')}
-            </span>
-            <span>{t('adm.dash.legend.hint')}</span>
-          </p>
-        </section>
-
-        <aside className="ov-todo" aria-labelledby="ov-todo-title">
-          <h2 id="ov-todo-title">{t('adm.dash.todo')}</h2>
-          <p className="ov-todo__n">{t('adm.dash.todoCount', { n: todo.length + (unread > 0 ? 1 : 0) })}</p>
-          {todo.length === 0 && unread === 0 && <p className="ov-empty">{t('adm.dash.nothing')}</p>}
-
-          {todo.map((g) => {
-            const slip = g.depositReview ? 'deposit' : g.balanceReview ? 'balance' : null;
-            const slipRow = slip && g.rows.find((r) => (slip === 'deposit' ? r.slip_status === 'review' : r.balance_slip_status === 'review'));
-            const expected = slipRow && (slip === 'deposit' ? slipRow.slip_expected : slipRow.balance_slip_expected);
-            const name = who(g.lead);
-            let what;
-            if (slip) what = t(slip === 'deposit' ? 'adm.dash.slipDeposit' : 'adm.dash.slipRest', { money: formatBaht(expected) });
-            else if (g.status === 'pending') what = t('adm.dash.waitDeposit', { money: formatBaht(g.deposit) });
-            else what = t('adm.dash.collect', { money: formatBaht(g.restDue) });
-            return (
-              <div key={g.key} className="ov-item">
-                <button type="button" className="ov-item__what" onClick={() => open(g)}>
-                  <b>
-                    {what} · {name}
-                  </b>
-                  <small className="num">
-                    {g.rooms} · {short(g.checkIn)} – {short(g.checkOut)}
-                  </small>
-                </button>
-                {slip && (
-                  <button type="button" className="admin__btn admin__btn--primary" onClick={() => actions.approve(g, slip)}>
-                    {t('adm.dash.verify')}
-                  </button>
-                )}
-                {!slip && g.status === 'pending' && g.lead.guest_phone && (
-                  <Phone phone={g.lead.guest_phone} label={t('adm.bk.step.call')} />
-                )}
-                {!slip && g.status === 'confirmed' && (
-                  <button type="button" className="admin__btn admin__btn--primary" onClick={() => actions.paidAtFarm(g)}>
-                    {t('adm.dash.received')}
-                  </button>
-                )}
-              </div>
-            );
-          })}
-
-          {unread > 0 && (
-            <div className="ov-item">
-              <div className="ov-item__what">
-                <b>{t('adm.dash.newMessages', { n: unread })}</b>
-              </div>
-              <button type="button" className="admin__btn admin__btn--primary" onClick={() => navigate('/admin/chat')}>
-                {t('adm.dash.reply')}
-              </button>
-            </div>
-          )}
-
-          {next && (
-            <p className="ov-next num">
-              {t('adm.dash.next')}: <b>{short(next.d)}</b>{' '}
-              {t(next.kind === 'in' ? 'adm.dash.checkIn' : 'adm.dash.checkOut')} {who(next.g.lead)} · {next.g.rooms}
-            </p>
-          )}
-        </aside>
-      </div>
-    </div>
+    </section>
   );
 }
 
@@ -387,7 +191,7 @@ const TABS = ['todo', 'upcoming', 'past', 'cancelled', 'all'];
 
 export function Bookings() {
   const [params, setParams] = useSearchParams();
-  const { data, error, loading, reload } = useLoad('/api/admin/bookings');
+  const { data, error, reload } = useAdminData('/api/admin/bookings');
   const [actionError, setActionError] = useState(null);
   const [tab, setTab] = useState('todo');
   const [query, setQuery] = useState('');
@@ -395,11 +199,18 @@ export function Bookings() {
   const [deleting, setDeleting] = useState(null);
   const f = useFmt();
   const { t, lang, locale } = f;
-  const actions = useBookingActions(reload, setActionError, t);
+  const actions = useBookingActions(reload, setActionError);
   const today = toISODate(new Date());
   const groups = useMemo(() => groupRows(data?.bookings ?? [], lang), [data, lang]);
   const openKey = params.get('open');
   const selected = groups.find((g) => g.key === openKey) ?? null;
+  const searchRef = useRef(null);
+
+  // Opening a booking from Today shows it on top of the list it belongs to.
+  useEffect(() => {
+    if (openKey && selected && tab === 'todo' && !needsYou(selected, today)) setTab('all');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openKey, Boolean(selected)]);
 
   const inTab = {
     todo: (g) => needsYou(g, today),
@@ -422,7 +233,7 @@ export function Bookings() {
     )
     .sort((a, b) => (tab === 'todo' || tab === 'upcoming' ? a.checkIn.localeCompare(b.checkIn) : b.checkIn.localeCompare(a.checkIn)));
 
-  const paged = usePaged(rows, 8, `${tab}|${q}`);
+  const paged = usePaged(rows, 10, `${tab}|${q}`);
   const months = [];
   for (const g of paged.rows) {
     const key = g.checkIn.slice(0, 7);
@@ -430,37 +241,44 @@ export function Bookings() {
     months.at(-1).list.push(g);
   }
   const monthName = (key) => day(`${key}-01`).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
-
-  const open = (g) => {
-    shift(() => setParams(g ? { open: g.key } : {}), { cards: '.abk-list, .abk-panel' });
-    if (window.innerWidth < 1280) window.scrollTo({ top: 0 });
-  };
+  const open = (g) => setParams(g ? { open: g.key } : {}, { replace: !g });
+  const counts = Object.fromEntries(TABS.map((id) => [id, groups.filter(inTab[id]).length]));
 
   return (
-    <div className="ab-bookings">
-      <div className="abk-tools">
-        <nav className="abk-tabs" role="tablist">
-          {TABS.map((id) => {
-            const n = id === 'todo' ? groups.filter(inTab.todo).length : 0;
-            return (
-              <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-on' : ''} onClick={() => setTab(id)}>
-                {t(`adm.bk.tab.${id}`)}
-                {n > 0 && <em>{n}</em>}
-              </button>
-            );
-          })}
-        </nav>
-        <input type="search" className="abk-search" placeholder={t('adm.bk.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
-      </div>
-      {(error || actionError) && <p className="admin__error" role="alert">{error || actionError}</p>}
-      {loading && !data && <p className="admin__muted">{t('adm.loading')}</p>}
+    <div className="abk">
+      <PageHead title={t('adm.nav.bookings')} lead={t('adm.page.bookings.lead')} />
+      <ErrorNote>{error || actionError}</ErrorNote>
 
-      {data && (
-        <div className={`ab-listing${selected ? ' has-panel' : ''}`}>
-          <div className="abk-list" ref={paged.boxRef} style={paged.boxStyle}>
+      {data && <MonthMoney groups={groups} />}
+
+      <div className="adm-tools">
+        <Seg active={tab} role="tablist" aria-label={t('adm.nav.bookings')}>
+          {TABS.map((id) => (
+            <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
+              {t(`adm.bk.tab.${id}`)}
+              {id === 'todo' ? counts.todo > 0 && <em>{counts.todo}</em> : data && <i>{counts[id]}</i>}
+            </button>
+          ))}
+        </Seg>
+        <label className="adm-search">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="M20 20l-4-4" />
+          </svg>
+          <input ref={searchRef} type="search" placeholder={t('adm.bk.search')} aria-label={t('adm.bk.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
+        </label>
+      </div>
+
+      {!data ? (
+        <div className="adm-card">
+          <RowsSkeleton rows={6} />
+        </div>
+      ) : (
+        <>
+          <div className="adm-card adm-rows abk-list" ref={paged.boxRef} style={paged.boxStyle}>
             {months.map(({ key, list }) => (
-              <section key={key}>
-                <h3 className="abk-month">{monthName(key)}</h3>
+              <div key={key} role="rowgroup">
+                <h3 className="adm-month">{monthName(key)}</h3>
                 {list.map((g) => {
                   const [money, tone] = moneyLine(g, t);
                   const step = nextStep(g, actions, today, t, () => open(g));
@@ -469,38 +287,52 @@ export function Bookings() {
                       key={g.key}
                       role="button"
                       tabIndex={0}
-                      className={`abk-row${selected === g ? ' is-sel' : ''}${g.status === 'cancelled' ? ' is-off' : ''}`}
+                      className={`adm-row is-click abk-row${selected === g ? ' is-sel' : ''}${g.status === 'cancelled' ? ' is-off' : ''}`}
                       onClick={() => open(g)}
                       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open(g))}
                     >
                       <div className="abk-when">
-                        <b>{g.isRoom ? f.range(g.checkIn, g.checkOut) : f.day(g.checkIn)}</b>
+                        <b className="num">{g.isRoom ? f.range(g.checkIn, g.checkOut) : f.day(g.checkIn)}</b>
                         <span>{g.isRoom ? t('adm.bk.nights', { n: nightsOf(g.checkIn, g.checkOut) }) : f.time(g.lead.booked_for)}</span>
                       </div>
-                      <div className="abk-who">
+                      <div className="adm-row__main">
                         <b>{who(g.lead)}</b>
                         <span>
                           {g.rooms}
                           {g.isRoom && ` · ${t('adm.panel.guests', { n: g.guests })}`} · {g.code}
                         </span>
                       </div>
-                      <div className="abk-end">
-                        <p className={`abk-money abk-money--${tone}`}>{money}</p>
+                      <div className="adm-row__meta">
+                        <Pill tone={tone}>{money}</Pill>
+                      </div>
+                      <div className="adm-row__acts">
                         <StepButton step={step} />
                       </div>
                     </div>
                   );
                 })}
-              </section>
+              </div>
             ))}
-            {rows.length === 0 && <p className="adt-empty">{tab === 'todo' ? t('adm.bk.noneTodo') : t('adm.bk.none')}</p>}
-            <Pager {...paged.pager} />
+            {rows.length === 0 && (
+              <Empty
+                title={q ? t('adm.bk.noMatch') : tab === 'todo' ? t('adm.bk.noneTodo') : t('adm.bk.none')}
+                hint={tab === 'todo' && !q ? t('adm.bk.noneTodoHint') : undefined}
+              />
+            )}
           </div>
+          <Pager {...paged.pager} />
+        </>
+      )}
 
-          {selected && (
-            <BookingPanel g={selected} actions={actions} today={today} onClose={() => open(null)} onEditPrice={setRepricing} onDelete={setDeleting} />
-          )}
-        </div>
+      {selected && (
+        <BookingPanel
+          g={selected}
+          actions={actions}
+          today={today}
+          onClose={() => open(null)}
+          onEditPrice={setRepricing}
+          onDelete={setDeleting}
+        />
       )}
 
       {repricing && (
@@ -538,23 +370,23 @@ function SlipCheck({ g, kind, actions }) {
   const expected = kind === 'deposit' ? row.slip_expected : row.balance_slip_expected;
   const reason = kind === 'deposit' ? row.slip_reason : row.balance_slip_reason;
   return (
-    <div className="ab-slipcheck">
+    <div className="abk-slip">
       {file && (
-        <a className="ab-thumb ab-thumb--big" href={mediaUrl(file)} target="_blank" rel="noreferrer" title={t('adm.act.viewSlip')}>
+        <a className="abk-slip__img" href={mediaUrl(file)} target="_blank" rel="noreferrer" title={t('adm.act.viewSlip')}>
           <img src={mediaUrl(file)} alt={t('adm.act.viewSlip')} />
         </a>
       )}
-      <div>
+      <div className="abk-slip__text">
         <b>{t('adm.slip.waiting', { what: t(kind === 'deposit' ? 'adm.slip.deposit' : 'adm.slip.rest'), money: formatBaht(expected) })}</b>
         <p>
           {reason && `${t('adm.slip.okFail', { reason: f.reason(reason) })} · `}
           {t('adm.slip.check')}
         </p>
-        <div className="abk-acts">
-          <button type="button" className="admin__btn admin__btn--primary adm-btn-lg" onClick={() => actions.approve(g, kind)}>
+        <div className="abk-slip__acts">
+          <button type="button" className="adm-btn adm-btn--primary" onClick={() => actions.approve(g, kind)}>
             {t(kind === 'deposit' ? 'adm.act.approveDeposit' : 'adm.act.approveRest')}
           </button>
-          <button type="button" className="admin__btn adm-btn-lg" onClick={() => actions.reject(g, kind)}>
+          <button type="button" className="adm-btn" onClick={() => actions.reject(g, kind)}>
             {t('adm.act.reject')}
           </button>
         </div>
@@ -571,9 +403,13 @@ function SlipResult({ status, reason, amount, kind }) {
   let text;
   if (status !== 'verified') text = t('adm.slip.rejected', { what, reason: f.reason(reason) });
   else text = amount != null ? t('adm.slip.verified', { what, money: formatBaht(amount) }) : t('adm.slip.verifiedByHand', { what });
-  return <p className={`ab-slip ab-slip--${status}`}>{text}</p>;
+  return <p className={`abk-slip-result is-${status}`}>{text}</p>;
 }
 
+const STATUS_TONE = { pending: 'pending', confirmed: 'confirmed', cancelled: 'cancelled' };
+
+// Everything about one booking, opened beside the list. Money first (that's
+// what usually needs doing), then the stay, then rooms, then rarer actions.
 function BookingPanel({ g, actions, today, onClose, onEditPrice, onDelete }) {
   const f = useFmt();
   const { t } = f;
@@ -585,75 +421,58 @@ function BookingPanel({ g, actions, today, onClose, onEditPrice, onDelete }) {
   if (g.status === 'confirmed' && g.restDue === 0) rest = `✓ ${f.money(g.total - g.deposit)} ${t(g.paidAtFarm ? 'adm.panel.restPaidFarm' : 'adm.panel.restPaidOnline')}`;
   else if (g.status !== 'cancelled') rest += ` ${t('adm.panel.restOnArrival')}`;
 
-  return (
-    <aside className="ab-panel abk-panel" aria-label={g.code}>
-      <header className="abk-panel__top">
-        <div>
-          <h3>{who(b)}</h3>
-          <p>
-            {g.code} · {t(`adm.bk.status.${g.status}`)} · {t('adm.panel.booked', { when: f.time(b.created_at) })}
-            {b.member_code && ` · ${b.member_code}`}
-          </p>
-        </div>
-        <button type="button" className="adm-link" onClick={onClose}>
-          {t('adm.panel.close')}
+  const footer = (
+    <>
+      {g.status === 'pending' && (
+        <button
+          type="button"
+          className="adm-btn adm-btn--ghost adm-grow"
+          onClick={() => actions.setStatus(g, 'confirmed', t('adm.ask.confirmNoSlip', { code: g.code }), { ok: t('adm.panel.confirmNoSlip') })}
+        >
+          {t('adm.panel.confirmNoSlip')}
         </button>
-      </header>
+      )}
+      {g.status !== 'cancelled' ? (
+        <button
+          type="button"
+          className="adm-btn adm-btn--ghost abk-cancel"
+          onClick={() => actions.setStatus(g, 'cancelled', t('adm.ask.cancel', { code: g.code, name: who(b) }), { danger: true, ok: t('adm.act.cancel') })}
+        >
+          {t('adm.act.cancel')}
+        </button>
+      ) : (
+        <button type="button" className="adm-btn" onClick={() => actions.setStatus(g, 'pending')}>
+          {t('adm.panel.reopen')}
+        </button>
+      )}
+    </>
+  );
 
+  return (
+    <Drawer
+      title={who(b)}
+      sub={
+        <>
+          <Pill tone={STATUS_TONE[g.status]}>{t(`adm.bk.status.${g.status}`)}</Pill> {g.code} ·{' '}
+          {t('adm.panel.booked', { when: f.time(b.created_at) })}
+          {b.member_code && ` · ${b.member_code}`}
+        </>
+      }
+      onClose={onClose}
+      footer={footer}
+    >
       {(b.guest_phone || b.guest_line || b.guest_email || b.user_email) && (
         <div className="abk-contact">
-          {b.guest_phone && (
-            <Phone phone={b.guest_phone} label={t('adm.bk.step.call')} className="admin__btn adm-btn-lg" />
-          )}
+          {b.guest_phone && <Phone phone={b.guest_phone} label={t('adm.bk.step.call')} />}
           {b.guest_line && <span className="abk-chip">LINE {b.guest_line}</span>}
           {(b.guest_email || b.user_email) && <span className="abk-chip">{b.guest_email || b.user_email}</span>}
         </div>
       )}
 
-      <dl className="abk-facts">
-        {g.isRoom ? (
-          <>
-            <div>
-              <dt>{t('adm.panel.room')}</dt>
-              <dd>
-                {g.rooms} · {t('adm.panel.guests', { n: g.guests })}
-              </dd>
-            </div>
-            <div>
-              <dt>{t('adm.panel.in')}</dt>
-              <dd>{f.day(g.checkIn)} · 14:00</dd>
-            </div>
-            <div>
-              <dt>{t('adm.panel.out')}</dt>
-              <dd>
-                {f.day(g.checkOut)} · 12:00 · {t('adm.bk.nights', { n: nightsOf(g.checkIn, g.checkOut) })}
-              </dd>
-            </div>
-          </>
-        ) : (
-          <div>
-            <dt>{t('adm.panel.when')}</dt>
-            <dd>{f.time(b.booked_for)}</dd>
-          </div>
-        )}
-        {extras.length > 0 && (
-          <div>
-            <dt>{t('adm.panel.extras')}</dt>
-            <dd className="abk-flag">{extras.join(', ')}</dd>
-          </div>
-        )}
-        {b.note && (
-          <div>
-            <dt>{t('adm.panel.note')}</dt>
-            <dd>“{b.note}”</dd>
-          </div>
-        )}
-      </dl>
-
       {g.isRoom && g.total > 0 && (
-        <section className="abk-money-box">
-          <h4>{t('adm.panel.money')}</h4>
-          <dl className="abk-facts">
+        <section className="abk-box">
+          <h3>{t('adm.panel.money')}</h3>
+          <dl className="abk-facts num">
             <div>
               <dt>{t('adm.panel.total')}</dt>
               <dd>
@@ -674,7 +493,7 @@ function BookingPanel({ g, actions, today, onClose, onEditPrice, onDelete }) {
           {!g.depositReview && <SlipResult kind="deposit" status={b.slip_status} reason={b.slip_reason} amount={b.slip_amount} />}
           {!g.balanceReview && <SlipResult kind="balance" status={b.balance_slip_status} reason={b.balance_slip_reason} amount={b.balance_slip_amount} />}
           {g.restDue > 0 && g.checkOut >= today && !g.balanceReview && (
-            <button type="button" className="admin__btn admin__btn--primary adm-btn-lg abk-wide" onClick={() => actions.paidAtFarm(g)}>
+            <button type="button" className="adm-btn adm-btn--primary abk-wide" onClick={() => actions.paidAtFarm(g)}>
               {t('adm.panel.paidAtFarm', { money: f.money(g.restDue) })}
             </button>
           )}
@@ -687,29 +506,70 @@ function BookingPanel({ g, actions, today, onClose, onEditPrice, onDelete }) {
       )}
 
       <section>
-        <h4>{t('adm.panel.rooms')}</h4>
-        <ul className="ab-rooms">
+        <h3>{t('adm.panel.stay')}</h3>
+        <dl className="abk-facts">
+          {g.isRoom ? (
+            <>
+              <div>
+                <dt>{t('adm.panel.in')}</dt>
+                <dd>{f.day(g.checkIn)} · 14:00</dd>
+              </div>
+              <div>
+                <dt>{t('adm.panel.out')}</dt>
+                <dd>
+                  {f.day(g.checkOut)} · 12:00 · {t('adm.bk.nights', { n: nightsOf(g.checkIn, g.checkOut) })}
+                </dd>
+              </div>
+              <div>
+                <dt>{t('adm.panel.guestsLabel')}</dt>
+                <dd>{t('adm.panel.guests', { n: g.guests })}</dd>
+              </div>
+            </>
+          ) : (
+            <div>
+              <dt>{t('adm.panel.when')}</dt>
+              <dd>{f.time(b.booked_for)}</dd>
+            </div>
+          )}
+          {extras.length > 0 && (
+            <div>
+              <dt>{t('adm.panel.extras')}</dt>
+              <dd className="abk-flag">{extras.join(', ')}</dd>
+            </div>
+          )}
+          {b.note && (
+            <div>
+              <dt>{t('adm.panel.note')}</dt>
+              <dd>“{b.note}”</dd>
+            </div>
+          )}
+        </dl>
+      </section>
+
+      <section>
+        <h3>{t('adm.panel.rooms')}</h3>
+        <ul className="abk-rooms">
           {g.rows.map((r) => (
             <li key={r.id} className={r.status === 'cancelled' && g.status !== 'cancelled' ? 'is-off' : ''}>
-              <div>
+              <div className="abk-rooms__main">
                 <b>{r.room_id ? roomTitle(r.room_name, f.lang) : r.activity_name}</b>
-                <span>
+                <span className="num">
                   {r.code}
                   {r.guests ? ` · ${t('adm.panel.guests', { n: r.guests })}` : ''}
                   {r.total != null ? ` · ${f.money(r.total)}` : ''}
                   {r.status === 'cancelled' && g.status !== 'cancelled' ? ` · ${t('adm.panel.roomCancelled')}` : ''}
                 </span>
                 {r.stay_username && (
-                  <span className="ab-login">
+                  <span className="adm-login">
                     {t('adm.panel.login')} <code>{r.stay_username}</code> <code>{r.stay_password}</code>
                   </span>
                 )}
               </div>
-              <div className="abk-acts abk-acts--quiet">
-                <button type="button" className="adm-link" onClick={() => onEditPrice(r)}>
+              <div className="abk-rooms__acts">
+                <button type="button" className="adm-btn adm-btn--sm" onClick={() => onEditPrice(r)}>
                   {t('adm.panel.editPrice')}
                 </button>
-                <button type="button" className="adm-link adm-link--danger" onClick={() => onDelete(r)}>
+                <button type="button" className="adm-btn adm-btn--sm adm-btn--ghost abk-del" onClick={() => onDelete(r)}>
                   {t('adm.panel.delete')}
                 </button>
               </div>
@@ -717,24 +577,7 @@ function BookingPanel({ g, actions, today, onClose, onEditPrice, onDelete }) {
           ))}
         </ul>
       </section>
-
-      <footer className="abk-acts abk-acts--quiet abk-panel__more">
-        {g.status === 'pending' && (
-          <button type="button" className="adm-link" onClick={() => actions.setStatus(g, 'confirmed', t('adm.ask.confirmNoSlip', { code: g.code }))}>
-            {t('adm.panel.confirmNoSlip')}
-          </button>
-        )}
-        {g.status !== 'cancelled' ? (
-          <button type="button" className="adm-link adm-link--danger" onClick={() => actions.setStatus(g, 'cancelled', t('adm.ask.cancel', { code: g.code, name: who(b) }))}>
-            {t('adm.act.cancel')}
-          </button>
-        ) : (
-          <button type="button" className="adm-link" onClick={() => actions.setStatus(g, 'pending')}>
-            {t('adm.panel.reopen')}
-          </button>
-        )}
-      </footer>
-    </aside>
+    </Drawer>
   );
 }
 
@@ -811,10 +654,10 @@ function EditPriceDialog({ booking: b, who: name, onClose, onSaved }) {
         <p className="admin__muted">{b.user_email ? t('adm.edit.told', { email: b.user_email }) : t('adm.edit.noAccount')}</p>
         {error && <p className="admin__error" role="alert">{error}</p>}
         <div className="admin__form-actions">
-          <button type="button" className="admin__btn" onClick={onClose} disabled={busy}>
+          <button type="button" className="adm-btn" onClick={onClose} disabled={busy}>
             {t('adm.edit.cancel')}
           </button>
-          <button type="submit" className="admin__btn admin__btn--primary" disabled={busy}>
+          <button type="submit" className="adm-btn adm-btn--primary" disabled={busy}>
             {busy ? t('adm.edit.saving') : t('adm.edit.save')}
           </button>
         </div>
@@ -881,10 +724,10 @@ function DeleteBookingDialog({ booking: b, who: name, onClose, onDeleted }) {
         </label>
         {error && <p className="admin__error" role="alert">{error}</p>}
         <div className="admin__form-actions">
-          <button type="button" className="admin__btn" onClick={onClose} disabled={busy}>
+          <button type="button" className="adm-btn" onClick={onClose} disabled={busy}>
             {t('adm.del.keep')}
           </button>
-          <button type="submit" className="admin__btn admin__btn--delete" disabled={busy || reason.trim().length < 3}>
+          <button type="submit" className="adm-btn adm-btn--danger" disabled={busy || reason.trim().length < 3}>
             {busy ? t('adm.del.deleting') : t('adm.del.confirm')}
           </button>
         </div>

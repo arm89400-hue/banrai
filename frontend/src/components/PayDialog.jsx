@@ -220,7 +220,7 @@ export default function PayDialog({ bookings, pay, onPaid }) {
             <div className="pay-dialog__done">
               <span className="pay-dialog__tick" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12.5l4.5 4.5L19 7.5" />
+                  <path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1" />
                 </svg>
               </span>
               <h3>{t('pay.dlgPaid')}</h3>

@@ -53,6 +53,22 @@ export default function ChatWidget() {
     setUnread(0);
   }, [userId]);
 
+  // On phones the round button sits over page content, so it slides away while
+  // the guest scrolls down to read and comes back as soon as they scroll up.
+  const [tucked, setTucked] = useState(false);
+  useEffect(() => {
+    let lastY = window.scrollY;
+    function onScroll() {
+      const y = window.scrollY;
+      if (Math.abs(y - lastY) < 8) return;
+      setTucked(y > lastY && y > 160);
+      lastY = y;
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  useEffect(() => setTucked(false), [pathname]);
+
   if (user?.is_admin) return null;
   if (!user && pathname === '/login') return null;
   if (user && pathname === '/stay') return null;
@@ -63,7 +79,7 @@ export default function ChatWidget() {
   }
 
   return (
-    <div className="chat-widget">
+    <div className={`chat-widget${tucked && !open ? ' chat-widget--tucked' : ''}`}>
       {open && (
         <section className={`chat-widget__panel${enabled ? '' : ' chat-widget__panel--contact'}`} aria-label={t('chat.title')}>
           <header>

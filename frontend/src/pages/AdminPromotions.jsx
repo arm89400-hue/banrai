@@ -4,6 +4,7 @@ import { roomNames } from '../lib/booking';
 import { useLang } from '../i18n/lang';
 import Pager, { usePaged } from '../components/Pager';
 import DateField from '../components/DateField';
+import { Drawer, Empty, ErrorNote, PageHead, Pill, RowsSkeleton, useConfirm } from '../components/AdminUI';
 
 const EMPTY_FORM = { name: '', percent: '', starts_on: '', ends_on: '', room_id: '', active: true };
 
@@ -30,6 +31,7 @@ function promoState(p) {
 
 export default function AdminPromotions() {
   const { t, lang, locale } = useLang();
+  const confirm = useConfirm();
   const [promotions, setPromotions] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [error, setError] = useState(null);
@@ -61,7 +63,7 @@ export default function AdminPromotions() {
       p
         ? {
             name: p.name,
-            percent: p.percent,
+            percent: String(Number(p.percent)),
             starts_on: p.starts_on,
             ends_on: p.ends_on,
             room_id: p.room_id ?? '',
@@ -100,7 +102,7 @@ export default function AdminPromotions() {
   }
 
   async function remove(p) {
-    if (!window.confirm(t('adm.promo.askDelete', { name: p.name }))) return;
+    if (!(await confirm({ title: t('adm.promo.askDelete', { name: p.name }), ok: t('adm.list.deleteBtn'), danger: true }))) return;
     try {
       await api(`/api/admin/promotions/${p.id}`, { method: 'DELETE' });
       if (editing === p.id) setEditing(null);
@@ -118,34 +120,84 @@ export default function AdminPromotions() {
   const paged = usePaged(promotions ?? [], 8, '');
   return (
     <>
-      <div className="admin__toolbar">
-        <p className="admin__muted">{t('adm.promo.lead')}</p>
-        <button type="button" className="admin__btn admin__btn--primary adm-btn-lg" onClick={() => startEdit(null)}>
-          {t('adm.promo.add')}
+      <PageHead title={t('adm.tab.promotions')} lead={t('adm.promo.lead')}>
+        <button type="button" className="adm-btn adm-btn--primary" onClick={() => startEdit(null)}>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          {t('adm.promo.add').replace(/^\+\s*/, '')}
         </button>
+      </PageHead>
+      <ErrorNote>{error}</ErrorNote>
+
+      <div className="adm-card" ref={paged.boxRef} style={paged.boxStyle}>
+        {!promotions ? (
+          <RowsSkeleton rows={3} />
+        ) : promotions.length === 0 ? (
+          <Empty title={t('adm.promo.empty')} hint={t('adm.promo.emptyHint')}>
+            <button type="button" className="adm-btn" onClick={() => startEdit(null)}>
+              {t('adm.promo.add')}
+            </button>
+          </Empty>
+        ) : (
+          <div className="adm-rows">
+            {paged.rows.map((p) => {
+              const [state, tone] = promoState(p);
+              return (
+                <div key={p.id} className={`adm-row is-click${editing === p.id ? ' is-sel' : ''}`} onClick={() => startEdit(p)}>
+                  <span className="adm-promo-off num">−{Number(p.percent)}%</span>
+                  <div className="adm-row__main">
+                    <b>{p.name}</b>
+                    <span className="num">
+                      {fmtDay(p.starts_on, locale)} → {fmtDay(p.ends_on, locale)} ·{' '}
+                      {p.room_name ? roomNames(p.room_name, lang).title : t('adm.promo.allRooms')}
+                    </span>
+                  </div>
+                  <div className="adm-row__meta">
+                    <Pill tone={tone}>{t(state)}</Pill>
+                  </div>
+                  <div className="adm-row__acts" onClick={(e) => e.stopPropagation()}>
+                    <button type="button" className="adm-btn adm-btn--sm" onClick={() => toggle(p)}>
+                      {p.active ? t('adm.ann.switchOff') : t('adm.ann.switchOn')}
+                    </button>
+                    <button type="button" className="adm-btn adm-btn--sm adm-btn--ghost abk-del" onClick={() => remove(p)}>
+                      {t('adm.list.deleteBtn')}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
+      {promotions && <Pager {...paged.pager} />}
 
       {editing !== null && (
-        <form className="admin__form" onSubmit={save}>
-          <h2>{editing === 'new' ? t('adm.promo.new') : t('adm.promo.edit')}</h2>
-          <div className="admin__form-grid">
-            <label>
+        <Drawer
+          title={editing === 'new' ? t('adm.promo.new') : t('adm.promo.edit')}
+          onClose={() => setEditing(null)}
+          onSubmit={save}
+          footer={
+            <>
+              <button type="button" className="adm-btn" onClick={() => setEditing(null)}>
+                {t('adm.list.cancel')}
+              </button>
+              <button type="submit" className="adm-btn adm-btn--primary" disabled={saving}>
+                {saving ? t('adm.contact.saving') : t('adm.contact.save')}
+              </button>
+            </>
+          }
+        >
+          <div className="adm-fields">
+            <label className="adm-field adm-field--wide">
               <span>{t('adm.promo.name')}</span>
               <input required maxLength={80} placeholder={t('adm.promo.namePh')} {...field('name')} />
             </label>
-            <label>
+            <label className="adm-field">
               <span>{t('adm.promo.percent')}</span>
-              <input required type="number" min="1" max="100" step="0.5" {...field('percent')} />
+              <input required type="number" inputMode="decimal" min="1" max="100" step="0.5" {...field('percent')} />
             </label>
-            <label>
-              <span>{t('adm.promo.first')}</span>
-              <DateField required value={form.starts_on} onChange={(v) => setForm({ ...form, starts_on: v })} />
-            </label>
-            <label>
-              <span>{t('adm.promo.last')}</span>
-              <DateField required min={form.starts_on} value={form.ends_on} onChange={(v) => setForm({ ...form, ends_on: v })} />
-            </label>
-            <label>
+            <label className="adm-field">
               <span>{t('adm.panel.room')}</span>
               <select {...field('room_id')}>
                 <option value="">{t('adm.promo.allRooms')}</option>
@@ -156,78 +208,21 @@ export default function AdminPromotions() {
                 ))}
               </select>
             </label>
-            <label className="admin__check">
-              <input
-                type="checkbox"
-                checked={form.active}
-                onChange={(e) => setForm({ ...form, active: e.target.checked })}
-              />
+            <label className="adm-field">
+              <span>{t('adm.promo.first')}</span>
+              <DateField required value={form.starts_on} onChange={(v) => setForm({ ...form, starts_on: v })} />
+            </label>
+            <label className="adm-field">
+              <span>{t('adm.promo.last')}</span>
+              <DateField required min={form.starts_on} value={form.ends_on} onChange={(v) => setForm({ ...form, ends_on: v })} />
+            </label>
+            <label className="adm-check adm-field--wide">
+              <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
               <span>{t('adm.ann.on')}</span>
             </label>
           </div>
-          {formError && <p className="admin__error" role="alert">{formError}</p>}
-          <div className="admin__form-actions">
-            <button type="button" className="admin__btn adm-btn-lg" onClick={() => setEditing(null)}>
-              {t('adm.list.cancel')}
-            </button>
-            <button type="submit" className="admin__btn admin__btn--primary adm-btn-lg" disabled={saving}>
-              {saving ? t('adm.contact.saving') : t('adm.contact.save')}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {error && <p className="admin__error" role="alert">{error}</p>}
-      {!promotions && !error && <p className="admin__muted">{t('adm.loading')}</p>}
-      {promotions && (
-        <>
-        <div className="admin__table-wrap" ref={paged.boxRef} style={paged.boxStyle}>
-          <table className="admin__table">
-            <thead>
-              <tr>
-                <th>{t('adm.promo.col')}</th>
-                <th>{t('adm.promo.discount')}</th>
-                <th>{t('adm.promo.dates')}</th>
-                <th>{t('adm.panel.room')}</th>
-                <th>{t('adm.ann.status')}</th>
-                <th aria-label={t('adm.list.actions')} />
-              </tr>
-            </thead>
-            <tbody>
-              {paged.rows.map((p) => {
-                const [state, tone] = promoState(p);
-                return (
-                  <tr key={p.id} className={editing === p.id ? 'is-editing' : ''}>
-                    <td><strong>{p.name}</strong></td>
-                    <td>{t('adm.logd.percentOff', { n: p.percent })}</td>
-                    <td className="admin__nowrap">
-                      {fmtDay(p.starts_on, locale)}
-                      <div className="admin__sub">→ {fmtDay(p.ends_on, locale)}</div>
-                    </td>
-                    <td>{p.room_name ? roomNames(p.room_name, lang).title : t('adm.promo.allRooms')}</td>
-                    <td>
-                      <span className={`admin__status admin__status--${tone}`}>{t(state)}</span>
-                    </td>
-                    <td className="admin__actions">
-                      <button type="button" className="admin__btn" onClick={() => toggle(p)}>
-                        {p.active ? t('adm.ann.switchOff') : t('adm.ann.switchOn')}
-                      </button>
-                      <button type="button" className="admin__btn" onClick={() => startEdit(p)}>
-                        {t('adm.list.editBtn')}
-                      </button>
-                      <button type="button" className="admin__btn admin__btn--danger" onClick={() => remove(p)}>
-                        {t('adm.list.deleteBtn')}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {promotions.length === 0 && <p className="admin__empty">{t('adm.promo.empty')}</p>}
-        </div>
-        <Pager {...paged.pager} />
-        </>
+          <ErrorNote>{formError}</ErrorNote>
+        </Drawer>
       )}
     </>
   );

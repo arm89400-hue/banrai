@@ -37,8 +37,18 @@ export default function StayView({ stay, pay, onPaid }) {
         <ol className="stay-track">
           {track.map((s) => (
             <li key={s.key} className={`is-${s.state}`} aria-current={s.state === 'now' ? 'step' : undefined}>
-              {s.state === 'done' && '✓ '}
-              {s.state === 'wait' && s.key === 'deposit' ? t('track.review') : t(`track.${s.key}`)}
+              {(() => {
+                const key = s.state === 'wait' && s.key === 'deposit' ? 'review' : s.key;
+                const tick = s.state === 'done' ? '✓ ' : '';
+                return (
+                  <span>
+                    <span className="stay-track__full">{tick + t(`track.${key}`)}</span>
+                    <span className="stay-track__short" aria-hidden="true">
+                      {tick + t(`track.${key}Short`)}
+                    </span>
+                  </span>
+                );
+              })()}
             </li>
           ))}
         </ol>

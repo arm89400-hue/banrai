@@ -31,6 +31,10 @@ adminRouter.get(
           WHERE b.status <> 'cancelled'
             AND now() >= b.booked_for AND now() < b.booked_until)::int AS rooms_occupied_now,
         (SELECT count(*) FROM chat_messages WHERE NOT from_admin AND read_at IS NULL)::int AS unread_chats,
+        -- Guests whose last message has no reply yet (what the Messages page counts).
+        (SELECT count(*) FROM (
+          SELECT DISTINCT ON (user_id) from_admin FROM chat_messages ORDER BY user_id, id DESC
+        ) last WHERE NOT last.from_admin)::int AS waiting_chats,
         -- Payments with a slip waiting for a manual check that are still owed.
         (SELECT count(DISTINCT x.kind || x.booking_ids::text) FROM slip_payments x
           WHERE x.status = 'review' AND EXISTS (
@@ -293,7 +297,13 @@ adminRouter.get(
        GROUP BY u.id
        ORDER BY u.created_at DESC`
     );
-    res.json({ users: rows.map((u) => ({ ...u, member_code: memberCode(u.id) })) });
+    res.json({
+      users: rows.map((u) => ({
+        ...u,
+        member_code: memberCode(u.id),
+        is_admin: u.stay_booking_id == null && isAdminEmail(u.email),
+      })),
+    });
   })
 );
 

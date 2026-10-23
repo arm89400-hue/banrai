@@ -94,7 +94,24 @@ export default function Login() {
     setSubmitting(true);
     try {
       if (mode === 'register') {
-        await api('/api/auth/register', { method: 'POST', body: JSON.stringify(form) });
+        try {
+          await api('/api/auth/register', { method: 'POST', body: JSON.stringify(form) });
+        } catch (err) {
+          // Returning guests often pick "new customer". If the email is
+          // already theirs, just try signing in with what they typed.
+          if (err.reason !== 'EMAIL_TAKEN') throw err;
+          try {
+            const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify(form) });
+            login(data.token, data.user);
+            navigate(homeFor(data.user, next));
+            return;
+          } catch {
+            setMode('login');
+            setForm((f) => ({ ...f, password: '' }));
+            setError(t('login.errEmailTakenTryOld'));
+            return;
+          }
+        }
       }
       const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify(form) });
       login(data.token, data.user);

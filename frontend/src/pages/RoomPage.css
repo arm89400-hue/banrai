@@ -276,11 +276,20 @@ button.room-gallery__tile:hover img {
 }
 
 @media (max-width: 960px) {
+  /* One column: dates and price come right after the room's prices, before
+     the long amenity lists, so "is it free and how much?" is answered first. */
   .room-page__cols {
-    grid-template-columns: 1fr;
-    gap: 32px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+  .room-page__main {
+    display: contents;
+  }
+  .room-page__main > .room-page__block {
+    order: 2;
   }
   .room-book {
+    order: 1;
     position: static;
     max-width: 520px;
   }
@@ -307,7 +316,7 @@ button.room-gallery__tile:hover img {
   .room-page__cols {
     margin-top: 20px;
   }
-  .room-page__main {
+  .room-page__cols {
     gap: 22px;
   }
   .room-page__main h1 {

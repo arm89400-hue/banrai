@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { api } from '../lib/api';
 import { setContact, formatThaiPhone } from '../lib/contact';
 import { useLang } from '../i18n/lang';
+import { ErrorNote, PageHead, PanelSkeleton } from '../components/AdminUI';
 
 const EMPTY_PHONE = { name_th: '', name_en: '', number: '' };
 const MAX_PHONES = 6;
@@ -23,7 +24,15 @@ export default function AdminContact() {
       .catch((err) => setError(err.message));
   }, []);
 
-  if (!form) return <p className="admin__muted">{error ?? t('adm.loading')}</p>;
+  const head = <PageHead title={t('adm.tab.contact')} lead={t('adm.contact.lead')} />;
+  if (!form) {
+    return (
+      <>
+        {head}
+        {error ? <ErrorNote>{error}</ErrorNote> : <PanelSkeleton lines={6} />}
+      </>
+    );
+  }
 
   const change = (patch) => {
     setForm((f) => ({ ...f, ...patch }));
@@ -59,101 +68,103 @@ export default function AdminContact() {
   const name = (p) => (lang === 'th' ? p.name_th || p.name_en : p.name_en || p.name_th);
 
   return (
-    <div className="adm-contact">
-      <form className="adm-form" onSubmit={save}>
-        <h2>{t('adm.contact.title')}</h2>
-        <p className="adm-form__lead">{t('adm.contact.lead')}</p>
-
-        <fieldset className="adm-phones">
-          <legend>{t('adm.contact.phones')}</legend>
-          {form.phones.map((p, i) => (
-            <div className="adm-phone" key={i}>
-              <label>
-                <span>{t('adm.contact.nameTh')}</span>
-                <input value={p.name_th} onChange={(e) => changePhone(i, { name_th: e.target.value })} />
-              </label>
-              <label>
-                <span>{t('adm.contact.nameEn')}</span>
-                <input value={p.name_en} onChange={(e) => changePhone(i, { name_en: e.target.value })} />
-              </label>
-              <label>
-                <span>{t('adm.contact.number')}</span>
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  placeholder="08x-xxx-xxxx"
-                  maxLength={12}
-                  value={p.number}
-                  onChange={(e) => typePhone(i, e.target)}
-                />
-              </label>
-              <button
-                type="button"
-                className="adm-link adm-link--danger"
-                disabled={form.phones.length === 1}
-                onClick={() => change({ phones: form.phones.filter((_, j) => j !== i) })}
-              >
-                {t('adm.contact.remove')}
-              </button>
-            </div>
-          ))}
-          {form.phones.length < MAX_PHONES && (
-            <button type="button" className="adm-link" onClick={() => change({ phones: [...form.phones, EMPTY_PHONE] })}>
-              {t('adm.contact.addPhone')}
-            </button>
-          )}
-        </fieldset>
-
-        <label>
-          <span>
-            {t('adm.contact.line')} <small>{t('adm.contact.lineHint')}</small>
-          </span>
-          <input value={form.line} onChange={(e) => change({ line: e.target.value })} />
-        </label>
-        <label>
-          <span>{t('adm.contact.facebook')}</span>
-          <input type="url" value={form.facebook} onChange={(e) => change({ facebook: e.target.value })} placeholder="https://" />
-        </label>
-        <label>
-          <span>{t('adm.contact.maps')}</span>
-          <input type="url" value={form.maps} onChange={(e) => change({ maps: e.target.value })} placeholder="https://" />
-        </label>
-
-        {error && (
-          <p className="admin__error" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="adm-form__acts">
-          <button type="submit" className="admin__btn admin__btn--primary adm-btn-lg" disabled={saving}>
-            {saving ? t('adm.contact.saving') : t('adm.contact.save')}
-          </button>
-          {saved && <span className="adm-saved">✓ {t('adm.contact.saved')}</span>}
-        </div>
-      </form>
-
-      <div>
-        <p className="adm-preview-label">{t('adm.contact.preview')}</p>
-        <div className="adm-foot-preview">
-          <b>{t('adm.contact.previewHeading')}</b>
-          {form.phones
-            .filter((p) => p.number)
-            .map((p, i) => (
-              <span key={i}>
-                {p.number} <small>{name(p)}</small>
-              </span>
+    <>
+      {head}
+      <div className="adm-contact">
+        <form className="adm-card adm-card--pad adm-contact__form" onSubmit={save}>
+          <fieldset className="adm-fieldset">
+            <legend>{t('adm.contact.phones')}</legend>
+            {form.phones.map((p, i) => (
+              <div className="adm-phone" key={i}>
+                <label className="adm-field">
+                  <span>{t('adm.contact.nameTh')}</span>
+                  <input value={p.name_th} onChange={(e) => changePhone(i, { name_th: e.target.value })} />
+                </label>
+                <label className="adm-field">
+                  <span>{t('adm.contact.nameEn')}</span>
+                  <input value={p.name_en} onChange={(e) => changePhone(i, { name_en: e.target.value })} />
+                </label>
+                <label className="adm-field">
+                  <span>{t('adm.contact.number')}</span>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="08x-xxx-xxxx"
+                    maxLength={12}
+                    value={p.number}
+                    onChange={(e) => typePhone(i, e.target)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="adm-x"
+                  disabled={form.phones.length === 1}
+                  aria-label={t('adm.contact.remove')}
+                  title={t('adm.contact.remove')}
+                  onClick={() => change({ phones: form.phones.filter((_, j) => j !== i) })}
+                >
+                  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              </div>
             ))}
-          {form.line && (
+            {form.phones.length < MAX_PHONES && (
+              <button type="button" className="adm-btn adm-btn--sm adm-btn--ghost" style={{ justifySelf: 'start' }} onClick={() => change({ phones: [...form.phones, EMPTY_PHONE] })}>
+                {t('adm.contact.addPhone')}
+              </button>
+            )}
+          </fieldset>
+
+          <hr className="adm-divider" />
+
+          <label className="adm-field">
             <span>
-              LINE <small>{form.line}</small>
+              {t('adm.contact.line')} <small>{t('adm.contact.lineHint')}</small>
             </span>
-          )}
-          <span className="adm-foot-preview__links">
-            {form.facebook && <em>Facebook</em>}
-            {form.maps && <em>Google Maps</em>}
-          </span>
+            <input value={form.line} onChange={(e) => change({ line: e.target.value })} />
+          </label>
+          <label className="adm-field">
+            <span>{t('adm.contact.facebook')}</span>
+            <input type="url" value={form.facebook} onChange={(e) => change({ facebook: e.target.value })} placeholder="https://" />
+          </label>
+          <label className="adm-field">
+            <span>{t('adm.contact.maps')}</span>
+            <input type="url" value={form.maps} onChange={(e) => change({ maps: e.target.value })} placeholder="https://" />
+          </label>
+
+          <ErrorNote>{error}</ErrorNote>
+          <div className="adm-form__acts">
+            <button type="submit" className="adm-btn adm-btn--primary" disabled={saving}>
+              {saving ? t('adm.contact.saving') : t('adm.contact.save')}
+            </button>
+            {saved && <span className="adm-saved">✓ {t('adm.contact.saved')}</span>}
+          </div>
+        </form>
+
+        <div className="adm-contact__preview">
+          <p className="adm-preview-label">{t('adm.contact.preview')}</p>
+          <div className="adm-foot-preview">
+            <b>{t('adm.contact.previewHeading')}</b>
+            {form.phones
+              .filter((p) => p.number)
+              .map((p, i) => (
+                <span key={i}>
+                  {p.number} <small>{name(p)}</small>
+                </span>
+              ))}
+            {form.line && (
+              <span>
+                LINE <small>{form.line}</small>
+              </span>
+            )}
+            <span className="adm-foot-preview__links">
+              {form.facebook && <em>Facebook</em>}
+              {form.maps && <em>Google Maps</em>}
+            </span>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api, mediaUrl } from '../lib/api';
 import { shrinkImage } from '../lib/imageResize';
 import { useLang } from '../i18n/lang';
+import { useConfirm } from '../components/AdminUI';
 
 export const MAX_PHOTOS = 6;
 
@@ -53,6 +54,7 @@ function PendingPhotos({ pending, onChange }) {
 
 function SavedPhotos({ kind, itemId, photos, onChange }) {
   const { t } = useLang();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
   const [note, setNote] = useState(null);
@@ -85,7 +87,7 @@ function SavedPhotos({ kind, itemId, photos, onChange }) {
 
   async function remove(index) {
     const photo = photos[index];
-    if (!window.confirm(t('adm.photos.askDelete'))) return;
+    if (!(await confirm({ title: t('adm.photos.askDelete'), ok: t('adm.list.deleteBtn'), danger: true }))) return;
     setError(null);
     setBusy(t('adm.del.deleting'));
     try {

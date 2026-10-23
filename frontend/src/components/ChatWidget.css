@@ -164,6 +164,18 @@
   body.has-bottom-bar .chat-widget {
     bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   }
+  .chat-widget {
+    transition: transform var(--dur) var(--ease-out), opacity var(--dur) var(--ease-out);
+  }
+  .chat-widget--tucked {
+    transform: translateX(calc(100% + 20px));
+    opacity: 0;
+    pointer-events: none;
+  }
+  .chat-widget__toggle {
+    width: 50px;
+    height: 50px;
+  }
 }
 
 @keyframes chat-open {

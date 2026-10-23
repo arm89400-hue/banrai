@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLang } from '../i18n/lang';
 import { formatBaht } from '../lib/money';
+import Baht from './Baht';
 import './BookingBits.css';
 
 export function PriceRows({
@@ -60,15 +61,15 @@ export function PriceRows({
       )}
       <div className="price-rows__row price-rows__total">
         <span>{t('sum.total')}</span>
-        <span>{formatBaht(sum)}</span>
+        <Baht value={sum} />
       </div>
       <div className="price-rows__row price-rows__deposit">
         <span>{t('sum.deposit')}</span>
-        <span>{formatBaht(dep)}</span>
+        <Baht value={dep} />
       </div>
       <div className="price-rows__row price-rows__balance">
         <span>{t('sum.balance')}</span>
-        <span>{formatBaht(sum - dep)}</span>
+        <Baht value={sum - dep} />
       </div>
     </div>
   );
@@ -108,7 +109,7 @@ function CopyRow({ label, value }) {
     <div className="stay-login__row">
       <dt>{label}</dt>
       <dd>{value}</dd>
-      <button type="button" className="stay-login__copy" onClick={copy} aria-label={`${t('my.copy')} ${label}`}>
+      <button type="button" className={`stay-login__copy${copied ? ' is-copied' : ''}`} onClick={copy} aria-label={`${t('my.copy')} ${label}`}>
         {copied ? t('my.copied') : t('my.copy')}
       </button>
     </div>

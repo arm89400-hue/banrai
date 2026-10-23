@@ -5,9 +5,9 @@ import { canShift, shift } from '../lib/motion';
 const LANDING_PHOTO = [['/rooms/', '.room-gallery__tile--main img']];
 
 const CARDS = [
-  '.day-grid > *',
-  '.room-cards__big > *',
-  '.room-cards__small > *',
+  '.room-list > *',
+  '.fruit-row > *',
+  '.day-line__photos > *',
   '.act-cards > li',
   '.ripe > li',
   '.about__lead',

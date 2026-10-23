@@ -31,7 +31,9 @@ import { useLang } from '../i18n/lang';
 import StaySearch from '../components/StaySearch';
 import { PromoTag } from '../components/BookingBits';
 import PayDialog from '../components/PayDialog';
+import Baht from '../components/Baht';
 import { mergeBookings, payOptions } from '../lib/payments';
+import { Loading, Sk } from '../components/Skeleton';
 import './BookFlow.css';
 
 const STEPS = ['step.room', 'step.details', 'step.review'];
@@ -102,6 +104,30 @@ export default function BookFlow() {
       })
     : [];
   const grandTotal = plans.reduce((sum, p) => sum + p.total, 0);
+
+  // A returning member shouldn't type their name and phone again: fill them
+  // from their last booking (they can still change them).
+  const memberId = user && !user.is_stay && !user.is_admin ? user.id : null;
+  useEffect(() => {
+    if (!memberId) return undefined;
+    let live = true;
+    api('/api/bookings')
+      .then((data) => {
+        const last = [...(data?.bookings ?? [])]
+          .filter((b) => b.guest_name || b.guest_phone)
+          .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
+        if (!live || !last) return;
+        setForm((f) => ({
+          ...f,
+          name: f.name || last.guest_name || '',
+          phone: f.phone || last.guest_phone || '',
+        }));
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [memberId]);
 
   useEffect(() => {
     api('/api/rooms')
@@ -369,7 +395,25 @@ export default function BookFlow() {
               />
 
               {!nights && <p className="flow__hint">{t('flow.startHint')}</p>}
-              {nights > 0 && !availableIds && !loadError && <p className="flow__hint">{t('flow.checking')}</p>}
+              {nights > 0 && !availableIds && !loadError && (
+                <Loading label={t('flow.checking')}>
+                  <div className="flow__label">
+                    <Sk w="130px" h="1.3em" />
+                  </div>
+                  <div className="flow-tiles">
+                    {[0, 1, 2, 3].map((i) => (
+                      <span key={i} className="flow-tile flow-tile--sk" aria-hidden="true">
+                        <Sk className="flow-tile__sk-photo" h="auto" r="10px" />
+                        <span className="flow-tile__row">
+                          <Sk w={`${42 - (i % 2) * 10}%`} h="1.2em" />
+                          <Sk w="24%" h="1.2em" />
+                        </span>
+                        <Sk w="60%" h="0.9em" />
+                      </span>
+                    ))}
+                  </div>
+                </Loading>
+              )}
               {roomNotice && (
                 <p className="bk-error" role="alert">
                   {t(roomNotice)}
@@ -644,11 +688,11 @@ export default function BookFlow() {
               <dl className="flow-review flow-review__money">
                 <div>
                   <dt>{t('sum.total')}</dt>
-                  <dd>{formatBaht(grandTotal)}</dd>
+                  <dd><Baht value={grandTotal} /></dd>
                 </div>
                 <div className="flow-review__dep">
                   <dt>{t('review.depositAfter')}</dt>
-                  <dd>{formatBaht(grandTotal / 2)}</dd>
+                  <dd><Baht value={grandTotal / 2} /></dd>
                 </div>
               </dl>
 
@@ -699,11 +743,11 @@ export default function BookFlow() {
               <>
                 <div className="flow-stay__total">
                   <dt>{t('sum.total')}</dt>
-                  <dd>{formatBaht(grandTotal)}</dd>
+                  <dd><Baht value={grandTotal} /></dd>
                 </div>
                 <div className="flow-stay__dep">
                   <dt>{t('sum.deposit')}</dt>
-                  <dd>{formatBaht(grandTotal / 2)}</dd>
+                  <dd><Baht value={grandTotal / 2} /></dd>
                 </div>
               </>
             )}
@@ -721,7 +765,7 @@ export default function BookFlow() {
           </small>
           <b>
             {plans.length > 0 && nights > 0
-              ? formatBaht(grandTotal)
+              ? <Baht value={grandTotal} />
               : t(current === 1 ? 'flow.noRoomYet' : STEPS[current - 1])}
           </b>
         </span>
