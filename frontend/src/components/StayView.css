@@ -137,6 +137,33 @@
   background: hsl(38, 45%, 91%);
   font-weight: 700;
 }
+.stay-box__save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1px solid var(--brand);
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--brand);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-2) var(--ease-standard), transform var(--dur-1) var(--ease-standard);
+}
+.stay-box__save:hover {
+  background: var(--brand-soft);
+}
+.stay-box__save:active {
+  transform: scale(0.98);
+}
+.stay-box__save:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
 .stay-box__note {
   margin: 0;
   font-size: 13px;

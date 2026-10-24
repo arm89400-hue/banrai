@@ -3,7 +3,9 @@ import { formatDayShort, nightsBetween, roomNames } from '../lib/booking';
 import { owes, payCode, roomsPaying } from '../lib/payments';
 import { CHECK_IN_TIME, CHECK_OUT_TIME } from '../lib/site';
 import { useContact } from '../lib/contact';
+import { useState } from 'react';
 import { useLang } from '../i18n/lang';
+import { confirmationData, saveConfirmation } from '../lib/confirmationImage';
 import { StayLogin } from './BookingBits';
 import PaymentPanel from './PaymentPanel';
 import BalancePay, { BalancePaid } from './BalancePay';
@@ -20,6 +22,17 @@ export default function StayView({ stay, pay, onPaid }) {
   const paidInFull = confirmed && live.every((b) => b.balance_paid_at || Number(b.total) <= Number(b.deposit));
   const nights = nightsBetween(stay.checkIn, stay.checkOut);
   const wd = t('date.wd');
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await saveConfirmation(confirmationData({ stay, t, lang, locale, contact }));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const track = [
     { key: 'sent', state: 'done' },
@@ -124,6 +137,14 @@ export default function StayView({ stay, pay, onPaid }) {
               <dd>{paidInFull ? `✓ ${formatBaht(stay.total - stay.deposit)}` : formatBaht(stay.total - stay.deposit)}</dd>
             </div>
           </dl>
+          {confirmed && (
+            <button type="button" className="stay-box__save" onClick={save} disabled={saving} aria-busy={saving}>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+              </svg>
+              {saving ? t('conf.saving') : t('pay.dlgSave')}
+            </button>
+          )}
           <p className="stay-box__note">
             {!paidInFull && t('stayBox.restNote')}
             {!paidInFull && <br />}

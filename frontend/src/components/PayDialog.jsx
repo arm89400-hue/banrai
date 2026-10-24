@@ -4,11 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { api } from '../lib/api';
 import { formatBaht } from '../lib/money';
-import { formatDay, nightsBetween, roomNames } from '../lib/booking';
+import { nightsBetween, roomNames } from '../lib/booking';
 import { promptPayPayload } from '../lib/promptpay';
 import { SAMPLE_QR_TEXT, errorKey, groupStays, owes, payCode } from '../lib/payments';
-import { CHECK_IN_TIME, CHECK_OUT_TIME, THAI_NAME } from '../lib/site';
 import { useLang } from '../i18n/lang';
+import { useGlide } from '../lib/glide';
+import { addToCalendar } from '../lib/calendar';
+import { CHECK_IN_TIME, CHECK_OUT_TIME } from '../lib/site';
+import Baht from './Baht';
+import { useContact } from '../lib/contact';
+import { confirmationData, saveConfirmation as saveConfirmationImage } from '../lib/confirmationImage';
 import './PayDialog.css';
 
 export default function PayDialog({ bookings, pay, onPaid }) {
@@ -21,6 +26,13 @@ export default function PayDialog({ bookings, pay, onPaid }) {
   const [error, setError] = useState(null);
   const [qrSrc, setQrSrc] = useState(null);
   const [paid, setPaid] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [slip, setSlip] = useState(null);
+  const switchRef = useRef(null);
+  useGlide(switchRef, payFull);
+  const onPhone = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+  const contact = useContact();
   const fileRef = useRef(null);
 
   const deposit = Number(lead?.deposit_due ?? stay?.deposit ?? 0);
@@ -77,6 +89,7 @@ export default function PayDialog({ bookings, pay, onPaid }) {
       onPaid(data.bookings ?? [data.booking]);
     } catch (err) {
       setError(errorKey(err.reason));
+      setSlip(null);
     } finally {
       setBusy(false);
     }
@@ -86,24 +99,44 @@ export default function PayDialog({ bookings, pay, onPaid }) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    setSlip((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return URL.createObjectURL(file);
+    });
     send(`/api/bookings/${lead.id}/slip?kind=${kind}`, {
       body: file,
       headers: { 'Content-Type': file.type || 'application/octet-stream' },
     });
   }
 
-  function saveConfirmation() {
-    const paidKind = paid?.kind ?? 'deposit';
-    drawConfirmation({
+  // Right after paying, the list may not have caught up yet: count what was just paid.
+  const note =
+    done && stay
+      ? confirmationData({ stay: stay.status === 'confirmed' ? stay : { ...stay, status: 'confirmed' }, t, lang, locale, contact })
+      : null;
+
+  async function saveConfirmation() {
+    if (saving || !note) return;
+    setSaving(true);
+    try {
+      await saveConfirmationImage(note);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2600);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function saveToCalendar() {
+    addToCalendar({
       code,
-      rows: [
-        [t('review.room'), rooms],
-        [t('sum.checkIn'), `${formatDay(stay.checkIn, locale)} · ${CHECK_IN_TIME}`],
-        [t('sum.checkOut'), `${formatDay(stay.checkOut, locale)} · ${CHECK_OUT_TIME}`],
-        [t('pay.slipAmount'), `${formatBaht(paid?.amount ?? stay.deposit)} · ${paidKind === 'full' ? t('pay.optFull') : t('pay.optDeposit')}`],
-      ],
-      title: THAI_NAME,
-      status: t('pay.slipStatus'),
+      checkIn: stay.checkIn,
+      checkOut: stay.checkOut,
+      inTime: CHECK_IN_TIME,
+      outTime: CHECK_OUT_TIME,
+      title: `${t('conf.farm')} · ${code}`,
+      details: [note.see, note.times, contact.phones.map((p) => `${p.name[lang]} ${p.display}`).join(' · ')].join('\n'),
+      location: contact.maps,
     });
   }
 
@@ -116,28 +149,68 @@ export default function PayDialog({ bookings, pay, onPaid }) {
 
   return createPortal(
     <div className="pay-dialog" role="dialog" aria-modal="true" aria-labelledby="pay-dialog-title">
-      <div className="pay-dialog__box">
-        <header className="pay-dialog__head">
-          <h2 id="pay-dialog-title">
-            {done ? t('pay.dlgDoneTitle') : t('flow.doneTitle')}
-            <small>{sub}</small>
-          </h2>
-          {done && (
-            <button type="button" className="pay-dialog__x" onClick={() => navigate('/booking')} aria-label={t('pay.dlgClose')}>
-              ×
-            </button>
-          )}
-        </header>
+      <div className={`pay-dialog__box${done ? ' is-done' : ''}`}>
+        {!done && (
+          <header className="pay-dialog__head">
+            <h2 id="pay-dialog-title">
+              {t('flow.doneTitle')}
+              <small>{sub}</small>
+            </h2>
+          </header>
+        )}
 
         <div className="pay-dialog__body">
           <div className="pay-dialog__pay" aria-hidden={done} inert={done}>
+            {/* Where the guest is: choose, pay in the bank app, send the slip. */}
+            <ol className="pay-steps">
+              {[t('pay.dlgStep1'), t('pay.dlgStep2'), opn ? t('pay.dlgStep3Auto') : t('pay.dlgStep3')].map((label, i) => {
+                const now = busy || waiting || (opn && opnCharge.charge) ? 2 : 1;
+                const state = i < now ? 'done' : i === now ? 'now' : 'next';
+                return (
+                  <li key={label} className={`is-${state}`} aria-current={state === 'now' ? 'step' : undefined}>
+                    <span aria-hidden="true">{state === 'done' ? '✓' : i + 1}</span>
+                    {label}
+                  </li>
+                );
+              })}
+            </ol>
+
+            {full > deposit && (
+              <div ref={switchRef} className="pay-dialog__switch" role="radiogroup" aria-label={t('pay.chooseLabel')}>
+                <span className="glide" aria-hidden="true" />
+                {[
+                  [false, t('pay.optDeposit'), deposit],
+                  [true, t('pay.optFull'), full],
+                ].map(([value, label, sum]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    role="radio"
+                    aria-checked={payFull === value}
+                    aria-pressed={payFull === value}
+                    className={payFull === value ? 'is-on' : ''}
+                    disabled={busy || opnCharge.making}
+                    onClick={() => {
+                      setPayFull(value);
+                      setError(null);
+                    }}
+                  >
+                    <span>{label}</span>
+                    <b>{formatBaht(sum)}</b>
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="pay-dialog__card">
               <p className="pay-dialog__bar">PromptPay</p>
               <div className={`pay-dialog__qr${sample ? ' is-sample' : ''}${qrGone ? ' is-gone' : ''}`}>
-                {qrShown && <img src={qrShown} alt={sample ? t('pay.sampleAlt') : t('pay.qrAlt', { amount: formatBaht(amount) })} />}
+                {qrShown && <img key={qrShown.slice(-40)} src={qrShown} alt={sample ? t('pay.sampleAlt') : t('pay.qrAlt', { amount: formatBaht(amount) })} />}
                 {sample && <span className="pay-dialog__stamp">{t('pay.sampleStamp')}</span>}
               </div>
-              <p className="pay-dialog__amount">{formatBaht(amount)}</p>
+              <p className="pay-dialog__amount">
+                <Baht value={amount} />
+              </p>
               <p className="pay-dialog__for">
                 {kind === 'full'
                   ? t('pay.forFull', { n: liveRooms.length })
@@ -171,31 +244,8 @@ export default function PayDialog({ bookings, pay, onPaid }) {
                   {t('pay.saveQr')}
                 </a>
               )}
+              {onPhone && qrShown && !sample && !qrGone && <p className="pay-dialog__phonehint">{t('pay.phoneHint')}</p>}
             </div>
-
-            {full > deposit && (
-              <div className="pay-dialog__switch" role="radiogroup" aria-label={t('pay.chooseLabel')}>
-                {[
-                  [false, `${t('pay.optDeposit')} ${formatBaht(deposit)}`],
-                  [true, `${t('pay.optFull')} ${formatBaht(full)}`],
-                ].map(([value, label]) => (
-                  <button
-                    key={label}
-                    type="button"
-                    role="radio"
-                    aria-checked={payFull === value}
-                    className={payFull === value ? 'is-on' : ''}
-                    disabled={busy || opnCharge.making}
-                    onClick={() => {
-                      setPayFull(value);
-                      setError(null);
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
 
             {opn ? (
               <OpnStatus making={opnCharge.making} gone={qrGone} failed={Boolean(opnCharge.error)} onNew={opnCharge.renew} />
@@ -204,10 +254,22 @@ export default function PayDialog({ bookings, pay, onPaid }) {
                 {waiting && <p className="pay-dialog__wait">{t('pay.waiting')}</p>}
                 <input ref={fileRef} type="file" accept="image/*" hidden onChange={uploadSlip} />
                 <button type="button" className="pay-dialog__upload" onClick={() => fileRef.current?.click()} disabled={busy}>
-                  {busy ? <span className="pay-dialog__spin" aria-hidden="true" /> : null}
+                  {busy && slip ? (
+                    <span className="pay-slip" aria-hidden="true">
+                      <img src={slip} alt="" />
+                      <span className="pay-slip__scan" />
+                    </span>
+                  ) : busy ? (
+                    <span className="pay-dialog__spin" aria-hidden="true" />
+                  ) : null}
                   {busy ? t(pay.slipCheck === 'auto' ? 'pay.checking' : 'pay.sending') : t(waiting ? 'pay.uploadAgain' : 'pay.dlgUpload')}
                 </button>
               </>
+            )}
+            {!busy && (
+              <button type="button" className="pay-dialog__later" onClick={() => navigate('/booking')}>
+                {t('pay.later')}
+              </button>
             )}
             {shownError && (
               <p className="bk-error pay-dialog__error" role="alert">
@@ -216,29 +278,70 @@ export default function PayDialog({ bookings, pay, onPaid }) {
             )}
           </div>
 
-          {done && (
+          {done && note && (
             <div className="pay-dialog__done">
-              <span className="pay-dialog__tick" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1" />
-                </svg>
-              </span>
-              <h3>{t('pay.dlgPaid')}</h3>
-              <p>{t('pay.dlgConfirmed')}</p>
-              {paid && (
-                <span className="pay-dialog__paid">
-                  {formatBaht(paid.amount)} · {paid.kind === 'full' ? t('pay.optFull') : t('pay.optDeposit')}
-                </span>
-              )}
-              <div className="pay-dialog__btns">
-                <button type="button" className="pay-dialog__home" onClick={() => navigate('/home')}>
-                  {t('pay.dlgHome')}
-                </button>
-                <button type="button" className="pay-dialog__save" onClick={saveConfirmation}>
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+              <div className="pay-done__photo">
+                <img src="/images/farm/sign.jpg" alt="" />
+                <button type="button" className="pay-done__x" onClick={() => navigate('/booking')} aria-label={t('pay.dlgClose')}>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" />
                   </svg>
-                  {t('pay.dlgSave')}
+                </button>
+              </div>
+
+              <div className="pay-done__body">
+                <span className="pay-done__tick" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1" />
+                  </svg>
+                </span>
+                <p className="pay-done__status">
+                  {paid
+                    ? t('pay.donePaid', {
+                        amount: formatBaht(paid.amount),
+                        kind: paid.kind === 'full' ? t('pay.optFull') : t('pay.optDeposit'),
+                      })
+                    : t('pay.slipStatus')}
+                </p>
+                {note.dear && <p className="pay-done__dear">{note.dear}</p>}
+                <h2 id="pay-dialog-title">{note.see}</h2>
+                <p className="pay-done__times">{note.times}</p>
+
+                <dl className="pay-done__facts">
+                  <div>
+                    <dt>{note.codeLabel}</dt>
+                    <dd className="pay-done__code">{note.code}</dd>
+                  </div>
+                  <div>
+                    <dt>{note.facts.at(-1)[0]}</dt>
+                    <dd className="pay-done__left">{note.facts.at(-1)[1]}</dd>
+                  </div>
+                </dl>
+                <button type="button" className="pay-done__cal" onClick={saveToCalendar}>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M4 7h16v13H4zM4 11h16M8 3v4M16 3v4M12 14v4M10 16h4" />
+                  </svg>
+                  {t('conf.calendar')}
+                </button>
+              </div>
+
+              <div className="pay-dialog__btns">
+                <button type="button" className="pay-dialog__home" onClick={() => navigate('/booking')}>
+                  {t('pay.dlgMine')}
+                </button>
+                <button
+                  type="button"
+                  className={`pay-dialog__save${saved ? ' is-saved' : ''}`}
+                  onClick={saveConfirmation}
+                  disabled={saving}
+                  aria-busy={saving}
+                >
+                  {!saved && (
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+                    </svg>
+                  )}
+                  {saving ? t('conf.saving') : saved ? `✓ ${t('conf.savedOk')}` : t('pay.dlgSave')}
                 </button>
               </div>
             </div>
@@ -340,60 +443,4 @@ async function qrWithLogo(text) {
     c.drawImage(logo, at, at, size, size);
   }
   return canvas.toDataURL('image/png');
-}
-
-function drawConfirmation({ code, rows, title, status }) {
-  const W = 720;
-  const H = 300 + rows.length * 64;
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
-  const c = canvas.getContext('2d');
-  const font = getComputedStyle(document.body).fontFamily;
-  c.fillStyle = '#f9f7f2';
-  c.fillRect(0, 0, W, H);
-  c.fillStyle = '#25543f';
-  c.fillRect(0, 0, W, 96);
-  c.fillStyle = '#ffffff';
-  c.font = `600 30px ${font}`;
-  c.fillText(title, 40, 60);
-
-  c.fillStyle = '#e4f0ea';
-  c.beginPath();
-  c.arc(78, 168, 38, 0, Math.PI * 2);
-  c.fill();
-  c.strokeStyle = '#2e6b50';
-  c.lineWidth = 7;
-  c.lineCap = 'round';
-  c.lineJoin = 'round';
-  c.beginPath();
-  c.moveTo(60, 170);
-  c.lineTo(73, 183);
-  c.lineTo(97, 155);
-  c.stroke();
-  c.fillStyle = '#1f2b22';
-  c.font = `700 34px ${font}`;
-  c.fillText(status, 136, 162);
-  c.fillStyle = '#5b5550';
-  c.font = `500 26px ${font}`;
-  c.fillText(code, 136, 198);
-
-  rows.forEach(([label, value], i) => {
-    const y = 270 + i * 64;
-    c.fillStyle = '#e3ddd3';
-    c.fillRect(40, y - 40, W - 80, 1);
-    c.fillStyle = '#5b5550';
-    c.font = `400 24px ${font}`;
-    c.fillText(label, 40, y);
-    c.fillStyle = '#1f2b22';
-    c.font = `600 24px ${font}`;
-    c.textAlign = 'right';
-    c.fillText(value, W - 40, y, W - 280);
-    c.textAlign = 'left';
-  });
-
-  const link = document.createElement('a');
-  link.href = canvas.toDataURL('image/png');
-  link.download = `baanrai-${code}.png`;
-  link.click();
 }

@@ -205,7 +205,6 @@ export default function StayDashboard() {
   const pick = (en, th) => (lang === 'th' ? th || en : en || th);
   const fruits = fruitsIn(Number(checkIn.slice(5, 7)));
   const fruitNames = t('fruits');
-  const phone = contact.phones[0];
   const roomSlides = rooms.flatMap((r) =>
     roomPhotos({ id: r.room_id, image_url: r.room_image_url, photos: r.room_photos })
       .slice(0, 3)
@@ -230,6 +229,25 @@ export default function StayDashboard() {
       }
     }
   }
+
+  // Where today sits between check-in and check-out (null before arrival).
+  const at = days > 0 ? null : Math.min(1, Math.max(0, -days / Math.max(1, nights)));
+  // Only activities that have a photo, so the row never shows an empty box.
+  const shownActs = activities
+    .map((a) => ({ a, photo: listingPhotos(a)[0] }))
+    .filter((x) => x.photo?.src)
+    .slice(0, ACTIVITY_COUNT);
+
+  // On a phone the chat is its own tab; on bigger screens it takes the side column.
+  // Switching tabs brings the tab bar to the top, so the chat box and its
+  // typing field fit on the screen.
+  const showTab = (id) => {
+    shift(() => setTab(id), { cards: '.stay-dash [data-for]' });
+    const bar = document.querySelector('.stay-tabs');
+    const y = bar ? bar.getBoundingClientRect().top + window.scrollY - 80 : 0;
+    if (window.scrollY < y) window.scrollTo({ top: y, behavior: 'smooth' });
+  };
+  const openChat = () => (window.matchMedia('(max-width: 640px)').matches ? showTab('chat') : setChatOpen(true));
 
   let title;
   if (days > 1) title = t('stay.inDays', { n: days });
@@ -263,7 +281,7 @@ export default function StayDashboard() {
               role="tab"
               aria-selected={tab === x.id}
               className={tab === x.id ? 'is-on' : ''}
-              onClick={() => shift(() => setTab(x.id), { cards: '.stay-dash > *' })}
+              onClick={() => showTab(x.id)}
             >
               <Icon name={x.icon} />
               {x.label}
@@ -273,159 +291,178 @@ export default function StayDashboard() {
         </div>
 
         <div className={`stay-dash${chatOpen ? ' is-chat-open' : ''}`} data-tab={tab}>
-          <article className="stay-tile stay-tile--when" data-for="stay">
-            <h2>{t('stay.whenTitle', { n: nights })}</h2>
-            {user.is_stay && (
-              <p className="stay__expiry">
-                {t('stay.expires', { date: formatDayShort(checkOut, locale, wd), time: CHECK_OUT_TIME })}
-              </p>
-            )}
-            <div className="stay-line">
-              <div>
-                <span>{t('sum.checkIn')}</span>
-                <b>{formatDayShort(checkIn, locale, wd)}</b>
-                <small>{t('stay.from', { time: CHECK_IN_TIME })}</small>
+          <div className="stay-main">
+            {/* Dates, room and who is coming: one card, read top to bottom. */}
+            <article className="stay-tile stay-tile--when" data-for="stay">
+              <h2>{t('stay.whenTitle', { n: nights })}</h2>
+              <div className="stay-line">
+                <div>
+                  <span>{t('sum.checkIn')}</span>
+                  <b>{formatDayShort(checkIn, locale, wd)}</b>
+                  <small>{t('stay.from', { time: CHECK_IN_TIME })}</small>
+                </div>
+                <div className="stay-line__mid" style={{ '--at': at ?? 0 }}>
+                  <i aria-hidden="true" />
+                  <i aria-hidden="true" />
+                  {at != null && <span className="stay-line__today">{t('stay.todayMark')}</span>}
+                </div>
+                <div>
+                  <span>{t('sum.checkOut')}</span>
+                  <b>{formatDayShort(checkOut, locale, wd)}</b>
+                  <small>{t('stay.before', { time: CHECK_OUT_TIME })}</small>
+                </div>
               </div>
-              <div className="stay-line__mid" aria-hidden="true">
-                <i />
-                <i />
-              </div>
-              <div>
-                <span>{t('sum.checkOut')}</span>
-                <b>{formatDayShort(checkOut, locale, wd)}</b>
-                <small>{t('stay.before', { time: CHECK_OUT_TIME })}</small>
-              </div>
-            </div>
-          </article>
 
-          <article className="stay-tile stay-tile--rooms" data-for="stay">
-            <h2>{t('stay.rooms')}</h2>
-            <ul className="stay-rooms">
-              {rooms.map((r) => (
-                <li key={r.id}>
-                  <img
-                    src={roomCover({ id: r.room_id, image_url: r.room_image_url, photos: r.room_photos })}
-                    alt=""
-                    onError={(e) => {
-                      e.currentTarget.style.visibility = 'hidden';
-                    }}
-                  />
-                  <span>
-                    <b>{roomNames(r.room_name, lang).title}</b>
-                    {r.guests > 0 && <small>{t('sum.guestCount', { n: r.guests })}</small>}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            {stay.pets > 0 && <small className="stay-tile__note">{t('price.petSaved', { n: stay.pets })}</small>}
-          </article>
+              <ul className="stay-rooms">
+                {rooms.map((r) => (
+                  <li key={r.id}>
+                    <img
+                      src={roomCover({ id: r.room_id, image_url: r.room_image_url, photos: r.room_photos })}
+                      alt=""
+                      onError={(e) => {
+                        e.currentTarget.style.visibility = 'hidden';
+                      }}
+                    />
+                    <span>
+                      <b>{roomNames(r.room_name, lang).title}</b>
+                      <small>
+                        {[
+                          r.guests > 0 && t('sum.guestCount', { n: r.guests }),
+                          rooms.length === 1 && stay.pets > 0 && t('price.petSaved', { n: stay.pets }),
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </small>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {rooms.length > 1 && stay.pets > 0 && (
+                <small className="stay-tile__note">{t('price.petSaved', { n: stay.pets })}</small>
+              )}
+              {user.is_stay && (
+                <p className="stay__expiry">
+                  {t('stay.expires', { date: formatDayShort(checkOut, locale, wd), time: CHECK_OUT_TIME })}
+                </p>
+              )}
+            </article>
 
-          <article className="stay-tile stay-tile--money" data-for="stay">
-            <h2>{balance > 0 ? t('stay.left') : t('stay.money')}</h2>
-            {balance > 0 ? (
-              <>
-                <b className="stay-money">{formatBaht(balance)}</b>
-                {total > 0 && (
+            <article className="stay-tile stay-tile--know" data-for="stay">
+              <h2>{t(days > 0 ? 'stay.beforeTitle' : 'stay.knowDuring')}</h2>
+              <ul className="stay-know">
+                {t('stay.beforeList').map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            </article>
+          </div>
+
+          <aside className="stay-side">
+            <div className="stay-side__card" data-for="stay">
+              <section className="stay-money-box" aria-labelledby="stay-money-title">
+                <h2 id="stay-money-title">{balance > 0 ? t('stay.left') : t('stay.money')}</h2>
+                {balance > 0 ? (
                   <>
-                    <dl className="stay-paid">
-                      <div>
-                        <dt>{t('stay.paidLabel')}</dt>
-                        <dd>{formatBaht(total - balance)}</dd>
-                      </div>
-                      <div>
-                        <dt>{t('stay.totalLabel')}</dt>
-                        <dd>{formatBaht(total)}</dd>
-                      </div>
-                    </dl>
+                    <b className="stay-money">{formatBaht(balance)}</b>
+                    {total > 0 && (
+                      <dl className="stay-paid">
+                        <div>
+                          <dt>{t('stay.paidLabel')}</dt>
+                          <dd>{formatBaht(total - balance)}</dd>
+                        </div>
+                        <div>
+                          <dt>{t('stay.totalLabel')}</dt>
+                          <dd>{formatBaht(total)}</dd>
+                        </div>
+                      </dl>
+                    )}
+                    {!user.is_stay && (
+                      <Link className="bk-btn stay-tile__btn" to="/booking">
+                        {t('stay.payOnline')}
+                      </Link>
+                    )}
+                    <small className="stay-tile__farm">
+                      {t(user.is_stay ? 'stay.payAtFarmOnly' : 'stay.orAtFarm')}
+                    </small>
                   </>
+                ) : (
+                  <p className="stay-money-row">
+                    {total > 0 && <b className="stay-money">{formatBaht(total)}</b>}
+                    <span className="stay-paid-tag">✓ {t('my.paidFull')}</span>
+                  </p>
                 )}
-                {!user.is_stay && (
-                  <Link className="bk-btn stay-tile__btn" to="/booking">
-                    {t('stay.payOnline')}
-                  </Link>
+              </section>
+
+              <section className="stay-help" aria-labelledby="stay-help-title">
+                <h2 id="stay-help-title">{t('stay.help')}</h2>
+                {contact.maps && (
+                  <a
+                    className={`stay-go${days >= 0 ? ' stay-go--main' : ''}`}
+                    href={contact.maps}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Icon name="pin" />
+                    <span>
+                      {t('stay.map')}
+                      <small>Google Maps</small>
+                    </span>
+                  </a>
                 )}
-                <small className="stay-tile__farm">{t(user.is_stay ? 'stay.payAtFarmOnly' : 'stay.orAtFarm')}</small>
-              </>
-            ) : (
-              <>
-                {total > 0 && <b className="stay-money">{formatBaht(total)}</b>}
-                <span className="stay-paid-tag">✓ {t('my.paidFull')}</span>
-              </>
-            )}
-          </article>
+                <button type="button" className="stay-go stay-go--chat" onClick={openChat}>
+                  <Icon name="chat" />
+                  <span>
+                    {t('stay.chatTitle')}
+                    <small>{t('stay.chatHint')}</small>
+                  </span>
+                  {unread > 0 && <span className="stay-badge">{unread}</span>}
+                </button>
+                {contact.phones.map((p) => (
+                  <a key={p.tel} className="stay-go stay-go--call" href={`tel:${p.tel}`}>
+                    <Icon name="phone" />
+                    <span>
+                      {t('chat.call', { name: p.name[lang] })}
+                      <small>{p.display}</small>
+                    </span>
+                  </a>
+                ))}
+              </section>
+            </div>
 
-          <article className="stay-tile stay-tile--go" data-for="stay">
-            {contact.maps && (
-              <a className="stay-go stay-go--main" href={contact.maps} target="_blank" rel="noopener noreferrer">
-                <Icon name="pin" />
-                <span>
-                  {t('stay.map')}
-                  <small>Google Maps</small>
-                </span>
-              </a>
-            )}
-            {phone && (
-              <a className="stay-go" href={`tel:${phone.tel}`}>
-                <Icon name="phone" />
-                <span>
-                  {t('chat.call', { name: phone.name[lang] })}
-                  <small>{phone.display}</small>
-                </span>
-              </a>
-            )}
-          </article>
+            <StayChat active={chatActive} onClose={() => setChatOpen(false)} />
+          </aside>
 
-          <article className="stay-tile stay-tile--know" data-for="stay">
-            <h2>{t('stay.beforeTitle')}</h2>
-            <ul className="stay-know">
-              {t('stay.beforeList').map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
-          </article>
-
-          <StayChat active={chatActive} onClose={() => setChatOpen(false)} />
-
-          {(activities.length > 0 || fruits.length > 0) && (
+          {(shownActs.length > 0 || fruits.length > 0) && (
             <section className="stay-tile stay-tile--farm" data-for="farm" aria-labelledby="stay-acts">
               <div className="stay__row">
                 <h2 id="stay-acts">{t('stay.activities')}</h2>
-                {fruits.length > 0 && (
-                  <p className="stay-fruit">
-                    <span>{t('stay.ripe')}</span>
-                    {fruits.map((f) => (
-                      <b key={f.id}>
-                        <img src={fruitImage(f.id)} alt="" loading="lazy" />
-                        {fruitNames[f.id]}
-                      </b>
-                    ))}
-                  </p>
-                )}
                 <Link to="/activities">{t('stay.allActivities')}</Link>
               </div>
+              {fruits.length > 0 && (
+                <p className="stay-fruit">
+                  <span>{t(days > 0 ? 'stay.ripe' : 'stay.ripeNow')}</span>
+                  {fruits.map((f) => (
+                    <b key={f.id}>
+                      <img src={fruitImage(f.id)} alt="" loading="lazy" />
+                      {fruitNames[f.id]}
+                    </b>
+                  ))}
+                </p>
+              )}
               <ul className="stay-acts">
-                {activities.slice(0, ACTIVITY_COUNT).map((a) => {
-                  const photo = listingPhotos(a)[0];
-                  return (
-                    <li key={a.id}>
-                      {photo ? <img src={photo.src} alt="" loading="lazy" /> : <span className="stay-acts__ph" />}
+                {shownActs.map(({ a, photo }) => (
+                  <li key={a.id}>
+                    <Link to={`/activities#activity-${a.id}`} aria-label={`${pick(a.name, a.name_th)} · ${t('stay.see')}`}>
+                      <img src={photo.src} alt="" loading="lazy" />
                       <b>{pick(a.name, a.name_th)}</b>
                       {Number(a.price) > 0 && <span className="stay-acts__price">{formatBaht(a.price)}</span>}
-                    </li>
-                  );
-                })}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </section>
           )}
         </div>
-
-        {!chatOpen && (
-          <button type="button" className="stay-chat-toggle" onClick={() => setChatOpen(true)}>
-            <Icon name="chat" />
-            {t('stay.chatTitle')}
-            {unread > 0 && <span className="stay-badge">{unread}</span>}
-          </button>
-        )}
       </section>
     </>
   );
