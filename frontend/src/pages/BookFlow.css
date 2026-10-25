@@ -361,22 +361,6 @@
   cursor: default;
 }
 
-/* Step 1 with no dates: the calendar is open straight away */
-.flow-cal {
-  display: grid;
-  gap: 10px;
-  margin-top: 18px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--white);
-}
-.flow-cal__say {
-  margin: 0;
-  color: var(--brand-dark);
-  font-size: 17px;
-  font-weight: 600;
-}
 .flow-none__hen {
   margin-bottom: 8px;
 }
@@ -498,9 +482,7 @@
   .flow-tile--sk {
     display: grid;
   }
-  .flow-cal {
-    padding: 12px;
-  }
+
   
   
   .flow-stay__go {

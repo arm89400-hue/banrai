@@ -29,7 +29,6 @@ import { shift } from '../lib/motion';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import StaySearch from '../components/StaySearch';
-import InlineCalendar from '../components/InlineCalendar';
 import { Hen } from '../components/Pixel';
 import { PromoTag } from '../components/BookingBits';
 import PayDialog from '../components/PayDialog';
@@ -410,15 +409,7 @@ export default function BookFlow() {
                 onGuests={(n) => setGuests(Math.min(MAX_GUESTS, Math.max(1, n)))}
               />
 
-              {/* No dates yet: the calendar is already open, nothing to find first. */}
-              {!nights && (
-                <div className="flow-cal">
-                  <p className="flow-cal__say" aria-live="polite">
-                    {t(checkIn ? 'flow.pickOut' : 'flow.pickIn')}
-                  </p>
-                  <InlineCalendar checkIn={checkIn} checkOut={checkOut} onChange={handleDates} />
-                </div>
-              )}
+              {!nights && <p className="flow__hint">{t('flow.startHint')}</p>}
               {nights > 0 && !availableIds && !loadError && (
                 <Loading label={t('flow.checking')}>
                   <div className="flow__label">

@@ -263,16 +263,6 @@ button.room-gallery__tile:hover img {
   font-size: 15px;
   font-weight: 600;
 }
-.room-book__cal {
-  display: grid;
-  gap: 8px;
-}
-.room-book__say {
-  margin: 4px 0 0;
-  color: var(--brand-dark);
-  font-size: 16px;
-  font-weight: 600;
-}
 .room-book__hint,
 .room-book__note {
   margin: 0;
