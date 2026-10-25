@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useLang } from '../i18n/lang';
 import { toISODate } from '../lib/booking';
 import './InlineCalendar.css';
@@ -32,6 +32,30 @@ export default function DateField({ value, onChange, withTime = false, min, requ
     };
   }, [open]);
 
+  // Open toward whichever side has room: a field in the right-hand column of
+  // a drawer would otherwise push the calendar past the drawer's edge.
+  const popRef = useRef(null);
+  const [toRight, setToRight] = useState(false);
+  useLayoutEffect(() => {
+    if (!open) {
+      setToRight(false);
+      return;
+    }
+    const pop = popRef.current;
+    const box = boxRef.current;
+    if (!pop || !box) return;
+    let edge = window.innerWidth;
+    for (let el = box.parentElement; el && el !== document.body; el = el.parentElement) {
+      const o = getComputedStyle(el).overflowX;
+      if (o !== 'visible') {
+        edge = Math.min(edge, el.getBoundingClientRect().right);
+        break;
+      }
+    }
+    const field = box.getBoundingClientRect();
+    if (field.left + pop.offsetWidth > edge - 8) setToRight(true);
+  }, [open]);
+
   const set = (d, tm = time) => onChange(withTime ? `${d}T${tm}` : d);
 
   const label = value
@@ -62,7 +86,12 @@ export default function DateField({ value, onChange, withTime = false, min, requ
       <input className="date-field__check" tabIndex={-1} aria-hidden="true" required={required} value={value} onChange={() => {}} />
 
       {open && (
-        <div className="date-field__pop" role="dialog" aria-label={t('adm.date.pick')}>
+        <div
+          ref={popRef}
+          className={`date-field__pop${toRight ? ' is-right' : ''}`}
+          role="dialog"
+          aria-label={t('adm.date.pick')}
+        >
           <div className="inline-cal inline-cal--compact">
             <div className="inline-cal__head">
               <button type="button" onClick={() => setViewMonth(new Date(year, month - 1, 1))} aria-label={t('date.prev')}>
