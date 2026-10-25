@@ -59,17 +59,8 @@
   list-style: none;
 }
 .about__highlights li {
-  display: grid;
-  grid-template-columns: 44px 1fr;
-  gap: 14px;
-  align-items: start;
-}
-.about__highlights svg {
-  box-sizing: content-box;
-  padding: 11px;
-  border-radius: 12px;
-  background: var(--brand-soft);
-  color: var(--brand);
+  padding-top: 14px;
+  border-top: 2px solid var(--brand);
 }
 .about__highlights span {
   display: grid;
@@ -122,4 +113,9 @@
     grid-template-rows: repeat(2, 110px);
     gap: 8px;
   }
+}
+
+.about__cta {
+  justify-self: start;
+  min-width: 220px;
 }

@@ -15,6 +15,7 @@ import { usePromotions } from '../lib/promotions';
 import { CHECK_IN_TIME, CHECK_OUT_TIME } from '../lib/site';
 import { useLang } from '../i18n/lang';
 import DateRangePicker from '../components/DateRangePicker';
+import InlineCalendar from '../components/InlineCalendar';
 import { PriceRows, PromoTag } from '../components/BookingBits';
 import Lightbox from '../components/Lightbox';
 import Baht from '../components/Baht';
@@ -220,8 +221,9 @@ export default function RoomPage() {
         <div className="room-page__main">
           <h1>
             {names.title}
-            {(names.subtitle || room.description) && (
-              <small>{[names.subtitle, room.description].filter(Boolean).join(' · ')}</small>
+            {/* In Thai the English name adds nothing; in English the Thai name is the room's real name. */}
+            {((lang === 'en' && names.subtitle) || room.description) && (
+              <small>{[lang === 'en' && names.subtitle, room.description].filter(Boolean).join(' · ')}</small>
             )}
           </h1>
           {roomPromos.length > 0 && (
@@ -365,13 +367,27 @@ export default function RoomPage() {
               />
             </>
           ) : (
-            <p className="room-book__hint">{t('room.selectDates')}</p>
+            // No dates yet: this room's calendar, with its taken nights, is right here.
+            <div className="room-book__cal">
+              <p className="room-book__say">{t(dates.checkIn ? 'flow.pickOut' : 'flow.pickIn')}</p>
+              <InlineCalendar
+                compact
+                checkIn={dates.checkIn}
+                checkOut={dates.checkOut}
+                bookedNights={bookedNights}
+                onChange={setDates}
+              />
+            </div>
           )}
 
-          <button type="button" className="bk-btn bk-btn--sun bk-btn--block" disabled={!nights} onClick={reserve}>
-            {t('room.reserve')}
-          </button>
-          <p className="room-book__note">{t('room.noCharge')}</p>
+          {nights > 0 && (
+            <>
+              <button type="button" className="bk-btn bk-btn--sun bk-btn--block" onClick={reserve}>
+                {t('room.reserve')}
+              </button>
+              <p className="room-book__note">{t('room.noCharge')}</p>
+            </>
+          )}
         </aside>
       </div>
 

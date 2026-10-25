@@ -347,6 +347,59 @@
   color: var(--text-muted);
   cursor: default;
 }
+.flow-stay__go.is-hint,
+.flow-bar__go.is-hint {
+  display: grid;
+  place-items: center;
+  margin: 0;
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--border);
+  color: var(--text-muted);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  cursor: default;
+}
+
+/* Step 1 with no dates: the calendar is open straight away */
+.flow-cal {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--white);
+}
+.flow-cal__say {
+  margin: 0;
+  color: var(--brand-dark);
+  font-size: 17px;
+  font-weight: 600;
+}
+.flow-none__hen {
+  margin-bottom: 8px;
+}
+
+/* The accept box shakes once when send is pressed before ticking it */
+.flow__accept.is-nudged {
+  animation: flow-nudge 0.45s ease;
+  border-radius: 10px;
+  box-shadow: 0 0 0 2px var(--straw);
+}
+@keyframes flow-nudge {
+  20% { translate: -6px 0; }
+  40% { translate: 5px 0; }
+  60% { translate: -3px 0; }
+  80% { translate: 2px 0; }
+}
+.flow__accept-say {
+  margin: 6px 0 0;
+  color: hsl(30, 60%, 32%);
+  font-size: 15px;
+  font-weight: 600;
+}
+
 .flow-stay__note {
   margin: 0;
   font-size: 13px;
@@ -396,8 +449,57 @@
   .flow__title {
     font-size: 26px;
   }
+  /* Rooms as rows on a phone: all five fit on about one screen. */
   .flow-tiles {
     grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .flow-tile {
+    grid-template-columns: 112px minmax(0, 1fr);
+    grid-template-areas:
+      'photo row'
+      'photo facts'
+      'photo promo';
+    align-items: center;
+    gap: 2px 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .flow-tile img {
+    grid-area: photo;
+    align-self: center;
+    width: 112px;
+    height: 84px;
+    margin: 0;
+    aspect-ratio: auto;
+    border-radius: 10px;
+  }
+  .flow-tile__row {
+    grid-area: row;
+  }
+  .flow-tile__row strong {
+    font-size: 19px;
+  }
+  .flow-tile__row b {
+    font-size: 17px;
+  }
+  .flow-tile__facts {
+    grid-area: facts;
+    font-size: 14px;
+  }
+  .flow-tile__pick {
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+  .flow-tile .promo-tag {
+    grid-area: promo;
+  }
+  .flow-tile--sk {
+    display: grid;
+  }
+  .flow-cal {
+    padding: 12px;
   }
   
   
@@ -453,6 +555,11 @@
     color: var(--brand-dark);
     box-shadow: inset 0 0 0 2px var(--brand);
     cursor: default;
+  }
+  .flow-bar__go.is-hint {
+    min-height: 44px;
+    padding: 0 14px;
+    font-size: 14px;
   }
 }
 
@@ -637,5 +744,11 @@
   }
   .flow__requests label {
     flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow__accept.is-nudged {
+    animation: none;
   }
 }

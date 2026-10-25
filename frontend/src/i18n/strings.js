@@ -82,14 +82,15 @@ export const STRINGS = {
     'rooms.none': 'ยังไม่มีห้องพัก',
 
     'farm.lead':
-      'ที่พักตากอากาศใกล้เขาใหญ่ ให้บริการที่พักพร้อมอาหาร และเยี่ยมชมสวนเกษตรอินทรีย์ ' +
-      'สัมผัสบรรยากาศเย็นสบายท่ามกลางสวนผลไม้แบบผสมผสานไร้สารเคมี ' +
-      'เก็บไข่สดๆ จากน้องไก่อารมณ์ดี และผักไร้สาร กินแบบสบายใจและสุขภาพดี',
+      'บ้านของครอบครัวในสวนผลไม้ที่ปากช่อง ใกล้เขาใหญ่ มีห้องพักห้าห้อง ตั้งชื่อตามคนในบ้าน ตั้งแต่ห้องพ่อถึงห้องเหลน ' +
+      'สวนไม่ใช้สารเคมี ไข่จากเล้าและผักจากแปลงมาเป็นอาหารเช้าทุกวัน ' +
+      'จิตกับแมวดูแลเองทุกอย่าง มีอะไรโทรถามได้เลย',
     'farm.highlights': [
-      { icon: 'leaf', title: 'สวนเกษตรอินทรีย์', text: 'สวนผลไม้แบบผสมผสานและผักปลอดสารเคมี' },
-      { icon: 'egg', title: 'ไข่สดทุกเช้า', text: 'เก็บไข่เองจากน้องไก่อารมณ์ดี' },
-      { icon: 'bowl', title: 'อาหารในฟาร์ม', text: 'ที่พักพร้อมอาหาร และมีบาร์บีคิวหรือหมูกระทะตามสั่ง' },
+      { icon: 'avocado', title: 'สวนผลไม้ 12 อย่าง', text: 'อะโวคาโด ทุเรียน มะม่วง แก้วมังกร สุกตามฤดู เก็บกินจากต้นได้' },
+      { icon: 'hen', title: 'ไข่จากเล้าทุกเช้า', text: 'แม่ไก่ออกไข่ทุกวัน เด็กๆ ไปเก็บเองได้' },
+      { icon: 'pan', title: 'หมูกระทะตอนเย็น', text: 'บอกเราล่วงหน้าในแชท มีค่าบริการ' },
     ],
+    'about.cta': 'ดูห้องว่าง',
 
 
 
@@ -190,7 +191,7 @@ export const STRINGS = {
 
 
 
-    'footer.tagline': 'ฟาร์มสเตย์ใกล้เขาใหญ่ ท่ามกลางธรรมชาติในปากช่อง',
+    'footer.tagline': 'บ้านพักในสวนผลไม้ของครอบครัว ปากช่อง ใกล้เขาใหญ่',
     'footer.explore': 'สำรวจ',
     'footer.stay': 'การเข้าพัก',
     'footer.contact': 'ติดต่อเรา',
@@ -363,14 +364,15 @@ export const STRINGS = {
     'rooms.none': 'No rooms published yet.',
 
     'farm.lead':
-      'A countryside retreat close to Khao Yai, with rooms, meals and walks through our organic farm. ' +
-      'Enjoy the cool air among a chemical-free fruit orchard, collect fresh eggs from our happy hens ' +
-      'and eat vegetables grown without chemicals: simple, relaxed and good for you.',
+      "A family home in a fruit orchard in Pak Chong, near Khao Yai. Five rooms, named after the people in the family, from Father's Room to Great-grandchild's. " +
+      'No chemicals in the orchard; eggs from the coop and vegetables from the beds make breakfast every morning. ' +
+      'Jit and Maew run everything themselves, so call them with any question.',
     'farm.highlights': [
-      { icon: 'leaf', title: 'Organic orchard', text: 'A mixed fruit orchard and vegetables, all grown without chemicals.' },
-      { icon: 'egg', title: 'Fresh eggs every morning', text: 'Collect them yourself from our happy hens.' },
-      { icon: 'bowl', title: 'Meals on the farm', text: 'Stays with meals, plus BBQ or moo kata grills on request.' },
+      { icon: 'avocado', title: '12 kinds of fruit', text: 'Avocado, durian, mango, dragon fruit, ripe in their season and yours to pick.' },
+      { icon: 'hen', title: 'Eggs from the coop every morning', text: 'The hens lay every day, and children can collect them.' },
+      { icon: 'pan', title: 'Moo kata in the evening', text: 'Tell us in the chat beforehand. Charged extra.' },
     ],
+    'about.cta': 'See free rooms',
 
 
 
@@ -471,7 +473,7 @@ export const STRINGS = {
 
 
 
-    'footer.tagline': 'A quiet homestay retreat in Pak Chong, surrounded by nature.',
+    'footer.tagline': "A family home in a fruit orchard, Pak Chong, near Khao Yai.",
     'footer.explore': 'Explore',
     'footer.stay': 'Your stay',
     'footer.contact': 'Contact us',

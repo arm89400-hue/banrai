@@ -29,6 +29,8 @@ import { shift } from '../lib/motion';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import StaySearch from '../components/StaySearch';
+import InlineCalendar from '../components/InlineCalendar';
+import { Hen } from '../components/Pixel';
 import { PromoTag } from '../components/BookingBits';
 import PayDialog from '../components/PayDialog';
 import Baht from '../components/Baht';
@@ -80,6 +82,7 @@ export default function BookFlow() {
   const [form, setForm] = useState(() => ({ ...EMPTY_FORM, email: user?.email?.includes('@') ? user.email : '' }));
   const [errors, setErrors] = useState({});
   const [accepted, setAccepted] = useState(false);
+  const [nudge, setNudge] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [roomNotice, setRoomNotice] = useState(null);
@@ -332,11 +335,24 @@ export default function BookFlow() {
   } else {
     next = {
       label: submitting ? t('flow.submitting') : t('flow.submit'),
-      disabled: !accepted || submitting,
-      onClick: handleSubmit,
+      disabled: submitting,
+      // Not ticked yet: point at the box instead of a button that does nothing.
+      onClick: accepted
+        ? handleSubmit
+        : () => {
+            setNudge((n) => n + 1);
+            document.querySelector('.flow__accept')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          },
     };
   }
-  const nextButton = (className) => (
+  // Until there is something to do, say what is missing as plain text, not as
+  // a grey button that looks pressable.
+  const nextButton = (className) =>
+    next.disabled && !submitting ? (
+      <p key={`hint-${current}`} className={`${className} is-hint`}>
+        {next.label}
+      </p>
+    ) : (
     <button
       key={current}
       type={next.form ? 'submit' : 'button'}
@@ -347,7 +363,7 @@ export default function BookFlow() {
     >
       {next.label}
     </button>
-  );
+    );
 
   return (
     <section className="flow-page">
@@ -394,7 +410,15 @@ export default function BookFlow() {
                 onGuests={(n) => setGuests(Math.min(MAX_GUESTS, Math.max(1, n)))}
               />
 
-              {!nights && <p className="flow__hint">{t('flow.startHint')}</p>}
+              {/* No dates yet: the calendar is already open, nothing to find first. */}
+              {!nights && (
+                <div className="flow-cal">
+                  <p className="flow-cal__say" aria-live="polite">
+                    {t(checkIn ? 'flow.pickOut' : 'flow.pickIn')}
+                  </p>
+                  <InlineCalendar checkIn={checkIn} checkOut={checkOut} onChange={handleDates} />
+                </div>
+              )}
               {nights > 0 && !availableIds && !loadError && (
                 <Loading label={t('flow.checking')}>
                   <div className="flow__label">
@@ -421,6 +445,7 @@ export default function BookFlow() {
               )}
               {availableIds && freeRooms.length === 0 && (
                 <div className="flow-none">
+                  <Hen scale={4} className="flow-none__hen" />
                   <p>
                     <b>{t('flow.noneFreeTitle')}</b>
                     <br />
@@ -696,10 +721,15 @@ export default function BookFlow() {
                 </div>
               </dl>
 
-              <label className="flow__accept">
+              <label key={nudge} className={`flow__accept${nudge ? ' is-nudged' : ''}`}>
                 <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
                 <span>{t('flow.accept')}</span>
               </label>
+              {nudge > 0 && !accepted && (
+                <p className="flow__accept-say" role="alert">
+                  {t('flow.acceptFirst')}
+                </p>
+              )}
 
               {submitError && (
                 <p className="bk-error" role="alert">

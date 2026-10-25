@@ -146,8 +146,6 @@ export default function StayView({ stay, pay, onPaid }) {
             </button>
           )}
           <p className="stay-box__note">
-            {!paidInFull && t('stayBox.restNote')}
-            {!paidInFull && <br />}
             {t('stayBox.call', { phones: contact.phones.map((p) => `${p.name[lang]} ${p.display}`).join(' · ') })}
           </p>
         </aside>

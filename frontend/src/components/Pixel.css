@@ -1,0 +1,60 @@
+.pixel {
+  display: inline-block;
+  flex: none;
+  vertical-align: bottom;
+}
+
+/* A hen: three frames stacked; the legs swap while walking, and now and then
+   she stops for a peck. */
+.pixel-hen {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+.pixel-hen > .pixel + .pixel {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+}
+.pixel-hen__b,
+.pixel-hen__peck {
+  opacity: 0;
+}
+.pixel-hen__a {
+  animation: pixel-step-a 0.5s steps(1) infinite, pixel-peck-hide 9s steps(1) infinite;
+}
+.pixel-hen__b {
+  animation: pixel-step-b 0.5s steps(1) infinite, pixel-peck-hide 9s steps(1) infinite;
+}
+.pixel-hen__peck {
+  animation: pixel-peck-show 9s steps(1) infinite;
+}
+@keyframes pixel-step-a {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+}
+@keyframes pixel-step-b {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+}
+/* pecking: the walking frames hide for a beat */
+@keyframes pixel-peck-hide {
+  0%, 44% { visibility: visible; }
+  45%, 55% { visibility: hidden; }
+  56%, 100% { visibility: visible; }
+}
+@keyframes pixel-peck-show {
+  0%, 44% { opacity: 0; }
+  45%, 49% { opacity: 1; }
+  50%, 51% { opacity: 0; }
+  52%, 55% { opacity: 1; }
+  56%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pixel-hen__a,
+  .pixel-hen__b,
+  .pixel-hen__peck {
+    animation: none;
+  }
+}

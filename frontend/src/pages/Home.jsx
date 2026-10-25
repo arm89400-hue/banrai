@@ -250,7 +250,7 @@ function Rooms({ rooms, loaded, error, promotions }) {
                   <img src={roomCover(room)} alt="" loading="lazy" onError={(e) => (e.currentTarget.src = FARM_PHOTOS.main)} />
                   <span className="room-row__text">
                     <strong>{names.title}</strong>
-                    {names.subtitle && <small>{names.subtitle}</small>}
+                    {lang === 'en' && names.subtitle && <small>{names.subtitle}</small>}
                     <span className="room-row__facts">
                       {room.capacity && max > room.capacity
                         ? t('rooms.guestsRange', { from: room.capacity, to: max })
@@ -402,24 +402,6 @@ function BeforeYouCome({ fees }) {
           </div>
         </dl>
 
-        {contact.phones.length > 0 && (
-          <div className="home-call">
-            <p>{t('home.ask')}</p>
-            <div className="home-call__btns">
-              {contact.phones.map((p) => (
-                <a key={p.tel} href={`tel:${p.tel}`} className="home-call__btn">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" />
-                  </svg>
-                  <span>
-                    {p.name[lang] ?? p.name.th}
-                    <small>{p.display}</small>
-                  </span>
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </section>
   );

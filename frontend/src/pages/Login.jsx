@@ -36,6 +36,9 @@ export default function Login() {
   const { lang, t } = useLang();
   const navigate = useNavigate();
   const googleButtonRef = useRef(null);
+  // The Google button only counts once Google has drawn it; until then the
+  // "or" line would sit above nothing.
+  const [googleShown, setGoogleShown] = useState(!GOOGLE_CLIENT_ID);
 
   const expired = params.get('expired') === '1';
   const sessionEnded = params.get('session') === '1';
@@ -72,6 +75,7 @@ export default function Login() {
         width: Math.min(320, googleButtonRef.current.offsetWidth || 320),
         locale: lang,
       });
+      setGoogleShown(true);
     }, 100);
 
     return () => {
@@ -149,7 +153,7 @@ export default function Login() {
           {sessionEnded && !error && <p role="alert">{t('login.sessionEnded')}</p>}
 
           {GOOGLE_CLIENT_ID ? (
-            <div ref={googleButtonRef} className="google-button" />
+            <div ref={googleButtonRef} className="google-button" hidden={!googleShown} />
           ) : (
             <button
               type="button"
@@ -178,9 +182,11 @@ export default function Login() {
             </button>
           )}
 
-          <div className="auth-divider">
-            <span>{t('login.or')}</span>
-          </div>
+          {googleShown && (
+            <div className="auth-divider">
+              <span>{t('login.or')}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             <label className="auth-field">
