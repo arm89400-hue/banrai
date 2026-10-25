@@ -133,6 +133,8 @@ export default function Admin() {
     if (!isAdmin) return undefined;
     const onKey = (e) => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
+      // Not while a form or other window is open: jumping away would lose it.
+      if (document.querySelector('dialog[open]')) return;
       if ((e.key === 'k' && (e.ctrlKey || e.metaKey)) || (e.key === '/' && !typing)) {
         e.preventDefault();
         setPalette(true);

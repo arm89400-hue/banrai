@@ -43,6 +43,8 @@ export default function AdminListings({ kind }) {
   const { data, error, reload } = useAdminData(cfg.listPath);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  // What the form held when it opened, to know whether anything changed.
+  const [base, setBase] = useState(EMPTY_FORM);
   const [photos, setPhotos] = useState([]);
   const [pending, setPending] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -54,7 +56,9 @@ export default function AdminListings({ kind }) {
     setEditing(item ? item.id : 'new');
     setFormError(null);
     setSavedNote(null);
-    setForm(item ? formFor(item) : EMPTY_FORM);
+    const start = item ? formFor(item) : EMPTY_FORM;
+    setForm(start);
+    setBase(start);
     setPhotos(item?.photos ?? []);
     setPending([]);
   }
@@ -73,6 +77,7 @@ export default function AdminListings({ kind }) {
         const created = data.room ?? data.activity;
         setEditing(created.id);
         setForm(formFor(created));
+        setBase(formFor(created));
         setPending([]);
         try {
           setPhotos(await uploadPending(kind, created.id, pending));
@@ -181,17 +186,18 @@ export default function AdminListings({ kind }) {
           title={editing === 'new' ? k('new') : k('edit')}
           sub={editingItem ? nameParts(editingItem).filter(Boolean).join(' · ') : undefined}
           onClose={() => setEditing(null)}
+          dirty={JSON.stringify(form) !== JSON.stringify(base) || pending.length > 0}
           onSubmit={save}
-          footer={
+          footer={(close) => (
             <>
-              <button type="button" className="adm-btn" onClick={() => setEditing(null)}>
+              <button type="button" className="adm-btn" onClick={close}>
                 {editing === 'new' ? t('adm.list.cancel') : t('adm.list.close')}
               </button>
               <button type="submit" className="adm-btn adm-btn--primary" disabled={saving}>
                 {saving ? t('adm.contact.saving') : t('adm.contact.save')}
               </button>
             </>
-          }
+          )}
         >
           {savedNote && <p className="adm-note">{savedNote}</p>}
           {cfg.roomFields ? (

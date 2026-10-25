@@ -57,6 +57,7 @@ export default function AdminAnnouncements() {
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [base, setBase] = useState(emptyForm);
   const [photos, setPhotos] = useState([]);
   const [pending, setPending] = useState([]);
   const [formError, setFormError] = useState(null);
@@ -76,7 +77,9 @@ export default function AdminAnnouncements() {
 
   function startEdit(a) {
     setEditing(a ? a.id : 'new');
-    setForm(a ? formFor(a) : emptyForm());
+    const start = a ? formFor(a) : emptyForm();
+    setForm(start);
+    setBase(start);
     setPhotos(a?.photos ?? []);
     setPending([]);
     setFormError(null);
@@ -99,6 +102,7 @@ export default function AdminAnnouncements() {
         const id = data.announcement.id;
         setEditing(id);
         setForm(formFor(data.announcement));
+        setBase(formFor(data.announcement));
         setPending([]);
         try {
           setPhotos(await uploadPending('announcements', id, pending));
@@ -221,17 +225,18 @@ export default function AdminAnnouncements() {
           wide
           title={editing === 'new' ? t('adm.ann.new') : t('adm.ann.edit')}
           onClose={() => setEditing(null)}
+          dirty={JSON.stringify(form) !== JSON.stringify(base) || pending.length > 0}
           onSubmit={save}
-          footer={
+          footer={(close) => (
             <>
-              <button type="button" className="adm-btn" onClick={() => setEditing(null)}>
+              <button type="button" className="adm-btn" onClick={close}>
                 {editing === 'new' ? t('adm.list.cancel') : t('adm.list.close')}
               </button>
               <button type="submit" className="adm-btn adm-btn--primary" disabled={saving}>
                 {saving ? t('adm.contact.saving') : t('adm.contact.save')}
               </button>
             </>
-          }
+          )}
         >
           {savedNote && <p className="adm-note">{savedNote}</p>}
           <div className="adm-fields">

@@ -87,9 +87,38 @@ export function PanelSkeleton({ lines = 4 }) {
 
 // A form or detail view that slides in from the right edge (from the bottom on
 // phones). Its own footer holds the buttons, so they are never covered.
-export function Drawer({ title, sub, onClose, onSubmit, footer, children, wide = false }) {
+export function Drawer({ title, sub, onClose, onSubmit, footer, children, wide = false, dirty = false }) {
   const { t } = useLang();
   const ref = useRef(null);
+  const confirm = useConfirm();
+
+  // A form with unsaved changes asks before it closes, whichever way the
+  // owner tries to leave: the X, Cancel, Esc, a click outside, or reloading
+  // or closing the tab.
+  const requestClose = async () => {
+    if (dirty) {
+      const ok = await confirm({
+        title: t('adm.leave.title'),
+        body: t('adm.leave.body'),
+        cancel: t('adm.leave.stay'),
+        ok: t('adm.leave.go'),
+        danger: true,
+        focusCancel: true,
+      });
+      if (!ok) return;
+    }
+    onClose();
+  };
+
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const warn = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
 
   useEffect(() => {
     const d = ref.current;
@@ -111,9 +140,9 @@ export function Drawer({ title, sub, onClose, onSubmit, footer, children, wide =
       className={`adm-drawer${wide ? ' adm-drawer--wide' : ''}`}
       onCancel={(e) => {
         e.preventDefault();
-        onClose();
+        requestClose();
       }}
-      onClick={(e) => e.target === ref.current && onClose()}
+      onClick={(e) => e.target === ref.current && requestClose()}
     >
       <Box className="adm-drawer__box" onSubmit={onSubmit} tabIndex={-1}>
         <header className="adm-drawer__head">
@@ -121,14 +150,16 @@ export function Drawer({ title, sub, onClose, onSubmit, footer, children, wide =
             <h2>{title}</h2>
             {sub && <p>{sub}</p>}
           </div>
-          <button type="button" className="adm-x" onClick={onClose} aria-label={t('adm.close')}>
+          <button type="button" className="adm-x" onClick={requestClose} aria-label={t('adm.close')}>
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
         </header>
         <div className="adm-drawer__body">{children}</div>
-        {footer && <footer className="adm-drawer__foot">{footer}</footer>}
+        {footer && (
+          <footer className="adm-drawer__foot">{typeof footer === 'function' ? footer(requestClose) : footer}</footer>
+        )}
       </Box>
     </dialog>
   );
@@ -177,14 +208,14 @@ export function ConfirmProvider({ children }) {
           <h2>{ask.title}</h2>
           {ask.body && <p>{ask.body}</p>}
           <div className="adm-confirm__acts">
-            <button type="button" className="adm-btn" onClick={() => answer(false)}>
+            <button type="button" className="adm-btn" onClick={() => answer(false)} autoFocus={Boolean(ask.focusCancel)}>
               {ask.cancel ?? t('adm.ask.no')}
             </button>
             <button
               type="button"
               className={`adm-btn ${ask.danger ? 'adm-btn--danger' : 'adm-btn--primary'}`}
               onClick={() => answer(true)}
-              autoFocus
+              autoFocus={!ask.focusCancel}
             >
               {ask.ok ?? t('adm.ask.yes')}
             </button>

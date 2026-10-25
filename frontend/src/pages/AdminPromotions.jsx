@@ -37,6 +37,7 @@ export default function AdminPromotions() {
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [base, setBase] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -59,7 +60,7 @@ export default function AdminPromotions() {
   function startEdit(p) {
     setEditing(p ? p.id : 'new');
     setFormError(null);
-    setForm(
+    const start = (
       p
         ? {
             name: p.name,
@@ -71,6 +72,8 @@ export default function AdminPromotions() {
           }
         : EMPTY_FORM
     );
+    setForm(start);
+    setBase(start);
   }
 
   async function save(e) {
@@ -176,17 +179,18 @@ export default function AdminPromotions() {
         <Drawer
           title={editing === 'new' ? t('adm.promo.new') : t('adm.promo.edit')}
           onClose={() => setEditing(null)}
+          dirty={JSON.stringify(form) !== JSON.stringify(base)}
           onSubmit={save}
-          footer={
+          footer={(close) => (
             <>
-              <button type="button" className="adm-btn" onClick={() => setEditing(null)}>
+              <button type="button" className="adm-btn" onClick={close}>
                 {t('adm.list.cancel')}
               </button>
               <button type="submit" className="adm-btn adm-btn--primary" disabled={saving}>
                 {saving ? t('adm.contact.saving') : t('adm.contact.save')}
               </button>
             </>
-          }
+          )}
         >
           <div className="adm-fields">
             <label className="adm-field adm-field--wide">
