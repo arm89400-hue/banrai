@@ -65,7 +65,6 @@ function Menu({ page, badges, onPick }) {
 
 function SearchButton({ onClick }) {
   const { t } = useLang();
-  const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
   return (
     <button type="button" className="adm-find" onClick={onClick}>
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -73,7 +72,6 @@ function SearchButton({ onClick }) {
         <path d="M20 20l-4-4" />
       </svg>
       <span>{t('adm.pal.button')}</span>
-      <kbd>{mac ? '⌘K' : 'Ctrl K'}</kbd>
     </button>
   );
 }

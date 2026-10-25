@@ -110,14 +110,6 @@
 .adm-find span {
   flex: 1;
 }
-.adm-find kbd {
-  padding: 1px 7px;
-  border-radius: 6px;
-  background: var(--white);
-  box-shadow: 0 0 0 1px var(--adm-line);
-  font: inherit;
-  font-size: 12px;
-}
 .adm-find:hover {
   background: var(--white);
   box-shadow: 0 6px 16px -10px hsla(150, 40%, 12%, 0.4);
