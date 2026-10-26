@@ -51,7 +51,7 @@ function sortChats(list) {
   return [...list].sort((a, b) => {
     const wa = waitMinutes(a);
     const wb = waitMinutes(b);
-    if (!wa !== !wb) return wa ? -1 : 1;
+    if (Boolean(wa) !== Boolean(wb)) return wa ? -1 : 1;
     if (wa && wb) return wb - wa;
     return new Date(b.last_at ?? 0) - new Date(a.last_at ?? 0);
   });

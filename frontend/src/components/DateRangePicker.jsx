@@ -70,8 +70,8 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, bookedNig
 
       {open &&
         createPortal(
-          <div className="date-sheet" onClick={() => setOpen(false)}>
-            <div className="date-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="date-sheet-title" onClick={(e) => e.stopPropagation()}>
+          <div /* NOSONAR - Escape closes it (keydown listener above) */ className="date-sheet" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
+            <div className="date-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="date-sheet-title">
               <span className="date-sheet__grip" aria-hidden="true" />
               <div className="date-sheet__top">
                 <h2 id="date-sheet-title">{t('date.sheetTitle')}</h2>

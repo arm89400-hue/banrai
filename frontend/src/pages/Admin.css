@@ -714,6 +714,7 @@
   transition: background-color var(--dur-2) var(--ease-standard);
 }
 .adm-row.is-click {
+  position: relative;
   cursor: pointer;
 }
 @media (hover: hover) {
@@ -773,6 +774,34 @@
 }
 .adm-row__main b {
   font-weight: 650;
+}
+/* A clickable row opens through its title button, stretched over the row,
+   so it works by keyboard too. The row's own buttons sit on top of it. */
+.adm-row__open {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+.adm-row__open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.adm-row__open:focus-visible {
+  outline: none;
+}
+.adm-row:has(.adm-row__open:focus-visible) {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+.adm-row.is-click .adm-row__acts {
+  position: relative;
+  z-index: 1;
 }
 .adm-row__main > span,
 .adm-row__sub {

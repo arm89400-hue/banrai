@@ -44,8 +44,8 @@ export default function FruitViewer({ index, onChange, onClose }) {
   const name = names[fruit.id];
 
   return createPortal(
-    <div className="fruit-viewer" role="dialog" aria-modal="true" aria-label={name} onClick={onClose}>
-      <div className="fruit-viewer__box" onClick={(e) => e.stopPropagation()}>
+    <div /* NOSONAR - Escape closes it (keydown listener above) */ className="fruit-viewer" role="dialog" aria-modal="true" aria-label={name} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="fruit-viewer__box">
         <button ref={closeRef} type="button" className="fruit-viewer__close" aria-label={t('gallery.close')} onClick={onClose}>
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

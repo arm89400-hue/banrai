@@ -117,7 +117,7 @@ export default function AdminPalette({ open, onClose, onChat }) {
         <ul ref={list} id="apal-list" className="apal__list" role="listbox">
           {results.length === 0 && <li className="apal__none">{data ? t('adm.pal.none') : t('adm.loading')}</li>}
           {results.map((r, i) => (
-            <li
+            <li /* NOSONAR - arrow keys and Enter are handled on the search box (aria-activedescendant) */
               key={r.key}
               id={`apal-${r.key}`}
               role="option"

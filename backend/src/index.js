@@ -16,8 +16,15 @@ import { adminAnnouncementRouter, announcementRouter } from './routes/announceme
 import { adminSettingsRouter, settingsRouter } from './routes/settings.js';
 
 const app = express();
+app.disable('x-powered-by');
 
-app.use(cors());
+// The live site calls the API from its own address, so only the local
+// dev site needs CORS. CORS_ORIGINS (comma-separated) adds more.
+const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+app.use(cors({ origin: corsOrigins }));
 app.use(express.json());
 
 app.get('/health', (_req, res) => res.json({ ok: true }));

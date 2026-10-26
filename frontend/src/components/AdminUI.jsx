@@ -135,7 +135,7 @@ export function Drawer({ title, sub, onClose, onSubmit, footer, children, wide =
 
   const Box = onSubmit ? 'form' : 'div';
   return (
-    <dialog
+    <dialog /* NOSONAR - a native <dialog>: Escape closes it via onCancel */
       ref={ref}
       className={`adm-drawer${wide ? ' adm-drawer--wide' : ''}`}
       onCancel={(e) => {

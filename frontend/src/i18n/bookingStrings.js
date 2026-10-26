@@ -158,7 +158,7 @@ export const BOOKING_STRINGS = {
     'login.bookLead': 'สมัครครั้งเดียว ไว้ดูสถานะการจองและชำระมัดจำ',
     'login.tabNew': 'ลูกค้าใหม่',
     'login.tabHave': 'มีบัญชีแล้ว',
-    'login.newPassword': 'ตั้งรหัสผ่าน',
+    'login.newPassword': 'ตั้งรหัสผ่าน', // NOSONAR - a Thai label, not a password
     'login.signupAndBook': 'สมัครและจองต่อ',
     'login.loginAndBook': 'เข้าสู่ระบบและจองต่อ',
     'login.backToBooking': 'กลับไปแก้การจอง',

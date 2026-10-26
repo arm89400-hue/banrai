@@ -147,10 +147,12 @@ export default function AdminPromotions() {
             {paged.rows.map((p) => {
               const [state, tone] = promoState(p);
               return (
-                <div key={p.id} className={`adm-row is-click${editing === p.id ? ' is-sel' : ''}`} onClick={() => startEdit(p)}>
+                <div key={p.id} className={`adm-row is-click${editing === p.id ? ' is-sel' : ''}`}>
                   <span className="adm-promo-off num">−{Number(p.percent)}%</span>
                   <div className="adm-row__main">
-                    <b>{p.name}</b>
+                    <button type="button" className="adm-row__open" onClick={() => startEdit(p)}>
+                      {p.name}
+                    </button>
                     <span className="num">
                       {fmtDay(p.starts_on, locale)} → {fmtDay(p.ends_on, locale)} ·{' '}
                       {p.room_name ? roomNames(p.room_name, lang).title : t('adm.promo.allRooms')}
@@ -159,7 +161,7 @@ export default function AdminPromotions() {
                   <div className="adm-row__meta">
                     <Pill tone={tone}>{t(state)}</Pill>
                   </div>
-                  <div className="adm-row__acts" onClick={(e) => e.stopPropagation()}>
+                  <div className="adm-row__acts">
                     <button type="button" className="adm-btn adm-btn--sm" onClick={() => toggle(p)}>
                       {p.active ? t('adm.ann.switchOff') : t('adm.ann.switchOn')}
                     </button>

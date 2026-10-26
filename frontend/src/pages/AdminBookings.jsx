@@ -221,7 +221,7 @@ export function Bookings() {
   };
   const q = query.trim().toLowerCase();
   const rows = groups
-    .filter(inTab[tab])
+    .filter((g) => inTab[tab](g))
     .filter(
       (g) =>
         !q ||
@@ -242,7 +242,7 @@ export function Bookings() {
   }
   const monthName = (key) => day(`${key}-01`).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
   const open = (g) => setParams(g ? { open: g.key } : {}, { replace: !g });
-  const counts = Object.fromEntries(TABS.map((id) => [id, groups.filter(inTab[id]).length]));
+  const counts = Object.fromEntries(TABS.map((id) => [id, groups.filter((g) => inTab[id](g)).length]));
 
   return (
     <div className="abk">

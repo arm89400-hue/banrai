@@ -188,7 +188,7 @@ export default function AdminAnnouncements() {
             {paged.rows.map((a) => {
               const [state, tone] = stateOf(a);
               return (
-                <div key={a.id} className={`adm-row is-click${editing === a.id ? ' is-sel' : ''}`} onClick={() => startEdit(a)}>
+                <div key={a.id} className={`adm-row is-click${editing === a.id ? ' is-sel' : ''}`}>
                   <span className="adm-row__thumb">
                     {a.photos[0] && <img src={mediaUrl(a.photos[0].file)} alt="" loading="lazy" />}
                     <em>
@@ -196,7 +196,9 @@ export default function AdminAnnouncements() {
                     </em>
                   </span>
                   <div className="adm-row__main">
-                    <b>{a.title_th || a.title}</b>
+                    <button type="button" className="adm-row__open" onClick={() => startEdit(a)}>
+                      {a.title_th || a.title}
+                    </button>
                     <span className="num">
                       {t(`adm.ann.aud.${a.audience}`)} · {fmtWhen(a.starts_at, locale)} → {a.ends_at ? fmtWhen(a.ends_at, locale) : t('adm.ann.noEnd')}
                     </span>
@@ -204,7 +206,7 @@ export default function AdminAnnouncements() {
                   <div className="adm-row__meta">
                     <Pill tone={tone}>{t(state)}</Pill>
                   </div>
-                  <div className="adm-row__acts" onClick={(e) => e.stopPropagation()}>
+                  <div className="adm-row__acts">
                     <button type="button" className="adm-btn adm-btn--sm" onClick={() => toggle(a)}>
                       {a.active ? t('adm.ann.switchOff') : t('adm.ann.switchOn')}
                     </button>

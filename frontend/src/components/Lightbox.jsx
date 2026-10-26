@@ -33,7 +33,7 @@ export default function Lightbox({ photos, index, onChange, onClose }) {
   const caption = photo.caption ?? t('photos')[photo.id];
 
   return createPortal(
-    <div className="lightbox" role="dialog" aria-modal="true" aria-label={caption} onClick={onClose}>
+    <div /* NOSONAR - Escape closes it (keydown listener above) */ className="lightbox" role="dialog" aria-modal="true" aria-label={caption} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <button ref={closeRef} type="button" className="lightbox__close" aria-label={t('gallery.close')} onClick={onClose}>
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
           <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -56,7 +56,7 @@ export default function Lightbox({ photos, index, onChange, onClose }) {
         </button>
       )}
 
-      <figure className="lightbox__figure" onClick={(e) => e.stopPropagation()}>
+      <figure className="lightbox__figure">
         <img key={photo.id} src={photo.src} alt={caption} />
         <figcaption>
           <span>{caption}</span>

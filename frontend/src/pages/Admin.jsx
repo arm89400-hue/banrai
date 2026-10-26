@@ -201,7 +201,7 @@ export default function Admin() {
         </header>
 
         <div id="adm-sheet" className={`adm-sheet${menuOpen ? ' is-open' : ''}`} inert={!menuOpen}>
-          <div className="adm-sheet__shade" onClick={() => setMenuOpen(false)} />
+          <div /* NOSONAR - Escape closes the menu (keydown listener above) */ className="adm-sheet__shade" onClick={() => setMenuOpen(false)} />
           <div className="adm-sheet__panel" role="dialog" aria-modal="true" aria-label={t('adm.menu')}>
             <div className="adm-sheet__top">
               <Brand />

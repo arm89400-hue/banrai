@@ -145,7 +145,7 @@ export default function AdminListings({ kind }) {
               const [title] = nameParts(item);
               const extra = cfg.roomFields && item.max_extra_guests > 0 ? ` ${t('adm.list.plusExtra', { n: item.max_extra_guests })}` : '';
               return (
-                <div key={item.id} className={`adm-row is-click${editing === item.id ? ' is-sel' : ''}`} onClick={() => startEdit(item)}>
+                <div key={item.id} className={`adm-row is-click${editing === item.id ? ' is-sel' : ''}`}>
                   <span className="adm-row__thumb">
                     {item.photos?.[0] && <img src={mediaUrl(item.photos[0].file)} alt="" loading="lazy" />}
                     <em>
@@ -153,7 +153,9 @@ export default function AdminListings({ kind }) {
                     </em>
                   </span>
                   <div className="adm-row__main">
-                    <b>{title}</b>
+                    <button type="button" className="adm-row__open" onClick={() => startEdit(item)}>
+                      {title}
+                    </button>
                   </div>
                   <div className="adm-row__meta">
                     <b className="num">
@@ -162,7 +164,7 @@ export default function AdminListings({ kind }) {
                     </b>
                     {cfg.roomFields && <span>{t('adm.list.sleeps', { n: item.capacity ?? '-' })}{extra}</span>}
                   </div>
-                  <div className="adm-row__acts" onClick={(e) => e.stopPropagation()}>
+                  <div className="adm-row__acts">
                     <button type="button" className="adm-btn adm-btn--sm" onClick={() => startEdit(item)}>
                       {t('adm.list.editBtn')}
                     </button>
