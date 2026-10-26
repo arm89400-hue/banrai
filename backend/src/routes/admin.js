@@ -6,7 +6,7 @@ import { logEvent } from '../lib/activityLog.js';
 import { MAX_PHOTOS, MAX_UPLOAD_BYTES, PHOTO_OWNERS, imageExtension, removeUploads, saveUpload } from '../lib/photos.js';
 import { PROMOTION_COLUMNS } from '../lib/promotions.js';
 import { logPayment, paymentScope, paymentSetup, settlePayment } from '../lib/payments.js';
-import { CHAT_COLUMNS, MAX_CHAT_LENGTH, readChatBody } from './chat.js';
+import { CHAT_COLUMNS, MAX_CHAT_LENGTH, chatImageUpload, readChatBody, saveChatImage } from './chat.js';
 
 export const adminRouter = Router();
 
@@ -796,14 +796,14 @@ adminRouter.get(
     const { rows } = await pool.query(
       `SELECT u.id AS user_id, u.email, u.stay_booking_id, b.guest_name, b.guest_phone,
               b.booked_for, b.booked_until, r.name AS room_name,
-              last.body AS last_body, last.from_admin AS last_from_admin, last.created_at AS last_at,
+              last.body AS last_body, (last.image IS NOT NULL) AS last_is_image, last.from_admin AS last_from_admin, last.created_at AS last_at,
               (SELECT count(*) FROM chat_messages m
                 WHERE m.user_id = u.id AND NOT m.from_admin AND m.read_at IS NULL)::int AS unread
        FROM users u
        LEFT JOIN bookings b ON b.id = u.stay_booking_id
        LEFT JOIN rooms r ON r.id = b.room_id
        LEFT JOIN LATERAL (
-         SELECT body, from_admin, created_at FROM chat_messages m
+         SELECT body, image, from_admin, created_at FROM chat_messages m
          WHERE m.user_id = u.id ORDER BY m.id DESC LIMIT 1
        ) last ON true
        ORDER BY last.created_at DESC NULLS LAST, u.created_at DESC`
@@ -845,6 +845,27 @@ adminRouter.post(
         `INSERT INTO chat_messages (user_id, from_admin, body) VALUES ($1, true, $2)
          RETURNING ${CHAT_COLUMNS}`,
         [req.params.userId, body]
+      );
+      res.status(201).json({ message: rows[0] });
+    } catch (err) {
+      if (err.code === '23503') return res.status(404).json({ error: 'Account not found' });
+      throw err;
+    }
+  })
+);
+
+adminRouter.post(
+  '/chats/:userId/image',
+  chatImageUpload,
+  wrap(async (req, res) => {
+    if (!/^\d+$/.test(req.params.userId)) return res.status(404).json({ error: 'Account not found' });
+    const saved = await saveChatImage(req, res);
+    if (!saved) return;
+    try {
+      const { rows } = await pool.query(
+        `INSERT INTO chat_messages (user_id, from_admin, body, image) VALUES ($1, true, $2, $3)
+         RETURNING ${CHAT_COLUMNS}`,
+        [req.params.userId, saved.caption, saved.file]
       );
       res.status(201).json({ message: rows[0] });
     } catch (err) {

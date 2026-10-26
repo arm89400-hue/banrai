@@ -31,7 +31,7 @@ export default function AdminChatDock({ hidden = false, openSignal }) {
     if (seen.current) {
       const fresh = chats.find((c) => latest.get(c.user_id) && seen.current.get(c.user_id) !== latest.get(c.user_id));
       if (fresh && !(open && activeId === fresh.user_id)) {
-        setToast({ id: fresh.user_id, name: chatName(fresh), body: fresh.last_body, key: Date.now(), chat: fresh });
+        setToast({ id: fresh.user_id, name: chatName(fresh), body: fresh.last_body || (fresh.last_is_image ? t('chat.photo') : ''), key: Date.now(), chat: fresh });
       }
     }
     seen.current = latest;

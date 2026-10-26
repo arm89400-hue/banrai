@@ -164,7 +164,7 @@ export default function AdminAnnouncements() {
   const paged = usePaged(list ?? [], 8, '');
   return (
     <>
-      <PageHead title={t('adm.tab.announcements')} lead={t('adm.page.announcements.lead')}>
+      <PageHead title={t('adm.tab.announcements')}>
         <button type="button" className="adm-btn adm-btn--primary" onClick={() => startEdit(null)}>
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
             <path d="M12 5v14M5 12h14" />

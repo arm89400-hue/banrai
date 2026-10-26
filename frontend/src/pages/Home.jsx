@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatBaht } from '../lib/money';
-import { promosForRoom, roomMaxGuests, roomNames } from '../lib/booking';
+import { promosForRoom, roomNames } from '../lib/booking';
 import { usePromotions } from '../lib/promotions';
 import { fruitPhoto, fruitsIn } from '../lib/seasons';
 import { CHECK_IN_TIME, CHECK_OUT_TIME } from '../lib/site';
@@ -227,7 +227,6 @@ function Rooms({ rooms, loaded, error, promotions }) {
     <section id="rooms" className="home-sec home-rooms" aria-labelledby="home-rooms">
       <div className="home-sec__hd">
         <h2 id="home-rooms">{t('rooms.title')}</h2>
-        <p>{t('rooms.family')}</p>
       </div>
       {error && <p role="alert">{error}</p>}
       {!loaded && (
@@ -242,7 +241,6 @@ function Rooms({ rooms, loaded, error, promotions }) {
         <ul className="room-list">
           {sorted.map((room) => {
             const names = roomNames(room.name, lang);
-            const max = roomMaxGuests(room);
             const promos = promosForRoom(promotions, room.id);
             return (
               <li key={room.id} className="room-row">
@@ -250,14 +248,6 @@ function Rooms({ rooms, loaded, error, promotions }) {
                   <img src={roomCover(room)} alt="" loading="lazy" onError={(e) => (e.currentTarget.src = FARM_PHOTOS.main)} />
                   <span className="room-row__text">
                     <strong>{names.title}</strong>
-                    {lang === 'en' && names.subtitle && <small>{names.subtitle}</small>}
-                    <span className="room-row__facts">
-                      {room.capacity && max > room.capacity
-                        ? t('rooms.guestsRange', { from: room.capacity, to: max })
-                        : t('rooms.guests', { n: room.capacity || max })}
-                      {' · '}
-                      {t('rooms.breakfast')}
-                    </span>
                     {promos.length > 0 && (
                       <span className="room-row__promos">
                         {promos.map((p) => (
@@ -293,10 +283,7 @@ function ThisMonth() {
   return (
     <section className="home-sec home-month" aria-labelledby="home-month">
       <div className="home-sec__hd">
-        <div>
-          <h2 id="home-month">{t('season.monthTitle', { month: monthName(month, 'long') })}</h2>
-          <p>{t('season.monthNote')}</p>
-        </div>
+        <h2 id="home-month">{t('season.monthTitle', { month: monthName(month, 'long') })}</h2>
         <Link to="/activities#seasons" className="home-link">
           {t('home.allYear')}
         </Link>
@@ -306,9 +293,6 @@ function ThisMonth() {
           <li key={f.id}>
             <img src={fruitPhoto(f.id)} alt="" loading="lazy" />
             <strong>{names[f.id] ?? f.id}</strong>
-            <span>
-              {monthName(f.from, 'short')} – {monthName(f.to, 'short')}
-            </span>
           </li>
         ))}
       </ul>
@@ -341,7 +325,6 @@ function Day() {
                     <img src={`/images/farm/${item.photo}.jpg`} alt="" loading="lazy" />
                     <figcaption>
                       <b>{item.title}</b>
-                      {item.note && <span>{item.note}</span>}
                     </figcaption>
                   </figure>
                 ))}
@@ -354,7 +337,7 @@ function Day() {
 }
 
 function BeforeYouCome({ fees }) {
-  const { lang, t } = useLang();
+  const { t } = useLang();
   const contact = useContact();
   const sign = t('day.sign');
   return (
@@ -362,9 +345,7 @@ function BeforeYouCome({ fees }) {
       <figure className="home-before__sign">
         <img src="/images/farm/sign.jpg" alt="" loading="lazy" />
         <figcaption>
-          <span>
-            <b>{sign.title}</b> · {sign.note}
-          </span>
+          <b>{sign.title}</b>
           {contact.maps && (
             <a href={contact.maps} target="_blank" rel="noopener noreferrer" className="home-link">
               {t('stay.map')}

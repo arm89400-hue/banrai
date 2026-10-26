@@ -246,7 +246,7 @@ export function Bookings() {
 
   return (
     <div className="abk">
-      <PageHead title={t('adm.nav.bookings')} lead={t('adm.page.bookings.lead')} />
+      <PageHead title={t('adm.nav.bookings')} />
       <ErrorNote>{error || actionError}</ErrorNote>
 
       {data && <MonthMoney groups={groups} />}

@@ -12,6 +12,7 @@ import { useLang } from '../i18n/lang';
 import Announcements from '../components/Announcements';
 import { Loading, Sk, SkText } from '../components/Skeleton';
 import ChatThread from '../components/ChatThread';
+import { sendChatImage } from '../lib/chatImage';
 import { shift } from '../lib/motion';
 import StayStage from '../components/StayStage';
 import './StayDashboard.css';
@@ -47,9 +48,7 @@ function daysUntil(iso) {
 const UNREAD_POLL_MS = 20000;
 
 function StayChat({ active, onClose }) {
-  const { t, lang, locale } = useLang();
-  const contact = useContact();
-  const owners = contact.phones.map((p) => p.name[lang]).join(t('stay.and'));
+  const { t, locale } = useLang();
   const [messages, setMessages] = useState([]);
 
   useEffect(() => {
@@ -74,6 +73,10 @@ function StayChat({ active, onClose }) {
     });
     setMessages((list) => [...list, data.message]);
   }
+  async function sendImage(file, text) {
+    const message = await sendChatImage('/api/chat/image', file, text);
+    setMessages((list) => [...list, message]);
+  }
 
   return (
     <section
@@ -87,7 +90,6 @@ function StayChat({ active, onClose }) {
       <header>
         <div>
           <h2 id="stay-chat-title">{t('stay.chatTitle')}</h2>
-          <p>{t('stay.chatWho', { names: owners })}</p>
         </div>
         <button type="button" className="stay-chat__close" onClick={onClose} aria-label={t('chat.close')}>
           <svg
@@ -108,6 +110,7 @@ function StayChat({ active, onClose }) {
         messages={messages}
         mine={(m) => !m.from_admin}
         onSend={send}
+        onSendImage={sendImage}
         locale={locale}
         starters={t('stay.starters')}
         labels={{
@@ -403,18 +406,12 @@ export default function StayDashboard() {
                     rel="noopener noreferrer"
                   >
                     <Icon name="pin" />
-                    <span>
-                      {t('stay.map')}
-                      <small>Google Maps</small>
-                    </span>
+                    <span>{t('stay.map')}</span>
                   </a>
                 )}
                 <button type="button" className="stay-go stay-go--chat" onClick={openChat}>
                   <Icon name="chat" />
-                  <span>
-                    {t('stay.chatTitle')}
-                    <small>{t('stay.chatHint')}</small>
-                  </span>
+                  <span>{t('stay.chatTitle')}</span>
                   {unread > 0 && <span className="stay-badge">{unread}</span>}
                 </button>
                 {contact.phones.map((p) => (

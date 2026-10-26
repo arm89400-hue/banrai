@@ -4,6 +4,7 @@ import { useLang } from '../i18n/lang';
 import { roomNames } from '../lib/booking';
 import { useContact } from '../lib/contact';
 import ChatThread from '../components/ChatThread';
+import { sendChatImage } from '../lib/chatImage';
 import { Empty, ErrorNote, PageHead, Seg } from '../components/AdminUI';
 import { Loading, Sk } from '../components/Skeleton';
 import './AdminChat.css';
@@ -99,7 +100,12 @@ function useThread(id, onSent) {
     setMessages((list) => [...list, data.message]);
     onSent?.();
   };
-  return { messages, send };
+  const sendImage = async (file, text) => {
+    const message = await sendChatImage(`/api/admin/chats/${id}/image`, file, text);
+    setMessages((list) => [...list, message]);
+    onSent?.();
+  };
+  return { messages, send, sendImage };
 }
 
 function useQuickReplies() {
@@ -153,7 +159,7 @@ function Tabs({ chats, tab, onTab }) {
 export function Thread({ chat, onSent, onBack }) {
   const { t, lang, locale } = useLang();
   const quick = useQuickReplies();
-  const { messages, send } = useThread(chat?.user_id, onSent);
+  const { messages, send, sendImage } = useThread(chat?.user_id, onSent);
   const labels = { empty: t('adm.chat.empty'), placeholder: t('adm.chat.placeholder'), send: t('adm.chat.send') };
   if (!chat) return <Empty title={t('adm.chat.pick')} />;
   return (
@@ -177,7 +183,7 @@ export function Thread({ chat, onSent, onBack }) {
           </a>
         )}
       </header>
-      <ChatThread messages={messages} mine={(m) => m.from_admin} onSend={send} labels={labels} locale={locale} quick={quick} />
+      <ChatThread messages={messages} mine={(m) => m.from_admin} onSend={send} onSendImage={sendImage} labels={labels} locale={locale} quick={quick} />
     </>
   );
 }
@@ -204,7 +210,7 @@ export function ChatList({ chats, activeId, onOpen }) {
             <Avatar c={c} />
             <span className="achat__item-text">
               <b>{chatName(c)}</b>
-              <span>{c.last_body ? `${c.last_from_admin ? t('adm.chat.you') : ''}${c.last_body}` : stayLine(c, t, lang, locale)}</span>
+              <span>{c.last_body || c.last_is_image ? `${c.last_from_admin ? t('adm.chat.you') : ''}${c.last_body || t('chat.photo')}` : stayLine(c, t, lang, locale)}</span>
             </span>
             <Status c={c} />
           </button>
@@ -252,7 +258,7 @@ export default function AdminChat() {
   const head = (
     <PageHead
       title={t('adm.nav.chat')}
-      lead={chats ? (waiting > 0 ? t('adm.chat.leadWaiting', { n: waiting }) : t('adm.chat.leadDone')) : t('adm.page.chat.lead')}
+      lead={waiting > 0 ? t('adm.chat.leadWaiting', { n: waiting }) : null}
     />
   );
 

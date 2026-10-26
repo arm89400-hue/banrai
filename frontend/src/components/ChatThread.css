@@ -86,7 +86,7 @@
   border-color: var(--brand);
   box-shadow: 0 0 0 3px var(--brand-soft);
 }
-.chat-thread__form button {
+.chat-thread__form button[type='submit'] {
   height: 46px;
   padding: 0 22px;
   border: none;
@@ -97,10 +97,10 @@
   font-weight: 600;
   transition: background var(--dur-fast);
 }
-.chat-thread__form button:hover {
+.chat-thread__form button[type='submit']:hover {
   background: var(--brand-hover);
 }
-.chat-thread__form button:disabled {
+.chat-thread__form button[type='submit']:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -137,4 +137,55 @@
   margin: 0 0 4px;
   max-width: none;
   text-align: left;
+}
+
+/* Photos in chat */
+.chat-msg--photo {
+  padding: 4px 4px 6px;
+}
+.chat-msg--photo p,
+.chat-msg--photo time {
+  padding: 0 8px;
+}
+.chat-msg--photo p {
+  margin-top: 6px;
+}
+.chat-msg__photo {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-alt);
+  cursor: zoom-in;
+}
+.chat-msg__photo img {
+  display: block;
+  width: min(240px, 60vw);
+  max-height: 320px;
+  object-fit: cover;
+}
+.chat-msg.is-sending img {
+  opacity: 0.55;
+}
+.chat-thread__attach {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--brand);
+  cursor: pointer;
+}
+.chat-thread__attach:hover:not(:disabled) {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.chat-thread__attach:disabled {
+  opacity: 0.5;
+  cursor: progress;
 }

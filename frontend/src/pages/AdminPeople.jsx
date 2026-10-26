@@ -43,7 +43,7 @@ export function Users() {
 
   return (
     <>
-      <PageHead title={t('adm.tab.users')} lead={t('adm.page.users.lead')} />
+      <PageHead title={t('adm.tab.users')} />
       <ErrorNote>{error}</ErrorNote>
       <div className="adm-tools">
         <Seg active={kind} role="tablist">
@@ -200,7 +200,7 @@ export function ActivityLog() {
 
   return (
     <>
-      <PageHead title={t('adm.tab.log')} lead={t('adm.page.log.lead')}>
+      <PageHead title={t('adm.tab.log')}>
         <button type="button" className="adm-btn" onClick={reload} disabled={loading}>
           {loading ? t('adm.log.refreshing') : t('adm.log.refresh')}
         </button>

@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { lineUrl, useContact } from '../lib/contact';
 import { useLang } from '../i18n/lang';
 import ChatThread from './ChatThread';
+import { sendChatImage } from '../lib/chatImage';
 import './ChatWidget.css';
 
 const OPEN_POLL_MS = 4000;
@@ -77,6 +78,10 @@ export default function ChatWidget() {
     const data = await api('/api/chat', { method: 'POST', body: JSON.stringify({ body }) });
     setMessages((list) => [...list, data.message]);
   }
+  async function sendImage(file, text) {
+    const message = await sendChatImage('/api/chat/image', file, text);
+    setMessages((list) => [...list, message]);
+  }
 
   return (
     <div className={`chat-widget${tucked && !open ? ' chat-widget--tucked' : ''}`}>
@@ -99,6 +104,7 @@ export default function ChatWidget() {
               messages={messages}
               mine={(m) => !m.from_admin}
               onSend={send}
+              onSendImage={sendImage}
               locale={locale}
               labels={{ empty: t('chat.empty'), placeholder: t('chat.placeholder'), send: t('chat.send') }}
             />

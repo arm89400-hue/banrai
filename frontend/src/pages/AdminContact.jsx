@@ -24,7 +24,7 @@ export default function AdminContact() {
       .catch((err) => setError(err.message));
   }, []);
 
-  const head = <PageHead title={t('adm.tab.contact')} lead={t('adm.contact.lead')} />;
+  const head = <PageHead title={t('adm.tab.contact')} />;
   if (!form) {
     return (
       <>

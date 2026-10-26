@@ -11,6 +11,7 @@ import { stayRouter } from './routes/stay.js';
 import { chatRouter } from './routes/chat.js';
 import { promotionRouter } from './routes/promotion.js';
 import { UPLOAD_DIR } from './lib/photos.js';
+import { pool } from './db/pool.js';
 import { adminAnnouncementRouter, announcementRouter } from './routes/announcement.js';
 import { adminSettingsRouter, settingsRouter } from './routes/settings.js';
 
@@ -38,9 +39,18 @@ app.use('/api/promotions', promotionRouter);
 app.use('/api/settings', settingsRouter);
 
 app.use((err, _req, res, _next) => {
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'The photo is too large (8 MB at most)', reason: 'TOO_LARGE' });
+  }
   console.error(err);
   res.status(500).json({ error: 'Internal server error' });
 });
+
+// Small additive schema updates that must be in place before the routes run
+// (same as db/migrations, safe to repeat).
+pool
+  .query('ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS image TEXT')
+  .catch((err) => console.error('schema update failed:', err.message));
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => console.log(`API listening on http://localhost:${port}`));

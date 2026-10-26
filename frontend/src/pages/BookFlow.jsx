@@ -497,8 +497,6 @@ export default function BookFlow() {
                               {r.capacity && max > r.capacity
                                 ? t('rooms.guestsRange', { from: r.capacity, to: max })
                                 : t('rooms.guests', { n: r.capacity || max })}
-                              {' · '}
-                              {t('rooms.breakfast')}
                             </span>
                             <em className="flow-tile__pick">
                               {picked && (
@@ -774,7 +772,6 @@ export default function BookFlow() {
             )}
           </dl>
           {nextButton('flow-stay__go')}
-          <p className="flow-stay__note">{current === 3 ? t('stayBox.noteSend') : t('stayBox.noteNoPay')}</p>
         </aside>
       </div>
 

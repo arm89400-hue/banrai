@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   read_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id, id);
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS image TEXT;
 
 CREATE TABLE IF NOT EXISTS booking_notices (
   id BIGSERIAL PRIMARY KEY,

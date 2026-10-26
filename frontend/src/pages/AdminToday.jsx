@@ -116,7 +116,6 @@ function JobList({ groups, waiting, actions, onOpen }) {
           </span>
           <button type="button" className="adm-row__main tdy-job__what" onClick={() => navigate('/admin/chat')}>
             <b>{t('adm.today.waitingChats', { n: waiting })}</b>
-            <span>{t('adm.today.waitingHint')}</span>
           </button>
           <span />
           <div className="adm-row__acts">
@@ -209,7 +208,6 @@ function RoomBoard({ rooms, groups, start, onOpen }) {
         <span>
           <i className="is-wait" /> {t('adm.dash.legend.wait')}
         </span>
-        <span className="tdy-key__hint">{t('adm.today.boardHint')}</span>
       </p>
     </div>
   );

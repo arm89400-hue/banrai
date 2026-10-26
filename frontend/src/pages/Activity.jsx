@@ -59,7 +59,6 @@ function ActivityCard({ item, onOpen }) {
         <h3>{item.title}</h3>
         {item.price > 0 && <span className="act-pill">{formatBaht(item.price)}</span>}
       </div>
-      {(item.tag || item.text) && <p>{[item.tag, item.text].filter(Boolean).join(' · ')}</p>}
     </li>
   );
 }
@@ -117,7 +116,6 @@ export default function Activity() {
 
   const names = t('fruits');
   const monthName = (m, style) => new Date(2000, m - 1, 1).toLocaleDateString(locale, { month: style });
-  const range = (f) => `${monthName(f.from, 'short')} – ${monthName(f.to, 'short')}`;
   const showFruit = (id, e) =>
     shift(() => setOpen(FRUIT_SEASONS.findIndex((f) => f.id === id)), {
       from: e?.currentTarget.querySelector('img'),
@@ -166,7 +164,6 @@ export default function Activity() {
       <section className="acts-sec" aria-labelledby="acts-ripe">
         <div className="acts-sec__hd">
           <h2 id="acts-ripe">{t('season.monthTitle', { month: monthName(thisMonth, 'long') })}</h2>
-          {ripe.length > 0 && <p>{t('season.monthNote')}</p>}
         </div>
         {ripe.length === 0 ? (
           <p className="acts-empty">{t('season.none')}</p>
@@ -177,7 +174,6 @@ export default function Activity() {
                 <button type="button" onClick={(e) => showFruit(f.id, e)}>
                   <img src={fruitPhoto(f.id)} alt="" loading="lazy" />
                   <strong>{names[f.id]}</strong>
-                  <span>{range(f)}</span>
                 </button>
               </li>
             ))}
@@ -188,7 +184,6 @@ export default function Activity() {
       <section className="acts-sec" id="seasons" aria-labelledby="acts-year">
         <div className="acts-sec__hd">
           <h2 id="acts-year">{t('season.title')}</h2>
-          <p>{t('season.countNow', { month: monthName(thisMonth, 'short'), n: ripe.length })}</p>
         </div>
         <div className="fruit-cal" ref={calRef}>
           <table>

@@ -136,7 +136,6 @@ export default function Login() {
           {booking ? (
             <>
               <h1>{t('login.bookTitle')}</h1>
-              <p className="auth-page__lead">{t('login.bookLead')}</p>
               <div className="auth-tabs">
                 <button type="button" aria-pressed={mode === 'register'} onClick={() => setMode('register')}>
                   {t('login.tabNew')}

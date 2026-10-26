@@ -124,7 +124,7 @@ export default function AdminListings({ kind }) {
 
   return (
     <>
-      <PageHead title={t(`adm.tab.${kind}`)} lead={t(`adm.page.${kind}.lead`)}>
+      <PageHead title={t(`adm.tab.${kind}`)}>
         <button type="button" className="adm-btn adm-btn--primary" onClick={() => startEdit(null)}>
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
             <path d="M12 5v14M5 12h14" />
@@ -142,7 +142,7 @@ export default function AdminListings({ kind }) {
         ) : (
           <div className="adm-rows">
             {items.map((item) => {
-              const [title, sub] = nameParts(item);
+              const [title] = nameParts(item);
               const extra = cfg.roomFields && item.max_extra_guests > 0 ? ` ${t('adm.list.plusExtra', { n: item.max_extra_guests })}` : '';
               return (
                 <div key={item.id} className={`adm-row is-click${editing === item.id ? ' is-sel' : ''}`} onClick={() => startEdit(item)}>
@@ -154,9 +154,6 @@ export default function AdminListings({ kind }) {
                   </span>
                   <div className="adm-row__main">
                     <b>{title}</b>
-                    <span>
-                      {[sub, !cfg.roomFields && (item.tag || item.tag_th), item.description].filter(Boolean).join(' · ') || ' '}
-                    </span>
                   </div>
                   <div className="adm-row__meta">
                     <b className="num">

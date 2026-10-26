@@ -220,10 +220,6 @@ export default function RoomPage() {
         <div className="room-page__main">
           <h1>
             {names.title}
-            {/* In Thai the English name adds nothing; in English the Thai name is the room's real name. */}
-            {((lang === 'en' && names.subtitle) || room.description) && (
-              <small>{[lang === 'en' && names.subtitle, room.description].filter(Boolean).join(' · ')}</small>
-            )}
           </h1>
           {roomPromos.length > 0 && (
             <div className="room-page__promos">
@@ -285,24 +281,15 @@ export default function RoomPage() {
             <div className="room-page__block">
               <h2>{t('room.others')}</h2>
               <ul className="room-others">
-                {others.map((r) => {
-                  const max = roomMaxGuests(r);
-                  return (
-                    <li key={r.id}>
-                      <Link to={`/rooms/${r.id}`}>
-                        <img src={roomCover(r)} alt="" loading="lazy" />
-                        <strong>{roomNames(r.name, lang).title}</strong>
-                        <span>
-                          {r.capacity && max > r.capacity
-                            ? t('rooms.guestsRange', { from: r.capacity, to: max })
-                            : t('rooms.guests', { n: r.capacity || max })}
-                          {' · '}
-                          {formatBaht(r.price)}
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                })}
+                {others.map((r) => (
+                  <li key={r.id}>
+                    <Link to={`/rooms/${r.id}`}>
+                      <img src={roomCover(r)} alt="" loading="lazy" />
+                      <strong>{roomNames(r.name, lang).title}</strong>
+                      <span>{formatBaht(r.price)}</span>
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
           )}
@@ -372,7 +359,6 @@ export default function RoomPage() {
           <button type="button" className="bk-btn bk-btn--sun bk-btn--block" disabled={!nights} onClick={reserve}>
             {t('room.reserve')}
           </button>
-          <p className="room-book__note">{t('room.noCharge')}</p>
         </aside>
       </div>
 

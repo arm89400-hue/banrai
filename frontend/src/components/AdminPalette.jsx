@@ -61,7 +61,7 @@ export default function AdminPalette({ open, onClose, onChat }) {
         key: `c-${c.user_id}`,
         icon: 'chat',
         title: t('adm.pal.chatWith', { name: c.guest_name || c.email }),
-        sub: c.last_body || c.email,
+        sub: c.last_body || (c.last_is_image ? t('chat.photo') : c.email),
         run: () => onChat(c.user_id),
       }));
     return [...pages, ...bookings, ...chats];
