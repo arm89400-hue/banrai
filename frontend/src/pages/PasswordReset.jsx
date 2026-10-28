@@ -121,7 +121,6 @@ export function ForgotPassword() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            autoFocus
           />
         </label>
         <button type="submit" disabled={busy}>
@@ -136,7 +135,6 @@ export function ForgotPassword() {
 // Eight short marks fill in as the password grows, so "at least 8" is
 // something you can see rather than a rule you read.
 function LengthMarks({ length }) {
-  const { t } = useLang();
   const done = length >= MIN_PASSWORD;
   return (
     <span className={`auth-marks${done ? ' is-done' : ''}`}>
@@ -235,7 +233,6 @@ export function ResetPassword() {
               setError(null);
             }}
             required
-            autoFocus
           />
           <LengthMarks length={password.length} />
         </label>

@@ -7,6 +7,7 @@ import { pool } from '../db/pool.js';
 import { USER_COLUMNS, isExpired, publicUser } from '../middleware/auth.js';
 import { logEvent } from '../lib/activityLog.js';
 import { sendMail } from '../lib/mailer.js';
+import { isEmail, trimTrailingSlashes } from '../lib/text.js';
 
 export const authRouter = Router();
 
@@ -18,7 +19,9 @@ const googleClient = process.env.GOOGLE_CLIENT_ID
 
 function logLogin(user, details = {}) {
   const pub = publicUser(user);
-  const kind = pub.is_admin ? 'admin' : pub.is_stay ? 'room' : 'member';
+  let kind = 'member';
+  if (pub.is_admin) kind = 'admin';
+  else if (pub.is_stay) kind = 'room';
   return logEvent(`login.${kind}`, {
     actor: user.email,
     bookingId: pub.stay_booking_id,
@@ -38,7 +41,7 @@ authRouter.post(
     if (!email || !password) {
       return res.status(400).json({ error: 'email and password are required' });
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!isEmail(email)) {
       return res.status(400).json({ error: 'Enter a valid email address', reason: 'BAD_EMAIL' });
     }
 
@@ -164,7 +167,7 @@ const RESET_MINUTES = 30;
 const RESETS_PER_HOUR = 3;
 export const MIN_PASSWORD = 8;
 const hashToken = (token) => createHash('sha256').update(token).digest('hex');
-const SITE_URL = (process.env.SITE_URL || 'http://localhost:5173').replace(/\/+$/, '');
+const SITE_URL = trimTrailingSlashes(process.env.SITE_URL || 'http://localhost:5173');
 
 export function resetEmail(link, lang) {
   const escaped = link.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
@@ -228,7 +231,7 @@ authRouter.post(
   wrap(async (req, res) => {
     const email = String(req.body.email ?? '').trim();
     const lang = req.body.lang === 'en' ? 'en' : 'th';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!isEmail(email)) {
       return res.status(400).json({ error: 'Enter a valid email address', reason: 'BAD_EMAIL' });
     }
 

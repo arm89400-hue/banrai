@@ -41,7 +41,7 @@ export function useGlide(ref, key) {
       const sy = before.height / now.height;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) return;
       pill.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
-      void pill.offsetWidth;
+      pill.getBoundingClientRect(); // apply the start position before animating
       pill.style.transition = 'transform var(--dur-3) var(--ease-standard)';
       pill.style.transform = '';
       moving = true;

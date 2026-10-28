@@ -9,7 +9,7 @@ export default function BalancePay({ booking, rooms = 1, pay, onPaid }) {
   const { t } = useLang();
   const [open, setOpen] = useState(booking.balance_slip_status === 'review');
   const due = Number(booking.balance_due);
-  if (!(due > 0)) return null;
+  if (!Number.isFinite(due) || due <= 0) return null;
 
   return (
     <section className="balance-pay" aria-label={t('balance.title')}>
