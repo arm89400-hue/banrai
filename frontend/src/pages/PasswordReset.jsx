@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { mailAppFor } from '../lib/email';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import PasswordInput from '../components/PasswordInput';
@@ -10,15 +11,6 @@ import { homeFor } from './Login';
 
 const MIN_PASSWORD = 8;
 const RESEND_SECONDS = 60;
-
-// Webmail for the common addresses, so "check your email" is one tap away.
-const MAIL_APPS = [
-  [/@(gmail|googlemail)\.com$/i, 'Gmail', 'https://mail.google.com/mail/u/0/#inbox'],
-  [/@(outlook|hotmail|live|msn)\.[a-z.]+$/i, 'Outlook', 'https://outlook.live.com/mail/'],
-  [/@yahoo\.[a-z.]+$/i, 'Yahoo Mail', 'https://mail.yahoo.com/'],
-  [/@(icloud|me)\.com$/i, 'iCloud Mail', 'https://www.icloud.com/mail'],
-];
-const mailAppFor = (email) => MAIL_APPS.find(([re]) => re.test(email));
 
 // Same photo background and card as the login page.
 function AuthShell({ children, back = true, logo = true }) {

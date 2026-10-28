@@ -487,6 +487,15 @@ main {
   outline-offset: 3px;
 }
 
+/* The 6-digit email code: big, spaced digits, read at a glance */
+.auth-screen .auth-field input.auth-code {
+  font-size: 24px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+
 /* Which account the new password is for */
 .auth-who {
   max-width: 100%;

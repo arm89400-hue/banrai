@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import PasswordInput from '../components/PasswordInput';
 import PhotoSlides from '../components/PhotoSlides';
+import VerifyCode from '../components/VerifyCode';
 import { LOGIN_SLIDES, roomCover } from '../lib/photos';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -34,15 +35,20 @@ const ERROR_KEYS = {
   BAD_EMAIL: 'login.errBadEmail',
 };
 
+// Only a page on this site may follow login (not //other-site.com).
+function pageAfterLogin(raw) {
+  return raw?.startsWith('/') && !raw.startsWith('//') ? raw : null;
+}
+
 export default function Login() {
   const [params] = useSearchParams();
-  const rawNext = params.get('next');
-  const next = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
+  const next = pageAfterLogin(params.get('next'));
   const booking = Boolean(next?.startsWith('/book'));
   const [mode, setMode] = useState(booking ? 'register' : 'login');
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [verifyEmail, setVerifyEmail] = useState(null);
   const { user, login } = useAuth();
   const { lang, t } = useLang();
   const navigate = useNavigate();
@@ -73,19 +79,8 @@ export default function Login() {
 
     let cancelled = false;
     const interval = setInterval(() => {
-      if (cancelled || !window.google?.accounts?.id || !googleButtonRef.current) return;
+      if (cancelled || !drawGoogleButton(googleButtonRef.current, lang, handleCredential)) return;
       clearInterval(interval);
-
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleCredential,
-      });
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
-        theme: 'outline',
-        size: 'large',
-        width: Math.min(320, googleButtonRef.current.offsetWidth || 320),
-        locale: lang,
-      });
       setGoogleShown(true);
     }, 100);
 
@@ -93,7 +88,8 @@ export default function Login() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [user]);
+    // Drawn again when the guest comes back from the code screen.
+  }, [user, verifyEmail]);
 
   if (user) {
     return <Navigate to={homeFor(user, next)} replace />;
@@ -103,34 +99,48 @@ export default function Login() {
     setError(t('login.googleSoon'));
   }
 
+  function finish(data) {
+    login(data.token, data.user);
+    navigate(homeFor(data.user, next));
+  }
+
+  // Email sign-ups (new, or older ones not yet confirmed) get a code first.
+  async function signIn(body) {
+    try {
+      finish(await api('/api/auth/login', { method: 'POST', body }));
+    } catch (err) {
+      if (err.reason !== 'EMAIL_UNVERIFIED') throw err;
+      setVerifyEmail(form.email.trim());
+    }
+  }
+
+  async function signUp(body) {
+    try {
+      const data = await api('/api/auth/register', { method: 'POST', body });
+      if (data.verify) setVerifyEmail(form.email.trim());
+      else await signIn(body);
+    } catch (err) {
+      // Returning guests often pick "new customer". If the email is
+      // already theirs, just try signing in with what they typed.
+      if (err.reason !== 'EMAIL_TAKEN') throw err;
+      try {
+        await signIn(body);
+      } catch {
+        setMode('login');
+        setForm((f) => ({ ...f, password: '' }));
+        setError(t('login.errEmailTakenTryOld'));
+      }
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
+    const body = JSON.stringify({ ...form, lang });
     try {
-      if (mode === 'register') {
-        try {
-          await api('/api/auth/register', { method: 'POST', body: JSON.stringify(form) });
-        } catch (err) {
-          // Returning guests often pick "new customer". If the email is
-          // already theirs, just try signing in with what they typed.
-          if (err.reason !== 'EMAIL_TAKEN') throw err;
-          try {
-            const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify(form) });
-            login(data.token, data.user);
-            navigate(homeFor(data.user, next));
-            return;
-          } catch {
-            setMode('login');
-            setForm((f) => ({ ...f, password: '' }));
-            setError(t('login.errEmailTakenTryOld'));
-            return;
-          }
-        }
-      }
-      const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify(form) });
-      login(data.token, data.user);
-      navigate(homeFor(data.user, next));
+      if (mode === 'register') await signUp(body);
+      else await signIn(body);
     } catch (err) {
       setError(t(ERROR_KEYS[err.reason] ?? 'login.errGeneric'));
     } finally {
@@ -138,6 +148,142 @@ export default function Login() {
     }
   }
 
+  if (verifyEmail) {
+    return (
+      <AuthFrame booking={booking} next={next}>
+        <VerifyCode
+          email={verifyEmail}
+          onVerified={finish}
+          onBack={() => {
+            setVerifyEmail(null);
+            setForm((f) => ({ ...f, password: '' }));
+          }}
+        />
+      </AuthFrame>
+    );
+  }
+
+  return (
+    <AuthFrame booking={booking} next={next}>
+      {booking ? (
+        <>
+          <h1>{t('login.bookTitle')}</h1>
+          <div className="auth-tabs">
+            <button type="button" aria-pressed={mode === 'register'} onClick={() => setMode('register')}>
+              {t('login.tabNew')}
+            </button>
+            <button type="button" aria-pressed={mode === 'login'} onClick={() => setMode('login')}>
+              {t('login.tabHave')}
+            </button>
+          </div>
+        </>
+      ) : (
+        <h1>{mode === 'login' ? t('login.title') : t('login.createTitle')}</h1>
+      )}
+      {expired && !error && <p role="alert">{t('login.errExpired')}</p>}
+      {sessionEnded && !error && <p role="alert">{t('login.sessionEnded')}</p>}
+
+      {GOOGLE_CLIENT_ID ? (
+        <div ref={googleButtonRef} className="google-button" hidden={!googleShown} />
+      ) : (
+        <button
+          type="button"
+          className="google-button google-button--placeholder"
+          onClick={handleGoogleClickPlaceholder}
+        >
+          <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+            <path
+              fill="#4285F4"
+              d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"
+            />
+            <path
+              fill="#34A853"
+              d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.348 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z"
+            />
+            <path
+              fill="#EA4335"
+              d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
+            />
+          </svg>
+          {t('login.google')}
+        </button>
+      )}
+
+      {googleShown && (
+        <div className="auth-divider">
+          <span>{t('login.or')}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        <label className="auth-field">
+          <span>{mode === 'register' ? t('login.email') : t('login.idPlaceholder')}</span>
+          <input
+            type={mode === 'register' ? 'email' : 'text'}
+            autoComplete="username"
+            placeholder={mode === 'register' ? 'name@email.com' : undefined}
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            required
+          />
+        </label>
+        <label className="auth-field">
+          <span>{mode === 'register' ? t('login.newPassword') : t('login.password')}</span>
+          <PasswordInput
+            label={t('login.holdToShow')}
+            autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            required
+          />
+        </label>
+        {mode === 'login' && (
+          <Link
+            to={forgotLink(form.email)}
+            className="auth-forgot"
+          >
+            {t('login.forgot')}
+          </Link>
+        )}
+        <button type="submit" disabled={submitting}>
+          {t(SUBMIT_KEYS[booking ? 'book' : 'plain'][mode])}
+        </button>
+        {error && <p role="alert">{error}</p>}
+      </form>
+      {!booking && (
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+        >
+          {mode === 'login' ? t('login.needAccount') : t('login.haveAccount')}
+        </button>
+      )}
+    </AuthFrame>
+  );
+}
+
+// Draws Google's sign-in button once its script has loaded and the spot for
+// it is on the page; says whether it could.
+function drawGoogleButton(el, lang, onCredential) {
+  const id = window.google?.accounts?.id;
+  if (!id || !el) return false;
+  id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onCredential });
+  id.renderButton(el, {
+    theme: 'outline',
+    size: 'large',
+    width: Math.min(320, el.offsetWidth || 320),
+    locale: lang,
+  });
+  return true;
+}
+
+// Photo background, the booking being made (if any) and the white card.
+function AuthFrame({ booking, next, children }) {
   return (
     <section className="auth-screen">
       <PhotoSlides photos={LOGIN_SLIDES} />
@@ -145,104 +291,7 @@ export default function Login() {
         {booking && <BookingInProgress next={next} />}
         <div className="auth-card">
           <img className="auth-logo" src="/images/logo.png" alt="Baanrai 344" />
-          {booking ? (
-            <>
-              <h1>{t('login.bookTitle')}</h1>
-              <div className="auth-tabs">
-                <button type="button" aria-pressed={mode === 'register'} onClick={() => setMode('register')}>
-                  {t('login.tabNew')}
-                </button>
-                <button type="button" aria-pressed={mode === 'login'} onClick={() => setMode('login')}>
-                  {t('login.tabHave')}
-                </button>
-              </div>
-            </>
-          ) : (
-            <h1>{mode === 'login' ? t('login.title') : t('login.createTitle')}</h1>
-          )}
-          {expired && !error && <p role="alert">{t('login.errExpired')}</p>}
-          {sessionEnded && !error && <p role="alert">{t('login.sessionEnded')}</p>}
-
-          {GOOGLE_CLIENT_ID ? (
-            <div ref={googleButtonRef} className="google-button" hidden={!googleShown} />
-          ) : (
-            <button
-              type="button"
-              className="google-button google-button--placeholder"
-              onClick={handleGoogleClickPlaceholder}
-            >
-              <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
-                <path
-                  fill="#4285F4"
-                  d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.348 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
-                />
-              </svg>
-              {t('login.google')}
-            </button>
-          )}
-
-          {googleShown && (
-            <div className="auth-divider">
-              <span>{t('login.or')}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            <label className="auth-field">
-              <span>{mode === 'register' ? t('login.email') : t('login.idPlaceholder')}</span>
-              <input
-                type={mode === 'register' ? 'email' : 'text'}
-                autoComplete="username"
-                placeholder={mode === 'register' ? 'name@email.com' : undefined}
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                required
-              />
-            </label>
-            <label className="auth-field">
-              <span>{mode === 'register' ? t('login.newPassword') : t('login.password')}</span>
-              <PasswordInput
-                label={t('login.holdToShow')}
-                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                required
-              />
-            </label>
-            {mode === 'login' && (
-              <Link
-                to={forgotLink(form.email)}
-                className="auth-forgot"
-              >
-                {t('login.forgot')}
-              </Link>
-            )}
-            <button type="submit" disabled={submitting}>
-              {t(SUBMIT_KEYS[booking ? 'book' : 'plain'][mode])}
-            </button>
-            {error && <p role="alert">{error}</p>}
-          </form>
-          {!booking && (
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-            >
-              {mode === 'login' ? t('login.needAccount') : t('login.haveAccount')}
-            </button>
-          )}
+          {children}
         </div>
       </div>
     </section>

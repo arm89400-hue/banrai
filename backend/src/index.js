@@ -16,7 +16,18 @@ pool
        used_at TIMESTAMPTZ,
        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
      );
-     CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);`
+     CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
+     ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
+     CREATE TABLE IF NOT EXISTS email_codes (
+       id SERIAL PRIMARY KEY,
+       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+       code_hash TEXT NOT NULL,
+       expires_at TIMESTAMPTZ NOT NULL,
+       attempts INTEGER NOT NULL DEFAULT 0,
+       used_at TIMESTAMPTZ,
+       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+     );
+     CREATE INDEX IF NOT EXISTS idx_email_codes_user ON email_codes(user_id);`
   )
   .catch((err) => console.error('schema update failed:', err.message));
 

@@ -18,7 +18,7 @@ export const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0
 export const WEBP = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBP'), Buffer.alloc(8)]);
 
 const TABLES = [
-  'activity_log', 'password_resets', 'chat_messages', 'booking_notices', 'opn_charges', 'slip_payments', 'photos',
+  'activity_log', 'password_resets', 'email_codes', 'chat_messages', 'booking_notices', 'opn_charges', 'slip_payments', 'photos',
   'promotions', 'announcements', 'site_settings', 'payments', 'users', 'bookings', 'rooms', 'activities',
 ];
 
@@ -45,11 +45,12 @@ export function useDb() {
   afterAll(() => pool.end());
 }
 
-export async function makeUser(email, { expiresAt = null, stayBookingId = null } = {}) {
+// Users have confirmed their email unless a test says otherwise.
+export async function makeUser(email, { expiresAt = null, stayBookingId = null, verified = true } = {}) {
   const { rows } = await pool.query(
-    `INSERT INTO users (email, password_hash, account_expires_at, stay_booking_id)
-     VALUES ($1, $2, $3, $4) RETURNING id, email`,
-    [email, PASSWORD_HASH, expiresAt, stayBookingId]
+    `INSERT INTO users (email, password_hash, account_expires_at, stay_booking_id, email_verified_at)
+     VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN now() END) RETURNING id, email`,
+    [email, PASSWORD_HASH, expiresAt, stayBookingId, verified]
   );
   return { ...rows[0], token: tokenFor(rows[0].id) };
 }

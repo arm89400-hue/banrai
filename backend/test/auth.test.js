@@ -24,9 +24,11 @@ describe('register', () => {
   });
 
   it('creates a member and refuses the same email twice', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
     const first = await api().post('/api/auth/register').send({ email: 'new@example.com', password: 'pw' });
     expect(first.status).toBe(201);
-    expect(first.body.user).toMatchObject({ email: 'new@example.com', member_code: 'M00001', is_admin: false });
+    expect(first.body).toMatchObject({ verify: true, user: { email: 'new@example.com', member_code: 'M00001', is_admin: false } });
+    expect(first.body.token).toBeUndefined();
     const again = await api().post('/api/auth/register').send({ email: 'new@example.com', password: 'pw' });
     expect(again.status).toBe(409);
     expect(await logTypes()).toEqual(['member.registered']);
@@ -98,6 +100,13 @@ describe('Google sign-in', () => {
     const second = await api().post('/api/auth/google').send({ credential: 'x' });
     expect(second.body.user.id).toBe(first.body.user.id);
     expect(await logTypes()).toEqual(['member.registered', 'login.member', 'login.member']);
+  });
+
+  it('confirms the email of an earlier email sign-up', async () => {
+    await makeUser('mine@example.com', { verified: false });
+    googleSays({ email: 'mine@example.com', email_verified: true });
+    expect((await api().post('/api/auth/google').send({ credential: 'x' })).status).toBe(200);
+    expect((await api().post('/api/auth/login').send({ email: 'mine@example.com', password: PASSWORD })).status).toBe(200);
   });
 
   it('refuses an expired account', async () => {
