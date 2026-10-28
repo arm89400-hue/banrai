@@ -377,11 +377,72 @@ main {
   --serif: var(--head);
   font-family: var(--body);
 }
+.auth-screen .auth-card {
+  max-width: 400px;
+  padding: 28px 32px 24px;
+}
 .auth-screen .auth-card h1 {
+  margin: 0;
   font-family: var(--head);
-  font-size: 30px;
+  font-size: 26px;
   line-height: 1.25;
   text-wrap: balance;
+}
+.auth-logo {
+  display: block;
+  width: 92px;
+  height: auto;
+  margin: 0 auto 12px;
+}
+.auth-screen .auth-page form {
+  max-width: none;
+  gap: 16px;
+  margin-top: 20px;
+}
+.auth-screen .auth-field {
+  gap: 8px;
+}
+.auth-screen .auth-field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid hsl(40, 14%, 84%);
+  border-radius: 12px;
+  background: hsl(40, 30%, 99%);
+  font-size: 16px;
+  transition: border-color var(--dur-2) var(--ease-standard), box-shadow var(--dur-2) var(--ease-standard);
+}
+.auth-screen .auth-field input:hover {
+  border-color: hsl(40, 10%, 70%);
+}
+.auth-screen .auth-field input:focus,
+.auth-screen .auth-field input:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+  background: var(--white);
+}
+.auth-screen .auth-page form button[type='submit'] {
+  min-height: 48px;
+  margin-top: 4px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.auth-screen .auth-card .link-button {
+  margin-top: 16px;
+  font-size: 14px;
+}
+.auth-screen .auth-card [role='alert'] {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+@media (max-width: 480px) {
+  .auth-screen .auth-card {
+    padding: 24px 20px 20px;
+  }
 }
 
 .auth-forgot {
@@ -409,9 +470,8 @@ main {
   display: block;
   box-sizing: border-box;
   width: 100%;
-  max-width: 320px;
   margin-top: 20px;
-  padding: 12px 26px;
+  padding: 13px 26px;
   border-radius: 999px;
   background: var(--brand);
   color: var(--white);
@@ -431,7 +491,10 @@ main {
 
 /* Which account the new password is for */
 .auth-who {
-  margin: 8px 0 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  margin: 12px 0 0;
   padding: 6px 12px;
   border-radius: 999px;
   background: var(--brand-soft);
@@ -476,21 +539,9 @@ main {
 }
 .auth-sent__more {
   display: flex;
-  flex-wrap: wrap;
   justify-content: center;
-  align-items: baseline;
-  gap: 4px 16px;
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 320px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 14px;
-}
-.auth-sent__more span {
-  flex-basis: 100%;
+  gap: 24px;
+  margin-top: 16px;
 }
 .auth-page .auth-card .auth-sent__more .link-button {
   margin: 0;
@@ -533,7 +584,7 @@ main {
   color: var(--brand);
 }
 .auth-marks__say {
-  min-width: 56px;
+  min-width: 28px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }

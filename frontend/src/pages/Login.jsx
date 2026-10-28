@@ -133,6 +133,7 @@ export default function Login() {
       <div className="page auth-page">
         {booking && <BookingInProgress next={next} />}
         <div className="auth-card">
+          <img className="auth-logo" src="/images/logo.png" alt="Baanrai 344" />
           {booking ? (
             <>
               <h1>{t('login.bookTitle')}</h1>

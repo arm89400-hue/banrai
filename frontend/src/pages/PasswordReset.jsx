@@ -21,13 +21,14 @@ const MAIL_APPS = [
 const mailAppFor = (email) => MAIL_APPS.find(([re]) => re.test(email));
 
 // Same photo background and card as the login page.
-function AuthShell({ children, back = true }) {
+function AuthShell({ children, back = true, logo = true }) {
   const { t } = useLang();
   return (
     <section className="auth-screen">
       <PhotoSlides photos={LOGIN_SLIDES} />
       <div className="page auth-page">
         <div className="auth-card">
+          {logo && <img className="auth-logo" src="/images/logo.png" alt="Baanrai 344" />}
           {children}
           {back && (
             <Link to="/login" className="link-button">
@@ -84,21 +85,17 @@ export function ForgotPassword() {
   if (sentTo) {
     const app = mailAppFor(sentTo);
     return (
-      <AuthShell>
+      <AuthShell back={false} logo={false}>
         <div className="auth-sent">
           <Envelope />
           <h1>{t('forgot.sentTitle')}</h1>
-          <p className="auth-card__note">
-            {t('forgot.sentTo')} <b className="auth-sent__to">{sentTo}</b>
-          </p>
-          <p className="auth-card__note auth-card__note--quiet">{t('forgot.sentNote')}</p>
+          <p className="auth-who">{sentTo}</p>
           {app && (
             <a className="auth-card__go" href={app[2]} target="_blank" rel="noopener noreferrer">
               {t('forgot.openMail', { app: app[1] })}
             </a>
           )}
           <div className="auth-sent__more">
-            <span>{t('forgot.noMail')}</span>
             <button type="button" className="link-button" onClick={() => send()} disabled={busy || wait > 0}>
               {wait > 0 ? t('forgot.againIn', { s: wait }) : t('forgot.again')}
             </button>
@@ -149,7 +146,7 @@ function LengthMarks({ length }) {
         ))}
       </span>
       <span className="auth-marks__say" aria-live="polite">
-        {done ? `✓ ${t('reset.ok')}` : t('reset.left', { n: MIN_PASSWORD - length })}
+        {done ? '✓' : `${length}/${MIN_PASSWORD}`}
       </span>
     </span>
   );
@@ -205,7 +202,7 @@ export function ResetPassword() {
 
   if (state === 'checking') {
     return (
-      <AuthShell>
+      <AuthShell back={false}>
         <h1>{t('reset.title')}</h1>
       </AuthShell>
     );
@@ -215,7 +212,6 @@ export function ResetPassword() {
     return (
       <AuthShell>
         <h1>{t('reset.badTitle')}</h1>
-        <p className="auth-card__note">{t('reset.bad')}</p>
         <Link to="/forgot-password" className="auth-card__go">
           {t('reset.newLink')}
         </Link>
@@ -224,7 +220,7 @@ export function ResetPassword() {
   }
 
   return (
-    <AuthShell>
+    <AuthShell back={false}>
       <h1>{t('reset.title')}</h1>
       <p className="auth-who">{email}</p>
       <form onSubmit={save}>
