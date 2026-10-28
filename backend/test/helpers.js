@@ -18,7 +18,7 @@ export const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0
 export const WEBP = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBP'), Buffer.alloc(8)]);
 
 const TABLES = [
-  'activity_log', 'chat_messages', 'booking_notices', 'opn_charges', 'slip_payments', 'photos',
+  'activity_log', 'password_resets', 'chat_messages', 'booking_notices', 'opn_charges', 'slip_payments', 'photos',
   'promotions', 'announcements', 'site_settings', 'payments', 'users', 'bookings', 'rooms', 'activities',
 ];
 

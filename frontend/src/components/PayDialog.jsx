@@ -187,7 +187,6 @@ export default function PayDialog({ bookings, pay, onPaid }) {
                     type="button"
                     role="radio"
                     aria-checked={payFull === value}
-                    aria-pressed={payFull === value}
                     className={payFull === value ? 'is-on' : ''}
                     disabled={busy || opnCharge.making}
                     onClick={() => {

@@ -1,5 +1,6 @@
+import { trimTrailingSlashes } from './text.js';
 const SECRET_KEY = process.env.OPN_SECRET_KEY ?? '';
-const API_URL = (process.env.OPN_API_URL || 'https://api.omise.co').replace(/\/+$/, '');
+const API_URL = trimTrailingSlashes(process.env.OPN_API_URL || 'https://api.omise.co');
 const API_VERSION = '2019-05-29';
 
 export const opnConfigured = () => Boolean(SECRET_KEY);

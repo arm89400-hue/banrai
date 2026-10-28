@@ -35,6 +35,7 @@ import PayDialog from '../components/PayDialog';
 import Baht from '../components/Baht';
 import { mergeBookings, payOptions } from '../lib/payments';
 import { Loading, Sk } from '../components/Skeleton';
+import { isEmail } from '../lib/email';
 import './BookFlow.css';
 
 const STEPS = ['step.room', 'step.details', 'step.review'];
@@ -47,7 +48,7 @@ function validateForm(form) {
   if (form.name.trim().length < 2) errors.name = 'flow.errName';
   const phone = digits(form.phone);
   if (phone.length < 9 || phone.length > 15) errors.phone = 'flow.errPhone';
-  if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+  if (form.email.trim() && !isEmail(form.email.trim())) {
     errors.email = 'flow.errEmail';
   }
   return errors;

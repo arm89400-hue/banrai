@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import express, { Router } from 'express';
 import { pool } from '../db/pool.js';
+import { isEmail } from '../lib/text.js';
 import { requireAuth, requireMember } from '../middleware/auth.js';
 import { logEvent } from '../lib/activityLog.js';
 import { MAX_PARTY, priceStay, splitGuests } from '../lib/pricing.js';
@@ -300,7 +301,7 @@ bookingRouter.post(
     }
 
     const email = String(body.email ?? '').trim() || null;
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (email && !isEmail(email)) {
       return fail(400, 'Please enter a valid email', 'BAD_EMAIL');
     }
     const line = String(body.line ?? '').trim().slice(0, 50) || null;

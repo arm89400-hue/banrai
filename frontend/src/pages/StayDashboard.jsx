@@ -222,9 +222,9 @@ export default function StayDashboard() {
     .filter((s) => s.src);
   const slides = [];
   const seen = new Set();
-  for (let i = 0; slides.length < 12; i++) {
+  const longest = Math.max(roomSlides.length, fruitSlides.length, activitySlides.length);
+  for (let i = 0; i < longest && slides.length < 12; i++) {
     const turn = [roomSlides[i], fruitSlides[i], activitySlides[i]].filter(Boolean);
-    if (turn.length === 0) break;
     for (const s of turn) {
       if (!seen.has(s.src) && slides.length < 12) {
         seen.add(s.src);

@@ -343,7 +343,7 @@ function readActivityBody(body) {
 function readRoomFields(body, { name, description, price }) {
   const capacity =
     body.capacity === '' || body.capacity == null ? null : Number.parseInt(body.capacity, 10);
-  if (capacity !== null && !(capacity > 0)) return { error: 'capacity must be 1 or more' };
+  if (capacity !== null && (Number.isNaN(capacity) || capacity < 1)) return { error: 'capacity must be 1 or more' };
   const max_extra_guests = Number.parseInt(body.max_extra_guests, 10) || 0;
   if (max_extra_guests < 0 || max_extra_guests > 10) {
     return { error: 'extra guests must be between 0 and 10' };

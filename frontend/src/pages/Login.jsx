@@ -16,6 +16,17 @@ export function homeFor(user, next) {
   return next || '/stay';
 }
 
+// "Forgot password?" carries over an email the guest already typed.
+function forgotLink(email) {
+  const typed = email.trim();
+  return typed.includes('@') ? '/forgot-password?email=' + encodeURIComponent(typed) : '/forgot-password';
+}
+
+const SUBMIT_KEYS = {
+  book: { login: 'login.loginAndBook', register: 'login.signupAndBook' },
+  plain: { login: 'login.submit', register: 'login.signup' },
+};
+
 const ERROR_KEYS = {
   BAD_CREDENTIALS: 'login.errBad',
   ACCOUNT_EXPIRED: 'login.errExpired',
@@ -212,16 +223,14 @@ export default function Login() {
             </label>
             {mode === 'login' && (
               <Link
-                to={`/forgot-password${form.email.includes('@') ? `?email=${encodeURIComponent(form.email.trim())}` : ''}`}
+                to={forgotLink(form.email)}
                 className="auth-forgot"
               >
                 {t('login.forgot')}
               </Link>
             )}
             <button type="submit" disabled={submitting}>
-              {booking
-                ? t(mode === 'login' ? 'login.loginAndBook' : 'login.signupAndBook')
-                : t(mode === 'login' ? 'login.submit' : 'login.signup')}
+              {t(SUBMIT_KEYS[booking ? 'book' : 'plain'][mode])}
             </button>
             {error && <p role="alert">{error}</p>}
           </form>

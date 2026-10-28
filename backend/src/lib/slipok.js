@@ -1,6 +1,7 @@
+import { trimTrailingSlashes } from './text.js';
 const API_KEY = process.env.SLIPOK_API_KEY ?? '';
 const BRANCH_ID = process.env.SLIPOK_BRANCH_ID ?? '';
-const API_URL = (process.env.SLIPOK_API_URL || 'https://api.slipok.com/api/line/apikey').replace(/\/+$/, '');
+const API_URL = trimTrailingSlashes(process.env.SLIPOK_API_URL || 'https://api.slipok.com/api/line/apikey');
 
 export const slipokConfigured = () => Boolean(API_KEY && BRANCH_ID);
 
