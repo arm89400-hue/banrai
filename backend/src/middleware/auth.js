@@ -46,13 +46,18 @@ export async function requireAuth(req, res, next) {
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
 
-    const { rows } = await pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [
-      payload.sub,
-    ]);
+    const { rows } = await pool.query(
+      `SELECT ${USER_COLUMNS}, password_changed_at FROM users WHERE id = $1`,
+      [payload.sub]
+    );
     const user = rows[0];
 
     if (!user) {
       return res.status(401).json({ error: 'User not found', reason: 'SESSION_ENDED' });
+    }
+    // A password reset signs out every login made before it.
+    if (user.password_changed_at && payload.iat < Math.floor(new Date(user.password_changed_at) / 1000)) {
+      return res.status(401).json({ error: 'Password was changed', reason: 'SESSION_ENDED' });
     }
     if (isExpired(user)) {
       return res.status(403).json({ error: 'Account expired', reason: 'ACCOUNT_EXPIRED' });
