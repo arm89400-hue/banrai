@@ -8,3 +8,6 @@ backend/uploads/
 deploy/.env.prod
 
 .claude/
+
+# test coverage reports
+coverage/

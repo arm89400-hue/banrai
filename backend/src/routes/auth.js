@@ -170,7 +170,7 @@ const hashToken = (token) => createHash('sha256').update(token).digest('hex');
 const SITE_URL = trimTrailingSlashes(process.env.SITE_URL || 'http://localhost:5173');
 
 export function resetEmail(link, lang) {
-  const escaped = link.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  const escaped = link.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
   const th = {
     subject: 'ตั้งรหัสผ่านใหม่ · บ้านไร่ของพ่อ 344',
     hello: 'มีคำขอตั้งรหัสผ่านใหม่สำหรับบัญชีของคุณที่บ้านไร่ของพ่อ 344',

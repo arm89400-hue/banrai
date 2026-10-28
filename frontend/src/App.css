@@ -29,11 +29,16 @@ main {
   text-align: left;
 }
 
+/* Sign-in pages (login, forgot, reset) use the admin's type: body text in
+   the body face, headings in the heading face. */
 .auth-screen {
   position: relative;
   display: flex;
   min-height: 100svh;
   background: var(--brand-dark);
+  --sans: var(--body);
+  --serif: var(--head);
+  font-family: var(--body);
 }
 .auth-screen::after {
   content: '';
@@ -370,13 +375,6 @@ main {
   display: none;
 }
 
-/* Sign-in pages (login, forgot, reset) use the admin's type: body text in
-   the body face, headings in the heading face. */
-.auth-screen {
-  --sans: var(--body);
-  --serif: var(--head);
-  font-family: var(--body);
-}
 .auth-screen .auth-card {
   max-width: 400px;
   padding: 28px 32px 24px;
