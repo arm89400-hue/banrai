@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_LANG, LANGS, STRINGS } from '../src/i18n/strings';
 
-const placeholders = (text) => (typeof text === 'string' ? [...text.matchAll(/\{(\w+)[}|]/g)].map((m) => m[1]).sort() : []);
+// Unique names: English plurals repeat {n} as {n|one|many}.
+const placeholders = (text) => (typeof text === 'string' ? [...new Set([...text.matchAll(/\{(\w+)[}|]/g)].map((m) => m[1]))].sort() : []);
 
 describe('translations', () => {
   it('has Thai first, and English', () => {

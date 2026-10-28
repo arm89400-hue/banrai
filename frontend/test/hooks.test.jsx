@@ -124,7 +124,9 @@ describe('admin data hook', () => {
     );
     vi.stubGlobal('fetch', fetch);
     const { result, unmount } = renderHook(() => useAdminBadges(true, 'overview'));
-    await waitFor(() => expect(result.current).toEqual({ overview: 2, chat: 2 }));
+    // waitFor polls with setInterval, which is faked here, so let one real tick pass instead.
+    await act(() => new Promise((r) => setTimeout(r, 0)));
+    expect(result.current).toEqual({ overview: 2, chat: 2 });
     vi.advanceTimersByTime(8000);
     expect(fetch).toHaveBeenCalledTimes(4);
     unmount();
