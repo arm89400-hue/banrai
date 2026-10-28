@@ -10,7 +10,7 @@ import { LOGIN_SLIDES, roomCover } from '../lib/photos';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-function homeFor(user, next) {
+export function homeFor(user, next) {
   if (user?.is_admin) return '/admin';
   if (user?.is_stay) return '/stay';
   return next || '/stay';
@@ -209,6 +209,14 @@ export default function Login() {
                 required
               />
             </label>
+            {mode === 'login' && (
+              <Link
+                to={`/forgot-password${form.email.includes('@') ? `?email=${encodeURIComponent(form.email.trim())}` : ''}`}
+                className="auth-forgot"
+              >
+                {t('login.forgot')}
+              </Link>
+            )}
             <button type="submit" disabled={submitting}>
               {booking
                 ? t(mode === 'login' ? 'login.loginAndBook' : 'login.signupAndBook')

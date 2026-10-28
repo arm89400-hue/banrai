@@ -369,3 +369,179 @@ main {
 ::view-transition-old(home-search) {
   display: none;
 }
+
+/* Sign-in pages (login, forgot, reset) use the admin's type: body text in
+   the body face, headings in the heading face. */
+.auth-screen {
+  --sans: var(--body);
+  --serif: var(--head);
+  font-family: var(--body);
+}
+.auth-screen .auth-card h1 {
+  font-family: var(--head);
+  font-size: 30px;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.auth-forgot {
+  align-self: flex-end;
+  margin-top: -6px;
+  color: var(--brand);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Forgot / reset: same card as login, contents centred like it */
+.auth-card__note {
+  max-width: 320px;
+  margin: 8px 0 0;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.auth-card__note--quiet {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.auth-card .auth-card__go {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 20px;
+  padding: 12px 26px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--white);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  transition: background var(--dur-2) var(--ease-standard);
+}
+.auth-card .auth-card__go:hover {
+  background: var(--brand-hover);
+}
+.auth-card .auth-card__go:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+
+/* Which account the new password is for */
+.auth-who {
+  margin: 8px 0 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Sent: the envelope draws itself once */
+.auth-sent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.auth-mail {
+  margin-bottom: 16px;
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.auth-mail rect,
+.auth-mail path {
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+  animation: auth-draw 0.9s var(--ease-out) forwards;
+}
+.auth-mail path {
+  animation-delay: 0.35s;
+}
+@keyframes auth-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.auth-sent__to {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--text-h);
+}
+.auth-sent__more {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 4px 16px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.auth-sent__more span {
+  flex-basis: 100%;
+}
+.auth-page .auth-card .auth-sent__more .link-button {
+  margin: 0;
+}
+.auth-page .auth-card .link-button:disabled {
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: default;
+}
+
+/* Eight marks for "at least 8 characters" */
+.auth-marks {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.auth-marks__bar {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  flex: 1;
+}
+.auth-marks__bar i {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  transition: background var(--dur-2) var(--ease-standard);
+}
+.auth-marks__bar i.is-on {
+  background: var(--straw);
+}
+.auth-marks.is-done .auth-marks__bar i {
+  background: var(--brand);
+}
+.auth-marks.is-done {
+  color: var(--brand);
+}
+.auth-marks__say {
+  min-width: 56px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-mail rect,
+  .auth-mail path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

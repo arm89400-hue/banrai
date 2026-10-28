@@ -12,6 +12,7 @@ import StayDashboard from './pages/StayDashboard';
 import Activity from './pages/Activity';
 import About from './pages/About';
 import Login from './pages/Login';
+import { ForgotPassword, ResetPassword } from './pages/PasswordReset';
 import Admin from './pages/Admin';
 import './App.css';
 
@@ -54,6 +55,8 @@ function PublicSite() {
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Navigate to="/home#contact" replace />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </main>
