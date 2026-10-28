@@ -197,7 +197,6 @@ export const STRINGS = {
     'footer.contact': 'ติดต่อเรา',
     'footer.aboutUs': 'เกี่ยวกับเรา',
     'footer.bookRoom': 'จองห้องพัก',
-    'footer.copyright': 'สงวนลิขสิทธิ์ © {year} Baanrai Pachong',
     'footer.address': 'ปากช่อง นครราชสีมา',
     'footer.findUs': 'ติดตามเรา',
 
@@ -485,7 +484,6 @@ export const STRINGS = {
     'footer.contact': 'Contact us',
     'footer.aboutUs': 'About us',
     'footer.bookRoom': 'Book a room',
-    'footer.copyright': 'All material herein © {year} Baanrai Pachong. All rights reserved.',
     'footer.address': 'Pak Chong, Nakhon Ratchasima, Thailand',
     'footer.findUs': 'Find us on',
 

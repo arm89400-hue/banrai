@@ -21,7 +21,6 @@ const PHONE_PATH = 'M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2
 export default function Footer() {
   const { user } = useAuth();
   const { t, lang } = useLang();
-  const year = new Date().getFullYear();
   const contact = useContact();
 
   return (
@@ -99,7 +98,6 @@ export default function Footer() {
       </div>
 
       <div className="footer__legal">
-        <p>{t('footer.copyright', { year })}</p>
         <p>
           <span lang="th">{THAI_NAME}</span> · {t('footer.address')}
         </p>

@@ -162,8 +162,6 @@
 }
 .footer__legal p {
   margin: 0;
-}
-.footer__legal p + p {
   color: var(--on-dark-muted);
 }
 
