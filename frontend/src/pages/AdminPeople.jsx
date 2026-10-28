@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../lib/api';
 import { formatBaht } from '../lib/money';
 import { useAdminData } from '../lib/adminData';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
-import { Empty, ErrorNote, PageHead, Pill, RowsSkeleton, Seg } from '../components/AdminUI';
+import { Empty, ErrorNote, PageHead, Pill, RowsSkeleton, Seg, useConfirm } from '../components/AdminUI';
 import Pager, { usePaged } from '../components/Pager';
 
 const fmtDate = (d, locale) =>
@@ -24,18 +26,77 @@ function Search({ value, onChange, placeholder }) {
   );
 }
 
-const USER_KINDS = ['all', 'members', 'rooms'];
+const USER_KINDS = ['all', 'members', 'admins', 'rooms'];
+
+const ROLE_ERRORS = {
+  OWNER_FIXED: 'adm.role.errOwner',
+  EMAIL_UNVERIFIED: 'adm.role.errUnconfirmed',
+  STAY_ACCOUNT: 'adm.role.errRoom',
+};
+
+// Give or take the admin role. The owner's role is fixed, so there is no button.
+function RoleButton({ user, isMe, onChanged }) {
+  const { t } = useLang();
+  const confirm = useConfirm();
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  if (user.is_owner) return null;
+  const making = !user.is_admin;
+
+  async function change() {
+    const ok = await confirm(
+      making
+        ? { title: t('adm.role.askAdd', { email: user.email }), body: t('adm.role.addBody'), ok: t('adm.role.add') }
+        : {
+            title: t('adm.role.askRemove', { email: user.email }),
+            body: t(isMe ? 'adm.role.removeSelfBody' : 'adm.role.removeBody'),
+            ok: t('adm.role.remove'),
+            danger: true,
+          }
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await api(`/api/admin/users/${user.id}/role`, { method: 'PATCH', body: JSON.stringify({ admin: making }) });
+      if (isMe) {
+        // Without the role this page is closed to you; go to your own page.
+        login(localStorage.getItem('token'), res.user);
+        navigate('/stay', { replace: true });
+        return;
+      }
+      onChanged(null);
+    } catch (err) {
+      onChanged(t(ROLE_ERRORS[err.reason] ?? 'adm.role.errGeneric'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button type="button" className={`adm-btn adm-btn--sm${making ? '' : ' adm-btn--ghost'}`} onClick={change} disabled={busy}>
+      {making ? t('adm.role.add') : t('adm.role.remove')}
+    </button>
+  );
+}
+
+function adminPill(t, u, isMe) {
+  if (u.is_owner) return t('adm.users.owner');
+  return isMe ? t('adm.users.you') : t('adm.users.admin');
+}
 
 export function Users() {
   const { t, locale } = useLang();
   const { user: me } = useAuth();
-  const { data, error } = useAdminData('/api/admin/users');
+  const { data, error, reload } = useAdminData('/api/admin/users');
+  const [roleError, setRoleError] = useState(null);
   const [kind, setKind] = useState('all');
   const [query, setQuery] = useState('');
 
   const q = query.trim().toLowerCase();
   const list = (data?.users ?? []).filter((u) => {
     if (kind === 'members' && u.stay_booking_id) return false;
+    if (kind === 'admins' && !u.is_admin) return false;
     if (kind === 'rooms' && !u.stay_booking_id) return false;
     return !q || [u.email, u.member_code].some((v) => String(v ?? '').toLowerCase().includes(q));
   });
@@ -44,7 +105,7 @@ export function Users() {
   return (
     <>
       <PageHead title={t('adm.tab.users')} />
-      <ErrorNote>{error}</ErrorNote>
+      <ErrorNote>{roleError ?? error}</ErrorNote>
       <div className="adm-tools">
         <Seg active={kind} role="tablist">
           {USER_KINDS.map((id) => (
@@ -78,11 +139,21 @@ export function Users() {
                   </div>
                   <div className="adm-row__meta">
                     {u.is_admin ? (
-                      <Pill tone="confirmed">{isMe ? t('adm.users.you') : t('adm.users.admin')}</Pill>
+                      <Pill tone="confirmed">{adminPill(t, u, isMe)}</Pill>
                     ) : isRoom ? (
                       <span className="num">{t('adm.users.until', { when: fmtDateTime(u.account_expires_at, locale) })}</span>
                     ) : (
                       <span className="num">{t('adm.users.nBookings', { n: u.booking_count })}</span>
+                    )}
+                    {!isRoom && (
+                      <RoleButton
+                        user={u}
+                        isMe={isMe}
+                        onChanged={(message) => {
+                          setRoleError(message);
+                          if (!message) reload();
+                        }}
+                      />
                     )}
                   </div>
                   <span />
@@ -112,6 +183,9 @@ export const LOG_TYPES = {
   'promotion.deleted': { group: 'bookings', tone: 'cancelled' },
   'settings.contact': { group: 'bookings', tone: 'confirmed' },
   'member.registered': { group: 'accounts', tone: 'confirmed' },
+  'member.email_verified': { group: 'accounts', tone: 'confirmed' },
+  'role.admin_added': { group: 'accounts', tone: 'confirmed' },
+  'role.admin_removed': { group: 'accounts', tone: 'cancelled' },
   'login.member': { group: 'logins', tone: 'neutral' },
   'login.room': { group: 'logins', tone: 'neutral' },
   'login.admin': { group: 'logins', tone: 'neutral' },

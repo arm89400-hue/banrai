@@ -1,6 +1,6 @@
 import express, { Router } from 'express';
 import { pool } from '../db/pool.js';
-import { isAdminEmail, memberCode, requireAuth, requireAdmin } from '../middleware/auth.js';
+import { USER_COLUMNS, isAdminUser, isOwnerEmail, memberCode, publicUser, requireAuth, requireAdmin } from '../middleware/auth.js';
 import { ensureStayAccount, removeStayAccount } from '../lib/stayAccount.js';
 import { logEvent } from '../lib/activityLog.js';
 import { MAX_PHOTOS, MAX_UPLOAD_BYTES, PHOTO_OWNERS, imageExtension, removeUploads, saveUpload } from '../lib/photos.js';
@@ -290,7 +290,7 @@ adminRouter.get(
   '/users',
   wrap(async (_req, res) => {
     const { rows } = await pool.query(
-      `SELECT u.id, u.email, u.created_at, u.account_expires_at, u.stay_booking_id,
+      `SELECT u.id, u.email, u.created_at, u.account_expires_at, u.stay_booking_id, u.is_admin,
               count(b.id)::int AS booking_count
        FROM users u
        LEFT JOIN bookings b ON b.user_id = u.id
@@ -301,9 +301,42 @@ adminRouter.get(
       users: rows.map((u) => ({
         ...u,
         member_code: memberCode(u.id),
-        is_admin: u.stay_booking_id == null && isAdminEmail(u.email),
+        is_admin: isAdminUser(u),
+        is_owner: u.stay_booking_id == null && isOwnerEmail(u.email),
       })),
     });
+  })
+);
+
+// Make a member an admin, or take the role away. The owner always stays an
+// admin, and only confirmed emails can be given the role (admins skip the
+// email code at login).
+adminRouter.patch(
+  '/users/:id/role',
+  wrap(async (req, res) => {
+    if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'Account not found' });
+    const admin = req.body.admin;
+    if (typeof admin !== 'boolean') return res.status(400).json({ error: 'admin must be true or false' });
+
+    const { rows } = await pool.query(`SELECT ${USER_COLUMNS}, email_verified_at FROM users WHERE id = $1`, [req.params.id]);
+    const target = rows[0];
+    if (!target) return res.status(404).json({ error: 'Account not found' });
+    if (target.stay_booking_id != null) {
+      return res.status(400).json({ error: 'Room accounts cannot be admins', reason: 'STAY_ACCOUNT' });
+    }
+    if (!admin && isOwnerEmail(target.email)) {
+      return res.status(403).json({ error: 'The owner always stays an admin', reason: 'OWNER_FIXED' });
+    }
+    if (admin && !target.email_verified_at && !isAdminUser(target)) {
+      return res.status(400).json({ error: 'This email is not confirmed yet', reason: 'EMAIL_UNVERIFIED' });
+    }
+
+    await pool.query('UPDATE users SET is_admin = $1 WHERE id = $2', [admin, target.id]);
+    await logEvent(admin ? 'role.admin_added' : 'role.admin_removed', {
+      actor: req.user.email,
+      details: { name: target.email, member_code: memberCode(target.id) },
+    });
+    res.json({ user: publicUser({ ...target, is_admin: admin }) });
   })
 );
 
@@ -794,7 +827,7 @@ adminRouter.get(
   '/chats',
   wrap(async (_req, res) => {
     const { rows } = await pool.query(
-      `SELECT u.id AS user_id, u.email, u.stay_booking_id, b.guest_name, b.guest_phone,
+      `SELECT u.id AS user_id, u.email, u.stay_booking_id, u.is_admin, b.guest_name, b.guest_phone,
               b.booked_for, b.booked_until, r.name AS room_name,
               last.body AS last_body, (last.image IS NOT NULL) AS last_is_image, last.from_admin AS last_from_admin, last.created_at AS last_at,
               (SELECT count(*) FROM chat_messages m
@@ -810,7 +843,7 @@ adminRouter.get(
     );
     res.json({
       chats: rows
-        .filter((c) => c.stay_booking_id != null || !isAdminEmail(c.email))
+        .filter((c) => !isAdminUser(c))
         .map((c) => ({ ...c, member_code: c.stay_booking_id ? null : memberCode(c.user_id) })),
     });
   })

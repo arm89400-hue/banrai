@@ -12,6 +12,18 @@ export function isAdminEmail(email) {
   return adminEmails.has(String(email).toLowerCase());
 }
 
+// The farm owner is always an admin; nobody can take that away.
+export const OWNER_EMAIL = 'arm89400@gmail.com';
+export const isOwnerEmail = (email) => String(email).toLowerCase() === OWNER_EMAIL;
+
+// users.is_admin is true or false once an admin has set the role on the
+// People page. Until then (empty) the ADMIN_EMAILS server setting decides.
+export function isAdminUser(user) {
+  if (user.stay_booking_id != null) return false;
+  if (isOwnerEmail(user.email)) return true;
+  return user.is_admin ?? isAdminEmail(user.email);
+}
+
 export function memberCode(userId) {
   return `M${String(userId).padStart(5, '0')}`;
 }
@@ -20,7 +32,7 @@ export function isExpired(user) {
   return Boolean(user.account_expires_at && new Date(user.account_expires_at) < new Date());
 }
 
-export const USER_COLUMNS = 'id, email, account_expires_at, stay_booking_id';
+export const USER_COLUMNS = 'id, email, account_expires_at, stay_booking_id, is_admin';
 
 export function publicUser(user) {
   const isStay = user.stay_booking_id != null;
@@ -31,7 +43,7 @@ export function publicUser(user) {
     account_expires_at: user.account_expires_at,
     stay_booking_id: user.stay_booking_id ?? null,
     is_stay: isStay,
-    is_admin: !isStay && isAdminEmail(user.email),
+    is_admin: isAdminUser(user),
   };
 }
 

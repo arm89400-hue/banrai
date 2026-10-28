@@ -27,7 +27,8 @@ pool
        used_at TIMESTAMPTZ,
        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
      );
-     CREATE INDEX IF NOT EXISTS idx_email_codes_user ON email_codes(user_id);`
+     CREATE INDEX IF NOT EXISTS idx_email_codes_user ON email_codes(user_id);
+     ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN;`
   )
   .catch((err) => console.error('schema update failed:', err.message));
 

@@ -286,3 +286,4 @@ CREATE TABLE IF NOT EXISTS email_codes (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_email_codes_user ON email_codes(user_id);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN;
