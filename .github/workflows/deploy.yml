@@ -1,5 +1,6 @@
-# CI/CD: every push to the deploy branch runs the tests, and only if they all
-# pass, logs in to the server over SSH and rebuilds the site with Docker.
+# CI: every push and pull request runs the tests and the frontend build.
+# CD: on a push to site-polish, and only if CI passed, logs in to the server
+# over SSH and rebuilds the site with Docker.
 #
 # Secrets live in GitHub (Settings > Secrets and variables > Actions), never in
 # the repository:
@@ -10,19 +11,21 @@
 #   DEPLOY_PATH      folder of this project on the server (the git clone)
 # The app's own settings (backend/.env, deploy/.env.prod) stay on the server only.
 
-name: Test and deploy
+name: CI and Deploy
 
 on:
   push:
-    branches: [site-polish]
+    branches: [main, site-polish]
+  pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: deploy
-  cancel-in-progress: false
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
+    name: CI (tests + build)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -58,7 +61,12 @@ jobs:
         run: npm run build
 
   deploy:
+    name: Deploy to server
     needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/site-polish'
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     environment: production
     steps:
