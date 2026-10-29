@@ -4,7 +4,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: test_y4
     volumes:
       - db-data:/var/lib/postgresql/data
@@ -24,7 +24,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/test_y4
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-postgres}@db:5432/test_y4
     ports:
       - "4001:4000"
     volumes:
