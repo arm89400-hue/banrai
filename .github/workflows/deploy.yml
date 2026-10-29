@@ -142,7 +142,11 @@ jobs:
           APP_DIR: ${{ vars.VPS_APP_DIR }}
         run: |
           SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes"
-          $SSH "$USER@$HOST" "mkdir -p '$APP_DIR/deploy'"
+          if ! out=$($SSH "$USER@$HOST" "mkdir -p '$APP_DIR/deploy'" 2>&1); then
+            fp=$(ssh-keygen -lf ~/.ssh/deploy_key | awk '{print $2, $3}')
+            echo "::error::SSH login failed: $(echo "$out" | tail -n 2 | tr '\n' ' ') (key fingerprint $fp, user length ${#USER})"
+            exit 1
+          fi
           scp -i ~/.ssh/deploy_key -P "$PORT" -o BatchMode=yes docker-compose.yml "$USER@$HOST:$APP_DIR/"
           scp -i ~/.ssh/deploy_key -P "$PORT" -o BatchMode=yes deploy/make-env.sh deploy/nginx-baanrai.conf "$USER@$HOST:$APP_DIR/deploy/"
 
