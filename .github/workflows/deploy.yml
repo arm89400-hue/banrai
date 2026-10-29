@@ -1,14 +1,15 @@
 # Deploy: runs after CI passes on main (or by hand: Actions > Deploy > Run workflow).
 #   1. build the three images and push them to GHCR (ghcr.io), tagged
 #      "latest" and "sha-xxxxxxx", using the built-in GITHUB_TOKEN
-#   2. SSH to the VPS: git pull, docker compose pull + up -d with the exact
+#   2. copy docker-compose.yml and deploy/ scripts to the VPS app folder (no
+#      git needed there), then SSH: docker compose pull + up -d with the exact
 #      images just built, then check /health
 # Step 2 is skipped (not failed) until the VPS settings below exist.
 #
 # Repository Secrets (Settings > Secrets and variables > Actions > Secrets):
 #   VPS_HOST, VPS_USER, VPS_SSH_KEY (private key), VPS_PORT (optional, 22)
 # Repository Variables (same page > Variables):
-#   VPS_APP_DIR            the app folder on the VPS (the git clone)
+#   VPS_APP_DIR            the app folder on the VPS (e.g. /opt/baanrai)
 #   VITE_GOOGLE_CLIENT_ID  public Google client ID baked into the website
 #   SITE_URL               optional, e.g. https://book.baanraihomestay.tech
 name: Deploy
@@ -109,6 +110,18 @@ jobs:
             echo "::notice::Deploy skipped: set secrets VPS_HOST, VPS_USER, VPS_SSH_KEY and variable VPS_APP_DIR. Images are already on GHCR."
           fi
 
+      - name: Copy the compose file and server scripts to the VPS
+        if: steps.ready.outputs.ok == 'true'
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: docker-compose.yml,deploy/make-env.sh,deploy/nginx-baanrai.conf
+          target: ${{ vars.VPS_APP_DIR }}
+          overwrite: true
+
       - name: Pull and start the new images on the VPS
         if: steps.ready.outputs.ok == 'true'
         uses: appleboy/ssh-action@v1.2.0
@@ -126,15 +139,13 @@ jobs:
           script: |
             set -e
             cd "$APP_DIR"
-            git fetch origin main
-            git checkout main
-            git pull --ff-only origin main
-            [ -f .env ] || { echo ".env missing: run  sh deploy/make-env.sh  once in $APP_DIR"; exit 1; }
-            [ -f backend/.env ] || { echo "backend/.env missing"; exit 1; }
+            # First deploy: create .env (reuses the DB password in deploy/.env.prod,
+            # or makes a random one). Never overwrites an existing .env.
+            [ -f .env ] || sh deploy/make-env.sh
+            [ -f backend/.env ] || { echo "backend/.env missing in $APP_DIR"; exit 1; }
             export APP_IMAGE="$REGISTRY/banrai-backend:$TAG"
             export MIGRATOR_IMAGE="$REGISTRY/banrai-migrator:$TAG"
             export WEB_IMAGE="$REGISTRY/banrai-frontend:$TAG"
-            # -f: only this file, never docker-compose.override.yml (dev only).
             # Only the "baanrai" project is touched; other sites keep running.
             docker compose -f docker-compose.yml pull
             docker compose -f docker-compose.yml up -d
