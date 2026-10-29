@@ -1,0 +1,164 @@
+# Deploy: runs after CI passes on main (or by hand: Actions > Deploy > Run workflow).
+#   1. build the three images and push them to GHCR (ghcr.io), tagged
+#      "latest" and "sha-xxxxxxx", using the built-in GITHUB_TOKEN
+#   2. copy docker-compose.yml and deploy/ scripts to the VPS app folder (no
+#      git needed there), then SSH: docker compose pull + up -d with the exact
+#      images just built, then check /health
+# Step 2 is skipped (not failed) until the VPS settings below exist.
+#
+# Repository Secrets (Settings > Secrets and variables > Actions > Secrets):
+#   VPS_HOST, VPS_USER, VPS_SSH_KEY (private key), VPS_PORT (optional, 22)
+# Repository Variables (same page > Variables):
+#   VPS_APP_DIR            the app folder on the VPS (e.g. /opt/baanrai)
+#   VITE_GOOGLE_CLIENT_ID  public Google client ID baked into the website
+#   SITE_URL               optional, e.g. https://book.baanraihomestay.tech
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  images:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - id: tag
+        run: echo "tag=sha-$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          target: app
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/banrai-backend:latest
+            ${{ env.REGISTRY }}/banrai-backend:${{ steps.tag.outputs.tag }}
+
+      - name: Migrator image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          target: migrator
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/banrai-migrator:latest
+            ${{ env.REGISTRY }}/banrai-migrator:${{ steps.tag.outputs.tag }}
+
+      - name: Website image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          build-args: |
+            VITE_API_URL=
+            VITE_GOOGLE_CLIENT_ID=${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          tags: |
+            ${{ env.REGISTRY }}/banrai-frontend:latest
+            ${{ env.REGISTRY }}/banrai-frontend:${{ steps.tag.outputs.tag }}
+
+  vps:
+    needs: images
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Is the VPS set up in GitHub?
+        id: ready
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+          DIR: ${{ vars.VPS_APP_DIR }}
+        run: |
+          if [ -n "$HOST" ] && [ -n "$USER" ] && [ -n "$KEY" ] && [ -n "$DIR" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Deploy skipped: set secrets VPS_HOST, VPS_USER, VPS_SSH_KEY and variable VPS_APP_DIR. Images are already on GHCR."
+          fi
+
+      - name: Copy the compose file and server scripts to the VPS
+        if: steps.ready.outputs.ok == 'true'
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: docker-compose.yml,deploy/make-env.sh,deploy/nginx-baanrai.conf
+          target: ${{ vars.VPS_APP_DIR }}
+          overwrite: true
+
+      - name: Pull and start the new images on the VPS
+        if: steps.ready.outputs.ok == 'true'
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          APP_DIR: ${{ vars.VPS_APP_DIR }}
+          REGISTRY: ${{ env.REGISTRY }}
+          TAG: ${{ needs.images.outputs.tag }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          envs: APP_DIR,REGISTRY,TAG
+          command_timeout: 15m
+          script: |
+            set -e
+            cd "$APP_DIR"
+            # First deploy: create .env (reuses the DB password in deploy/.env.prod,
+            # or makes a random one). Never overwrites an existing .env.
+            [ -f .env ] || sh deploy/make-env.sh
+            [ -f backend/.env ] || { echo "backend/.env missing in $APP_DIR"; exit 1; }
+            export APP_IMAGE="$REGISTRY/banrai-backend:$TAG"
+            export MIGRATOR_IMAGE="$REGISTRY/banrai-migrator:$TAG"
+            export WEB_IMAGE="$REGISTRY/banrai-frontend:$TAG"
+            # Only the "baanrai" project is touched; other sites keep running.
+            docker compose -f docker-compose.yml pull
+            docker compose -f docker-compose.yml up -d
+            API_PORT=$(sed -n 's/^API_PORT=//p' .env); API_PORT=${API_PORT:-8345}
+            for i in $(seq 1 30); do
+              if curl -fsS "http://127.0.0.1:$API_PORT/health"; then echo; echo "healthy: $TAG"; exit 0; fi
+              sleep 3
+            done
+            echo "health check failed"
+            docker compose -f docker-compose.yml ps -a
+            docker compose -f docker-compose.yml logs --tail 60 migrate backend
+            exit 1
+
+      - name: Check the public site
+        if: steps.ready.outputs.ok == 'true' && vars.SITE_URL != ''
+        run: curl -fsS --retry 5 --retry-delay 3 "${{ vars.SITE_URL }}/health"

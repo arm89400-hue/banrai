@@ -1,10 +1,6 @@
 import { randomInt } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 
-// Stay accounts are the temporary logins for a confirmed room booking's
-// guest dashboard. See db/migrations/005_stay_accounts.sql.
-
-// No 0/O/1/I, so codes are easy to read out and type.
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export function randomCode(length) {
@@ -13,14 +9,8 @@ export function randomCode(length) {
   return out;
 }
 
-// Check-out is 12:00 Thailand time (UTC+7). booked_until is stored as UTC
-// midnight of the check-out date, so the stay ends 5 hours after it.
 const CHECKOUT_OFFSET = "interval '5 hours'";
 
-// Creates the room login for a confirmed room booking, if it doesn't have
-// one yet: username = the booking code, a random 8-character password, and
-// an expiry at check-out. Must be called inside a transaction on `client`.
-// Returns the booking's { stay_username, stay_password }.
 export async function ensureStayAccount(client, bookingId) {
   const booking = (
     await client.query(
@@ -28,12 +18,11 @@ export async function ensureStayAccount(client, bookingId) {
       [bookingId]
     )
   ).rows[0];
-  if (!booking || !booking.room_id) return null; // activities have no room dashboard
+  if (!booking || !booking.room_id) return null;
   if (booking.stay_username) {
     return { stay_username: booking.stay_username, stay_password: booking.stay_password };
   }
 
-  // Older bookings (made before codes existed) get one now.
   const username = booking.code ?? `BR-${randomCode(6)}`;
   const password = randomCode(8);
   const passwordHash = await bcrypt.hash(password, 10);
@@ -51,8 +40,6 @@ export async function ensureStayAccount(client, bookingId) {
   return { stay_username: username, stay_password: password };
 }
 
-// Removes a booking's room login (when the booking stops being confirmed),
-// so it can no longer sign in. Must be called inside a transaction.
 export async function removeStayAccount(client, bookingId) {
   await client.query('DELETE FROM users WHERE stay_booking_id = $1', [bookingId]);
   await client.query(

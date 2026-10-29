@@ -1,0 +1,92 @@
+.date-field {
+  position: relative;
+  min-width: 0;
+}
+.date-field__btn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--text);
+  font: inherit;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+}
+.date-field__btn svg {
+  flex: none;
+  color: var(--brand);
+}
+.date-field__btn.is-empty {
+  color: var(--text-muted);
+}
+.date-field__btn:hover,
+.date-field__btn[aria-expanded='true'] {
+  border-color: var(--brand);
+}
+.date-field__check {
+  position: absolute;
+  bottom: 0;
+  left: 12px;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.date-field__pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  box-sizing: border-box;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: 0 0 0 1px var(--border), 0 18px 40px -16px rgba(20, 40, 30, 0.35);
+  font-weight: 400;
+}
+.date-field__pop.is-right {
+  left: auto;
+  right: 0;
+}
+.date-field__time {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.date-field__time select {
+  min-height: 40px;
+  padding: 0 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.date-field__time b {
+  color: var(--text);
+}
+.date-field__foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+.date-field__foot .admin__btn {
+  margin-left: auto;
+}

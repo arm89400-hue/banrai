@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -6,21 +6,22 @@ import { OAuth2Client } from 'google-auth-library';
 import { pool } from '../db/pool.js';
 import { USER_COLUMNS, isExpired, publicUser } from '../middleware/auth.js';
 import { logEvent } from '../lib/activityLog.js';
+import { sendMail } from '../lib/mailer.js';
+import { isEmail, trimTrailingSlashes } from '../lib/text.js';
 
 export const authRouter = Router();
 
-// Express 4 doesn't catch rejected promises from async handlers - this
-// forwards them to the app's error handler instead of crashing the process.
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
 const googleClient = process.env.GOOGLE_CLIENT_ID
   ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
   : null;
 
-// Records a successful sign-in in the admin activity log, by account kind.
 function logLogin(user, details = {}) {
   const pub = publicUser(user);
-  const kind = pub.is_admin ? 'admin' : pub.is_stay ? 'room' : 'member';
+  let kind = 'member';
+  if (pub.is_admin) kind = 'admin';
+  else if (pub.is_stay) kind = 'room';
   return logEvent(`login.${kind}`, {
     actor: user.email,
     bookingId: pub.stay_booking_id,
@@ -28,14 +29,10 @@ function logLogin(user, details = {}) {
   });
 }
 
-// Builds a signed 7-day JWT identifying the given user id - this is the
-// token clients attach as "Authorization: Bearer <token>" on future requests.
 function signToken(userId) {
   return jwt.sign({ sub: userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
 
-// Creates a new account from an email + password. Rejects if the email is
-// already registered (unique constraint violation, Postgres code 23505).
 authRouter.post(
   '/register',
   wrap(async (req, res) => {
@@ -44,9 +41,7 @@ authRouter.post(
     if (!email || !password) {
       return res.status(400).json({ error: 'email and password are required' });
     }
-    // Accounts people create themselves must be real email addresses, which
-    // also keeps them from colliding with generated room usernames.
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!isEmail(email)) {
       return res.status(400).json({ error: 'Enter a valid email address', reason: 'BAD_EMAIL' });
     }
 
@@ -61,7 +56,10 @@ authRouter.post(
       );
       const created = publicUser(rows[0]);
       await logEvent('member.registered', { actor: created.email, details: { member_code: created.member_code } });
-      res.status(201).json({ user: created });
+      // No login yet: the account opens once the emailed code is typed back.
+      const verify = needsEmailCheck(rows[0]);
+      if (verify) await sendCode(rows[0], langOf(req));
+      res.status(201).json({ user: created, verify });
     } catch (err) {
       if (err.code === '23505') {
         return res.status(409).json({ error: 'Email already registered', reason: 'EMAIL_TAKEN' });
@@ -71,9 +69,6 @@ authRouter.post(
   })
 );
 
-// Verifies an email (or a room account's username) + password against the
-// stored hash and, on success, returns a JWT plus the public user fields.
-// Expired accounts - a room account after its check-out - are refused.
 authRouter.post(
   '/login',
   wrap(async (req, res) => {
@@ -83,10 +78,8 @@ authRouter.post(
       return res.status(400).json({ error: 'email and password are required' });
     }
 
-    // Case-insensitive, so "Name@x.com" and "name@x.com" are the same login;
-    // an exact match wins if two accounts differ only by case.
     const { rows } = await pool.query(
-      `SELECT ${USER_COLUMNS}, password_hash FROM users
+      `SELECT ${USER_COLUMNS}, password_hash, email_verified_at FROM users
        WHERE lower(email) = lower($1)
        ORDER BY (email = $1) DESC
        LIMIT 1`,
@@ -106,14 +99,16 @@ authRouter.post(
       });
       return res.status(403).json({ error: 'Account expired', reason: 'ACCOUNT_EXPIRED' });
     }
+    if (needsEmailCheck(user)) {
+      await sendCode(user, langOf(req));
+      return res.status(403).json({ error: 'Confirm your email first', reason: 'EMAIL_UNVERIFIED' });
+    }
 
     await logLogin(user);
     res.json({ token: signToken(user.id), user: publicUser(user) });
   })
 );
 
-// Signs in with a Google ID token from the frontend's "Login with Google"
-// button. A first-time Google user gets an account created automatically.
 authRouter.post(
   '/google',
   wrap(async (req, res) => {
@@ -141,17 +136,12 @@ authRouter.post(
       return res.status(401).json({ error: 'Google email is not verified' });
     }
 
-    // Google emails are lowercase; match case-insensitively so an account
-    // registered with different casing still resolves to the same user.
     let { rows } = await pool.query(
       `SELECT ${USER_COLUMNS} FROM users WHERE lower(email) = lower($1)`,
       [payload.email]
     );
     const isNew = !rows[0];
     if (isNew) {
-      // First Google sign-in for this email: create the account. It gets an
-      // unusable random password, so it can only be reached through Google
-      // (until the user registers a password via the normal sign-up).
       const unusablePassword = await bcrypt.hash(randomBytes(32).toString('hex'), 10);
       ({ rows } = await pool.query(
         `INSERT INTO users (email, password_hash) VALUES ($1, $2)
@@ -164,6 +154,8 @@ authRouter.post(
     if (isExpired(user)) {
       return res.status(403).json({ error: 'Account expired', reason: 'ACCOUNT_EXPIRED' });
     }
+    // Google has confirmed the address, so this also opens an email sign-up.
+    await pool.query('UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1', [user.id]);
 
     if (isNew) {
       await logEvent('member.registered', {
@@ -173,5 +165,300 @@ authRouter.post(
     }
     await logLogin(user, { via: 'google' });
     res.json({ token: signToken(user.id), user: publicUser(user) });
+  })
+);
+
+// ---- Forgot password ----
+// A one-time link is emailed to the account. Only a hash of the token is
+// stored, the link works once and for 30 minutes, and the answer never says
+// whether an email has an account.
+const RESET_MINUTES = 30;
+const RESETS_PER_HOUR = 3;
+export const MIN_PASSWORD = 8;
+const hashToken = (token) => createHash('sha256').update(token).digest('hex');
+const SITE_URL = trimTrailingSlashes(process.env.SITE_URL || 'http://localhost:5173');
+
+// The farm's email card: photo header, title, one line, the main thing (a
+// button or a code), small print. Tables and inline styles: the only layout
+// every mail app agrees on.
+function mailCard({ title, hello, main, note }) {
+  const sign = `${SITE_URL}/images/farm/email-sign.jpg`;
+  const font = "font-family:'Noto Sans Thai',Tahoma,Arial,sans-serif";
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#f3efe7">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3efe7"><tr><td align="center" style="padding:32px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden">
+  <tr><td><img src="${sign}" width="520" alt="บ้านไร่ของพ่อ 344" style="display:block;width:100%;height:auto;border:0"></td></tr>
+  <tr><td style="padding:32px 32px 8px;${font};color:#1f2b22">
+    <h1 style="margin:0 0 12px;font-size:24px;line-height:1.3;color:#1f2b22">${title}</h1>
+    <p style="margin:0 0 24px;font-size:16px;line-height:1.6">${hello}</p>
+    ${main}
+    <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#5c665f">${note}</p>
+  </td></tr>
+  <tr><td style="padding:24px 32px 32px;${font};font-size:13px;line-height:1.6;color:#8a918c;border-top:1px solid #eee9df">
+    บ้านไร่ของพ่อ 344 · ปากช่อง นครราชสีมา
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+}
+
+export function resetEmail(link, lang) {
+  const escaped = link.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
+  const th = {
+    subject: 'ตั้งรหัสผ่านใหม่ · บ้านไร่ของพ่อ 344',
+    hello: 'มีคำขอตั้งรหัสผ่านใหม่สำหรับบัญชีของคุณที่บ้านไร่ของพ่อ 344',
+    button: 'ตั้งรหัสผ่านใหม่',
+    expires: `ลิงก์นี้ใช้ได้ครั้งเดียว ภายใน ${RESET_MINUTES} นาที`,
+    ignore: 'ถ้าคุณไม่ได้ขอ ไม่ต้องทำอะไร รหัสผ่านเดิมยังใช้ได้',
+  };
+  const en = {
+    subject: 'Reset your password · Baanrai 344',
+    hello: 'Someone asked to reset the password for your Baanrai 344 account.',
+    button: 'Choose a new password',
+    expires: `The link works once, within ${RESET_MINUTES} minutes.`,
+    ignore: "If it wasn't you, ignore this email. Your password stays the same.",
+  };
+  const c = lang === 'en' ? en : th;
+  const text = `${c.hello}\n\n${c.button}: ${link}\n\n${c.expires}\n${c.ignore}\n`;
+  const html = mailCard({
+    title: c.subject.split(' · ')[0],
+    hello: c.hello,
+    main: `<a href="${escaped}" style="display:inline-block;background:#326649;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:999px;font-size:16px;font-weight:bold">${c.button}</a>`,
+    note: `${c.expires}<br>${c.ignore}`,
+  });
+  return { subject: c.subject, text, html };
+}
+
+async function findReset(token) {
+  if (!token || typeof token !== 'string') return null;
+  const { rows } = await pool.query(
+    `SELECT r.id, r.user_id, u.email
+       FROM password_resets r JOIN users u ON u.id = r.user_id
+      WHERE r.token_hash = $1 AND r.used_at IS NULL AND r.expires_at > now()`,
+    [hashToken(token)]
+  );
+  return rows[0] ?? null;
+}
+
+function maskEmail(email) {
+  const [name, domain] = String(email).split('@');
+  if (!domain) return email;
+  return `${name.slice(0, 2)}${'•'.repeat(Math.max(1, Math.min(6, name.length - 2)))}@${domain}`;
+}
+
+authRouter.post(
+  '/forgot',
+  wrap(async (req, res) => {
+    const email = String(req.body.email ?? '').trim();
+    const lang = req.body.lang === 'en' ? 'en' : 'th';
+    if (!isEmail(email)) {
+      return res.status(400).json({ error: 'Enter a valid email address', reason: 'BAD_EMAIL' });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT id, email FROM users
+        WHERE lower(email) = lower($1) AND stay_booking_id IS NULL
+        ORDER BY (email = $1) DESC
+        LIMIT 1`,
+      [email]
+    );
+    const user = rows[0];
+    if (user) {
+      const recent = await pool.query(
+        `SELECT count(*)::int AS n FROM password_resets
+          WHERE user_id = $1 AND created_at > now() - interval '1 hour'`,
+        [user.id]
+      );
+      if (recent.rows[0].n < RESETS_PER_HOUR) {
+        const token = randomBytes(32).toString('base64url');
+        await pool.query(
+          `INSERT INTO password_resets (user_id, token_hash, expires_at)
+           VALUES ($1, $2, now() + make_interval(mins => $3))`,
+          [user.id, hashToken(token), RESET_MINUTES]
+        );
+        const mail = resetEmail(`${SITE_URL}/reset-password?token=${token}`, lang);
+        try {
+          await sendMail({ to: user.email, ...mail });
+        } catch (err) {
+          console.error('reset email failed:', err.message);
+        }
+        await logEvent('password.reset_requested', { actor: user.email });
+      }
+    }
+    // Same answer either way, so the form can't be used to find accounts.
+    res.json({ ok: true });
+  })
+);
+
+authRouter.get(
+  '/reset',
+  wrap(async (req, res) => {
+    const reset = await findReset(req.query.token);
+    if (!reset) return res.status(400).json({ error: 'This link has expired', reason: 'BAD_TOKEN' });
+    res.json({ email: maskEmail(reset.email) });
+  })
+);
+
+authRouter.post(
+  '/reset',
+  wrap(async (req, res) => {
+    const password = String(req.body.password ?? '');
+    if (password.length < MIN_PASSWORD) {
+      return res
+        .status(400)
+        .json({ error: `Use at least ${MIN_PASSWORD} characters`, reason: 'WEAK_PASSWORD' });
+    }
+    const reset = await findReset(req.body.token);
+    if (!reset) return res.status(400).json({ error: 'This link has expired', reason: 'BAD_TOKEN' });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const client = await pool.connect();
+    let user;
+    try {
+      await client.query('BEGIN');
+      // Logins made before this moment stop working (see requireAuth). The
+      // link came by email, so the address is confirmed as well.
+      const { rows } = await client.query(
+        `UPDATE users SET password_hash = $1, password_changed_at = date_trunc('second', now()),
+                          email_verified_at = COALESCE(email_verified_at, now())
+          WHERE id = $2
+          RETURNING ${USER_COLUMNS}`,
+        [passwordHash, reset.user_id]
+      );
+      user = rows[0];
+      await client.query(
+        'UPDATE password_resets SET used_at = now() WHERE user_id = $1 AND used_at IS NULL',
+        [reset.user_id]
+      );
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    await logEvent('password.reset', { actor: user.email });
+    res.json({ token: signToken(user.id), user: publicUser(user) });
+  })
+);
+
+// ---- Email check ----
+// An email sign-up only counts once a 6-digit code sent to that address is
+// typed back, so made-up addresses never get in. Google has already checked
+// its addresses; admins and room accounts are set up by the farm.
+const CODE_MINUTES = 15;
+const CODE_TRIES = 5;
+const CODES_PER_HOUR = 5;
+const CODE_GAP_SECONDS = 60;
+const hashCode = (userId, code) => hashToken(`${userId}:${code}`);
+
+export function needsEmailCheck(user) {
+  const pub = publicUser(user);
+  return !user.email_verified_at && !pub.is_stay && !pub.is_admin;
+}
+
+export function codeEmail(code, lang) {
+  const th = {
+    subject: `รหัสยืนยันอีเมล ${code} · บ้านไร่ของพ่อ 344`,
+    title: 'ยืนยันอีเมลของคุณ',
+    hello: 'ใส่รหัสนี้ในหน้าเว็บบ้านไร่ของพ่อ 344 เพื่อยืนยันว่าอีเมลนี้เป็นของคุณ',
+    note: `รหัสใช้ได้ภายใน ${CODE_MINUTES} นาที ถ้าคุณไม่ได้สมัคร ไม่ต้องทำอะไร`,
+  };
+  const en = {
+    subject: `Your code ${code} · Baanrai 344`,
+    title: 'Confirm your email',
+    hello: 'Enter this code on the Baanrai 344 website to confirm this email is yours.',
+    note: `The code works for ${CODE_MINUTES} minutes. If you didn't sign up, ignore this email.`,
+  };
+  const c = lang === 'en' ? en : th;
+  const text = `${c.hello}\n\n${code}\n\n${c.note}\n`;
+  const html = mailCard({
+    title: c.title,
+    hello: c.hello,
+    main: `<p style="margin:0;font-size:36px;line-height:1.2;letter-spacing:10px;font-weight:bold;color:#326649">${code}</p>`,
+    note: c.note,
+  });
+  return { subject: c.subject, text, html };
+}
+
+// Sends a new code unless one went out a moment ago or too many went out this hour.
+async function sendCode(user, lang) {
+  const { rows } = await pool.query(
+    `SELECT count(*)::int AS hour,
+            count(*) FILTER (WHERE created_at > now() - make_interval(secs => $2))::int AS recent
+       FROM email_codes
+      WHERE user_id = $1 AND created_at > now() - interval '1 hour'`,
+    [user.id, CODE_GAP_SECONDS]
+  );
+  if (rows[0].hour >= CODES_PER_HOUR || rows[0].recent > 0) return false;
+
+  const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+  await pool.query(
+    `INSERT INTO email_codes (user_id, code_hash, expires_at)
+     VALUES ($1, $2, now() + make_interval(mins => $3))`,
+    [user.id, hashCode(user.id, code), CODE_MINUTES]
+  );
+  try {
+    await sendMail({ to: user.email, ...codeEmail(code, lang) });
+  } catch (err) {
+    console.error('code email failed:', err.message);
+  }
+  return true;
+}
+
+async function findMember(email) {
+  const { rows } = await pool.query(
+    `SELECT ${USER_COLUMNS}, email_verified_at FROM users
+      WHERE lower(email) = lower($1) AND stay_booking_id IS NULL
+      ORDER BY (email = $1) DESC
+      LIMIT 1`,
+    [email]
+  );
+  return rows[0] ?? null;
+}
+
+const langOf = (req) => (req.body.lang === 'en' ? 'en' : 'th');
+
+authRouter.post(
+  '/verify',
+  wrap(async (req, res) => {
+    const code = String(req.body.code ?? '').replaceAll(/\D/g, '');
+    const user = await findMember(String(req.body.email ?? '').trim());
+    if (!user || !needsEmailCheck(user) || code.length !== 6) {
+      return res.status(400).json({ error: 'Wrong code', reason: 'BAD_CODE' });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT id, code_hash, attempts FROM email_codes
+        WHERE user_id = $1 AND used_at IS NULL AND expires_at > now()
+        ORDER BY id DESC
+        LIMIT 1`,
+      [user.id]
+    );
+    const sent = rows[0];
+    if (!sent || sent.attempts >= CODE_TRIES) {
+      return res.status(400).json({ error: 'This code has expired', reason: 'CODE_EXPIRED' });
+    }
+    if (sent.code_hash !== hashCode(user.id, code)) {
+      await pool.query('UPDATE email_codes SET attempts = attempts + 1 WHERE id = $1', [sent.id]);
+      return res.status(400).json({ error: 'Wrong code', reason: 'BAD_CODE' });
+    }
+
+    await pool.query('UPDATE users SET email_verified_at = now() WHERE id = $1', [user.id]);
+    await pool.query('UPDATE email_codes SET used_at = now() WHERE user_id = $1 AND used_at IS NULL', [user.id]);
+    await logEvent('member.email_verified', { actor: user.email });
+    await logLogin(user);
+    res.json({ token: signToken(user.id), user: publicUser(user) });
+  })
+);
+
+authRouter.post(
+  '/verify/resend',
+  wrap(async (req, res) => {
+    const user = await findMember(String(req.body.email ?? '').trim());
+    if (user && needsEmailCheck(user)) await sendCode(user, langOf(req));
+    // Same answer either way, so the form can't be used to find accounts.
+    res.json({ ok: true });
   })
 );

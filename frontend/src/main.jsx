@@ -5,9 +5,11 @@ import { AuthProvider } from './context/AuthContext.jsx'
 import LanguageProvider from './i18n/LanguageProvider.jsx'
 import './index.css'
 import App from './App.jsx'
+import './wow.css'
+import { startReveal } from './lib/reveal.js'
 
-// App entry point: mounts App into #root, wrapped in the router (for
-// navigation) and the auth provider (for shared login state).
+startReveal()
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>

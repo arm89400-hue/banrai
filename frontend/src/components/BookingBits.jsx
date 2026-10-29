@@ -1,12 +1,9 @@
+import { useState } from 'react';
 import { useLang } from '../i18n/lang';
 import { formatBaht } from '../lib/money';
+import Baht from './Baht';
 import './BookingBits.css';
 
-// Price breakdown for a stay: rate x nights, any extra-guest and pet
-// charges, the total, the 50% deposit and the balance due on arrival. Pass
-// `total`/`deposit` to show a saved booking's amounts instead of computing
-// them from the rate. `discount` is the promotion's amount off (already
-// taken off a saved `total`) and `promoName` what to call it.
 export function PriceRows({
   price,
   nights,
@@ -64,22 +61,20 @@ export function PriceRows({
       )}
       <div className="price-rows__row price-rows__total">
         <span>{t('sum.total')}</span>
-        <span>{formatBaht(sum)}</span>
+        <Baht value={sum} />
       </div>
       <div className="price-rows__row price-rows__deposit">
         <span>{t('sum.deposit')}</span>
-        <span>{formatBaht(dep)}</span>
+        <Baht value={dep} />
       </div>
       <div className="price-rows__row price-rows__balance">
         <span>{t('sum.balance')}</span>
-        <span>{formatBaht(sum - dep)}</span>
+        <Baht value={sum - dep} />
       </div>
     </div>
   );
 }
 
-// "Promotion -10% · Rainy season · check-in 1 Oct – 31 Oct": one promotion,
-// as shown on room cards, room pages and the booking flow's room list.
 export function PromoTag({ promo }) {
   const { t, locale } = useLang();
   const day = (iso) =>
@@ -94,8 +89,47 @@ export function PromoTag({ promo }) {
   );
 }
 
-// pending / confirmed / cancelled pill, labelled in the current language.
 export function StatusBadge({ status }) {
   const { t } = useLang();
   return <span className={`status-badge status-badge--${status}`}>{t(`status.${status}`)}</span>;
+}
+
+function CopyRow({ label, value }) {
+  const { t } = useLang();
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+    }
+  }
+  return (
+    <div className="stay-login__row">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+      <button type="button" className={`stay-login__copy${copied ? ' is-copied' : ''}`} onClick={copy} aria-label={`${t('my.copy')} ${label}`}>
+        {copied ? t('my.copied') : t('my.copy')}
+      </button>
+    </div>
+  );
+}
+
+export function StayLogin({ booking, room, hint }) {
+  const { t } = useLang();
+  return (
+    <section className="stay-login">
+      <p className="stay-login__badge">✓ {t('status.confirmed')}</p>
+      <p className="stay-login__title">
+        {t('my.stayTitle')}
+        {room && ` · ${room}`}
+      </p>
+      <dl>
+        <CopyRow label={t('my.stayUser')} value={booking.stay_username} />
+        <CopyRow label={t('my.stayPass')} value={booking.stay_password} />
+      </dl>
+      {hint && <p className="stay-login__hint">{hint}</p>}
+    </section>
+  );
 }

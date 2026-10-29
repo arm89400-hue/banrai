@@ -4,7 +4,6 @@ import { api } from '../lib/api';
 import { formatBaht } from '../lib/money';
 import {
   bookedNightSet,
-  formatDay,
   nightsBetween,
   priceStay,
   promoFor,
@@ -15,50 +14,65 @@ import {
 import { usePromotions } from '../lib/promotions';
 import { CHECK_IN_TIME, CHECK_OUT_TIME } from '../lib/site';
 import { useLang } from '../i18n/lang';
-import InlineCalendar from '../components/InlineCalendar';
+import DateRangePicker from '../components/DateRangePicker';
 import { PriceRows, PromoTag } from '../components/BookingBits';
+import Lightbox from '../components/Lightbox';
+import Baht from '../components/Baht';
+import RoomAmenities from '../components/RoomAmenities';
+import { roomCover, roomPhotos } from '../lib/photos';
+import { shift } from '../lib/motion';
+import { Loading, Sk, SkText } from '../components/Skeleton';
+import { cachedRoom, cachedRooms, rememberRooms } from '../lib/roomCache';
 import './RoomPage.css';
 
-// One room's own page: photos, what's in the room, and a booking card
-// whose calendar crosses out the nights this room is already taken.
-// "Reserve" hands the chosen dates to the booking flow's details step.
+const petRuleFrom = (data) => ({ fee: Number(data?.pet_fee) || 0, maxKg: Number(data?.pet_max_kg) || 0 });
+const otherRooms = (data, id) =>
+  (data?.rooms ?? []).filter((r) => String(r.id) !== String(id)).sort((a, b) => b.price - a.price);
+
 export default function RoomPage() {
   const { id } = useParams();
-  const { t, lang, locale } = useLang();
+  const { t, lang } = useLang();
   const navigate = useNavigate();
 
-  const [room, setRoom] = useState(null);
-  const [fee, setFee] = useState(0); // Baht per extra guest per night
-  const [petRule, setPetRule] = useState({ fee: 0, maxKg: 0 });
-  const [others, setOthers] = useState([]);
+  const [room, setRoom] = useState(() => cachedRoom(id)?.room ?? null);
+  const [fee, setFee] = useState(() => Number(cachedRoom(id)?.extra_guest_fee) || 0);
+  const [petRule, setPetRule] = useState(() => petRuleFrom(cachedRoom(id)));
+  const [others, setOthers] = useState(() => otherRooms(cachedRooms(), id));
   const [booked, setBooked] = useState([]);
   const [missing, setMissing] = useState(false);
   const [dates, setDates] = useState({ checkIn: '', checkOut: '' });
   const [guests, setGuests] = useState(2);
+  const [viewing, setViewing] = useState(null);
 
-  // Loads this room, its taken dates and the other rooms. Resets the
-  // selection when moving from one room's page to another.
   useEffect(() => {
     let stale = false;
-    setRoom(null);
+    const cached = cachedRoom(id);
+    setRoom(cached?.room ?? null);
+    if (cached) {
+      setFee(Number(cached.extra_guest_fee) || 0);
+      setPetRule(petRuleFrom(cached));
+    }
+    setOthers(otherRooms(cachedRooms(), id));
     setMissing(false);
     setDates({ checkIn: '', checkOut: '' });
+    setViewing(null);
 
     api(`/api/rooms/${id}`)
       .then((data) => {
         if (stale) return;
         setRoom(data.room);
         setFee(Number(data.extra_guest_fee) || 0);
-        setPetRule({ fee: Number(data.pet_fee) || 0, maxKg: Number(data.pet_max_kg) || 0 });
+        setPetRule(petRuleFrom(data));
       })
       .catch(() => !stale && setMissing(true));
     api(`/api/rooms/${id}/booked`)
       .then((data) => !stale && setBooked(data.booked))
       .catch(() => !stale && setBooked([]));
     api('/api/rooms')
+      .then(rememberRooms)
       .then((data) => {
         if (stale) return;
-        setOthers(data.rooms.filter((r) => String(r.id) !== String(id)).sort((a, b) => b.price - a.price));
+        setOthers(otherRooms(data, id));
       })
       .catch(() => {});
 
@@ -72,9 +86,14 @@ export default function RoomPage() {
   const bookedNights = useMemo(() => bookedNightSet(booked), [booked]);
   const nights = nightsBetween(dates.checkIn, dates.checkOut);
 
+  useEffect(() => {
+    document.body.classList.add('has-bottom-bar');
+    return () => document.body.classList.remove('has-bottom-bar');
+  }, []);
+
   if (missing) {
     return (
-      <section className="bk-page room-page room-page--empty">
+      <section className="room-page room-page--empty">
         <h1>{t('room.notFound')}</h1>
         <Link className="bk-btn bk-btn--primary" to="/home#rooms">
           {t('room.backToRooms')}
@@ -82,146 +101,286 @@ export default function RoomPage() {
       </section>
     );
   }
-  if (!room) return <section className="bk-page room-page" aria-busy="true" />;
+  if (!room) {
+    return (
+      <Loading as="section" className="room-page" label={t('loading')}>
+        <Sk w="120px" h="1em" style={{ marginBottom: 14 }} />
+        <div className="room-gallery room-gallery--stack" aria-hidden="true">
+          <Sk className="room-gallery__tile room-gallery__tile--main" h="auto" r="0" />
+          <Sk className="room-gallery__tile" h="auto" r="0" />
+          <Sk className="room-gallery__tile" h="auto" r="0" />
+        </div>
+        <div className="room-page__cols">
+          <div className="room-page__main">
+            <div>
+              <Sk w="34%" h="2.1em" />
+              <Sk w="22%" h="1em" style={{ marginTop: 10 }} />
+            </div>
+            <SkText lines={4} last="55%" gap="1.1em" />
+          </div>
+          <div className="room-book" aria-hidden="true">
+            <Sk w="45%" h="1.8em" />
+            <Sk h="56px" r="10px" />
+            <Sk h="56px" r="10px" />
+            <Sk h="48px" r="999px" />
+          </div>
+        </div>
+      </Loading>
+    );
+  }
 
   const names = roomNames(room.name, lang);
+  const gallery = roomPhotos(room).map((p) => ({ ...p, caption: names.title }));
   const maxGuests = roomMaxGuests(room);
-  // The promotion for the chosen check-in day, and every one this room has.
+  const shownGuests = Math.min(guests, maxGuests);
   const promo = promoFor(promotions, room.id, dates.checkIn);
   const roomPromos = promosForRoom(promotions, room.id);
-  const quote = priceStay(room, nights, Math.min(guests, maxGuests), fee, 0, 0, promo);
-  const inRoom = t('amenities.groups')[0];
+  const quote = priceStay(room, nights, shownGuests, fee, 0, 0, promo);
+  const [, ...aroundHouse] = t('amenities.groups');
+  const perNight = t('room.perNight');
 
   function reserve() {
     const query = new URLSearchParams({
       room: String(room.id),
       in: dates.checkIn,
       out: dates.checkOut,
-      guests: String(Math.min(guests, maxGuests)),
-      step: '3',
+      guests: String(shownGuests),
+      step: '2',
     });
     navigate(`/book?${query}`);
   }
 
   return (
-    <section className="bk-page room-page">
-      <div className="room-page__main">
-        <div className="room-gallery">
-          <div className="room-gallery__main">
-            <img
-              src={room.image_url || `/images/rooms/room-${room.id}.jpg`}
-              alt={names.title}
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-          </div>
-          <div className="room-gallery__side">
+    <section className="room-page">
+      <Link className="room-page__back" to="/home#rooms">
+        ‹ {t('room.allRooms')}
+      </Link>
+
+      <div className={`room-gallery${gallery.length > 2 ? ' room-gallery--stack' : ''}`}>
+        {gallery.slice(0, 3).map((photo, i) => {
+          return (
+            <button
+              key={photo.id}
+              type="button"
+              className={`room-gallery__tile${i === 0 ? ' room-gallery__tile--main' : ''}`}
+              onClick={(e) =>
+                shift(() => setViewing(i), { from: e.currentTarget.querySelector('img'), to: '.lightbox__figure img' })
+              }
+              aria-label={t('room.photoOf', { n: i + 1, total: gallery.length })}
+            >
+              <img
+                src={photo.src}
+                alt=""
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </button>
+          );
+        })}
+        {gallery.length <= 1 && (
+          <div className={`room-gallery__tile${gallery.length === 0 ? ' room-gallery__tile--main' : ''}`}>
             <img src="/images/hero.jpg" alt={t('room.housePhoto')} />
           </div>
+        )}
+        {gallery.length > 1 && (
+          <button
+            type="button"
+            className="room-gallery__all"
+            onClick={() =>
+              shift(() => setViewing(0), {
+                from: document.querySelector('.room-gallery__tile--main img'),
+                to: '.lightbox__figure img',
+              })
+            }
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
+              <rect x="3" y="3" width="7" height="7" rx="1.5" />
+              <rect x="14" y="3" width="7" height="7" rx="1.5" />
+              <rect x="3" y="14" width="7" height="7" rx="1.5" />
+              <rect x="14" y="14" width="7" height="7" rx="1.5" />
+            </svg>
+            {t('room.allPhotos', { n: gallery.length })}
+          </button>
+        )}
+      </div>
+      {viewing !== null && (
+        <Lightbox photos={gallery} index={viewing} onChange={setViewing} onClose={() => setViewing(null)} />
+      )}
+
+      <div className="room-page__cols">
+        <div className="room-page__main">
+          <h1>
+            {names.title}
+          </h1>
+          {roomPromos.length > 0 && (
+            <div className="room-page__promos">
+              {roomPromos.map((p) => (
+                <PromoTag key={p.id} promo={p} />
+              ))}
+            </div>
+          )}
+
+          <ul className="room-facts">
+            <li>
+              <span>{t('room.factBase', { n: room.capacity || maxGuests })}</span>
+              <b>
+                {formatBaht(room.price)} {perNight}
+              </b>
+            </li>
+            {room.capacity && maxGuests > room.capacity && (
+              <li>
+                <span>{t('room.factExtra', { from: room.capacity + 1, to: maxGuests })}</span>
+                <b>
+                  +{formatBaht(fee)} {perNight}
+                </b>
+              </li>
+            )}
+            {petRule.fee > 0 && (
+              <li>
+                <span>{t('room.factPets', { kg: petRule.maxKg })}</span>
+                <b>
+                  +{formatBaht(petRule.fee)} {perNight}
+                </b>
+              </li>
+            )}
+            <li>
+              <span>{t('room.factTimes')}</span>
+              <b>
+                {CHECK_IN_TIME} · {CHECK_OUT_TIME}
+              </b>
+            </li>
+          </ul>
+
+          <div className="room-page__block">
+            <h2>{t('room.inRoom')}</h2>
+            <RoomAmenities />
+          </div>
+
+          <div className="room-page__block">
+            <h2>{t('amenities.title')}</h2>
+            <div className="room-amen">
+              {aroundHouse.map((group, i) => (
+                <section key={group.icon}>
+                  <h3>{group.title}</h3>
+                  <RoomAmenities group={i + 1} />
+                </section>
+              ))}
+            </div>
+          </div>
+
+          {others.length > 0 && (
+            <div className="room-page__block">
+              <h2>{t('room.others')}</h2>
+              <ul className="room-others">
+                {others.map((r) => (
+                  <li key={r.id}>
+                    <Link to={`/rooms/${r.id}`}>
+                      <img src={roomCover(r)} alt="" loading="lazy" />
+                      <strong>{roomNames(r.name, lang).title}</strong>
+                      <span>{formatBaht(r.price)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
-        <h1>{names.title}</h1>
-        {names.subtitle && <p className="room-page__subtitle">{names.subtitle}</p>}
-        <p className="room-page__meta">
-          {t('room.times', { in: CHECK_IN_TIME, out: CHECK_OUT_TIME })}
-        </p>
-        <ul className="room-page__price-facts">
-          <li>{t('price.perRoomNight')}</li>
-          {room.capacity && <li>{t('price.includes', { n: room.capacity })}</li>}
-          {room.capacity && room.max_extra_guests > 0 && (
-            <li>{t('price.extraAllowed', { n: room.max_extra_guests, fee: formatBaht(fee) })}</li>
-          )}
-          {petRule.fee > 0 && (
-            <li>{t('price.petRule', { fee: formatBaht(petRule.fee), kg: petRule.maxKg })}</li>
-          )}
-        </ul>
-        {room.description && <p className="room-page__description">{room.description}</p>}
+        <aside className="room-book" id="room-book">
+          <p className="room-book__price">
+            {formatBaht(room.price)} <small>{`${perNight} · ${t('price.breakfast')}`}</small>
+          </p>
 
-        <h2>{t('room.inRoom')}</h2>
-        <ul className="room-chips">
-          {inRoom.items.map((item) => (
-            <li key={item.label}>{item.label}</li>
-          ))}
-        </ul>
+          <DateRangePicker
+            checkIn={dates.checkIn}
+            checkOut={dates.checkOut}
+            bookedNights={bookedNights}
+            onChange={setDates}
+          />
 
+          <div className="room-book__guests">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="currentColor">
+              <circle cx="9" cy="8" r="3.6" />
+              <path d="M2 20c0-3.9 3.1-6.6 7-6.6s7 2.7 7 6.6z" />
+              <circle cx="17" cy="9" r="2.8" opacity=".55" />
+              <path d="M15.6 13.6c3.5-.4 6.4 2 6.4 5.4h-4.2" opacity=".55" />
+            </svg>
+            <span>
+              <small>{t('flow.guests')}</small>
+              <b>
+                {shownGuests} {t('flow.guestUnit')}
+              </b>
+            </span>
+            <div className="room-book__step">
+              <button
+                type="button"
+                onClick={() => setGuests(shownGuests - 1)}
+                disabled={shownGuests <= 1}
+                aria-label={t('flow.fewer')}
+              >
+                −
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuests(shownGuests + 1)}
+                disabled={shownGuests >= maxGuests}
+                aria-label={t('flow.more')}
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {nights > 0 ? (
+            <>
+              <p className="room-book__free">✓ {t('room.freeNow', { room: names.title })}</p>
+              <PriceRows
+                price={room.price}
+                nights={nights}
+                extraGuests={quote.extraGuests}
+                fee={fee}
+                discount={quote.discount}
+                promoName={promo && `${promo.name} (-${promo.percent}%)`}
+              />
+            </>
+          ) : (
+            <p className="room-book__hint">{t('room.selectDates')}</p>
+          )}
+
+          <button type="button" className="bk-btn bk-btn--sun bk-btn--block" disabled={!nights} onClick={reserve}>
+            {t('room.reserve')}
+          </button>
+        </aside>
       </div>
 
-      <aside className="room-card-book">
-        <p className="room-card-book__price">
-          {formatBaht(room.price)} <small>{t('room.perNight')}</small>
-          <span className="room-card-book__breakfast">{t('price.breakfast')}</span>
-        </p>
-        {roomPromos.map((p) => (
-          <PromoTag key={p.id} promo={p} />
-        ))}
-
-        <div className="room-card-book__dates">
-          <div>
-            <small>{t('sum.checkIn')}</small>
-            <span>{dates.checkIn ? formatDay(dates.checkIn, locale) : '—'}</span>
-          </div>
-          <div>
-            <small>{t('sum.checkOut')}</small>
-            <span>{dates.checkOut ? formatDay(dates.checkOut, locale) : '—'}</span>
-          </div>
-        </div>
-
-        <InlineCalendar
-          checkIn={dates.checkIn}
-          checkOut={dates.checkOut}
-          bookedNights={bookedNights}
-          onChange={setDates}
-        />
-
-        <div className="room-card-book__guests">
-          <span className="bk-label">{t('flow.guests')}</span>
-          <div className="bk-counter">
-            <button type="button" onClick={() => setGuests((g) => g - 1)} disabled={guests <= 1} aria-label={t('flow.fewer')}>
-              −
-            </button>
-            <output aria-live="polite">{Math.min(guests, maxGuests)}</output>
-            <button type="button" onClick={() => setGuests((g) => g + 1)} disabled={guests >= maxGuests} aria-label={t('flow.more')}>
-              +
-            </button>
-            <span>{t('flow.guestUnit')}</span>
-          </div>
-        </div>
-
+      <div className="room-bar">
+        <span className="room-bar__info">
+          <small>{nights > 0 ? `${names.title} · ${t('flow.nights', { n: nights })}` : names.title}</small>
+          <b>{nights > 0 ? <Baht value={quote.total} /> : `${formatBaht(room.price)} ${perNight}`}</b>
+        </span>
         {nights > 0 ? (
-          <PriceRows
-            price={room.price}
-            nights={nights}
-            extraGuests={quote.extraGuests}
-            fee={fee}
-            discount={quote.discount}
-            promoName={promo && `${promo.name} (-${promo.percent}%)`}
-          />
+          <button type="button" className="room-bar__go" onClick={reserve}>
+            {t('room.reserve')}
+          </button>
         ) : (
-          <p className="room-card-book__hint">{t('room.selectDates')}</p>
+          <button
+            type="button"
+            className="room-bar__go room-bar__go--todo"
+            onClick={() => document.getElementById('room-book')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          >
+            {t('room.pickDates')}
+          </button>
         )}
-
-        <button type="button" className="bk-btn bk-btn--sun bk-btn--block" disabled={!nights} onClick={reserve}>
-          {t('room.reserve')}
-        </button>
-        <p className="room-card-book__note">{t('room.noCharge')}</p>
-      </aside>
-
-      {others.length > 0 && (
-        <div className="room-page__others">
-          <h2>{t('room.others')}</h2>
-          <div className="room-others">
-            {others.map((r) => (
-              <Link key={r.id} to={`/rooms/${r.id}`}>
-                <strong>{roomNames(r.name, lang).title}</strong>
-                <span>
-                  <b>{formatBaht(r.price)}</b> {t('room.perNight')}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+      </div>
     </section>
   );
 }

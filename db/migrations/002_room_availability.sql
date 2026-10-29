@@ -1,7 +1,3 @@
--- Brings an existing database (created before room-availability checks
--- existed) up to date with the current db/schema.sql. Safe to re-run. Not
--- needed for a brand-new database - schema.sql already creates bookings in
--- this shape.
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booked_until TIMESTAMPTZ;

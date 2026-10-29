@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { roomNames } from '../lib/booking';
+import { useLang } from '../i18n/lang';
+import Pager, { usePaged } from '../components/Pager';
+import DateField from '../components/DateField';
+import { Drawer, Empty, ErrorNote, PageHead, Pill, RowsSkeleton, useConfirm } from '../components/AdminUI';
 
 const EMPTY_FORM = { name: '', percent: '', starts_on: '', ends_on: '', room_id: '', active: true };
 
-const fmtDay = (key) =>
-  new Date(`${key}T00:00:00Z`).toLocaleDateString(undefined, {
+const fmtDay = (key, locale) =>
+  new Date(`${key}T00:00:00Z`).toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -16,25 +21,23 @@ function todayKey() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
-// Where a promotion stands today.
 function promoState(p) {
-  if (!p.active) return { label: 'Off', tone: 'neutral' };
+  if (!p.active) return ['adm.promo.state.off', 'neutral'];
   const today = todayKey();
-  if (p.ends_on < today) return { label: 'Finished', tone: 'cancelled' };
-  if (p.starts_on > today) return { label: 'Upcoming', tone: 'pending' };
-  return { label: 'Running', tone: 'confirmed' };
+  if (p.ends_on < today) return ['adm.promo.state.finished', 'cancelled'];
+  if (p.starts_on > today) return ['adm.promo.state.upcoming', 'pending'];
+  return ['adm.promo.state.running', 'confirmed'];
 }
 
-// Admin "Promotions" section: create, edit, switch off and delete
-// promotions. A promotion takes a percentage off the room rate for stays
-// that check in between its two dates, for one room or all of them. Guests
-// see it on the site straight away and get the discount when they book.
 export default function AdminPromotions() {
+  const { t, lang, locale } = useLang();
+  const confirm = useConfirm();
   const [promotions, setPromotions] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [error, setError] = useState(null);
-  const [editing, setEditing] = useState(null); // null | 'new' | promotion id
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [base, setBase] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -57,11 +60,11 @@ export default function AdminPromotions() {
   function startEdit(p) {
     setEditing(p ? p.id : 'new');
     setFormError(null);
-    setForm(
+    const start = (
       p
         ? {
             name: p.name,
-            percent: p.percent,
+            percent: String(Number(p.percent)),
             starts_on: p.starts_on,
             ends_on: p.ends_on,
             room_id: p.room_id ?? '',
@@ -69,6 +72,8 @@ export default function AdminPromotions() {
           }
         : EMPTY_FORM
     );
+    setForm(start);
+    setBase(start);
   }
 
   async function save(e) {
@@ -90,7 +95,6 @@ export default function AdminPromotions() {
     }
   }
 
-  // Switches a promotion on or off without opening the form.
   async function toggle(p) {
     try {
       await api(`/api/admin/promotions/${p.id}`, { method: 'PUT', body: JSON.stringify({ ...p, active: !p.active }) });
@@ -101,7 +105,7 @@ export default function AdminPromotions() {
   }
 
   async function remove(p) {
-    if (!window.confirm(`Delete the promotion "${p.name}"? Bookings already made keep their discount.`)) return;
+    if (!(await confirm({ title: t('adm.promo.askDelete', { name: p.name }), ok: t('adm.list.deleteBtn'), danger: true }))) return;
     try {
       await api(`/api/admin/promotions/${p.id}`, { method: 'DELETE' });
       if (editing === p.id) setEditing(null);
@@ -116,118 +120,115 @@ export default function AdminPromotions() {
     onChange: (e) => setForm({ ...form, [key]: e.target.value }),
   });
 
+  const paged = usePaged(promotions ?? [], 8, '');
   return (
     <>
-      <div className="admin__toolbar">
-        <p className="admin__muted">
-          A promotion takes a percentage off the room rate for stays that check in between its dates. Guests see it on
-          the site straight away. If two apply, the bigger discount is used.
-        </p>
-        <button type="button" className="admin__btn admin__btn--primary" onClick={() => startEdit(null)}>
-          + Add promotion
+      <PageHead title={t('adm.tab.promotions')}>
+        <button type="button" className="adm-btn adm-btn--primary" onClick={() => startEdit(null)}>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          {t('adm.promo.add').replace(/^\+\s*/, '')}
         </button>
+      </PageHead>
+      <ErrorNote>{error}</ErrorNote>
+
+      <div className="adm-card" ref={paged.boxRef} style={paged.boxStyle}>
+        {!promotions ? (
+          <RowsSkeleton rows={3} />
+        ) : promotions.length === 0 ? (
+          <Empty title={t('adm.promo.empty')} hint={t('adm.promo.emptyHint')}>
+            <button type="button" className="adm-btn" onClick={() => startEdit(null)}>
+              {t('adm.promo.add')}
+            </button>
+          </Empty>
+        ) : (
+          <div className="adm-rows">
+            {paged.rows.map((p) => {
+              const [state, tone] = promoState(p);
+              return (
+                <div key={p.id} className={`adm-row is-click${editing === p.id ? ' is-sel' : ''}`}>
+                  <span className="adm-promo-off num">−{Number(p.percent)}%</span>
+                  <div className="adm-row__main">
+                    <button type="button" className="adm-row__open" onClick={() => startEdit(p)}>
+                      {p.name}
+                    </button>
+                    <span className="num">
+                      {fmtDay(p.starts_on, locale)} → {fmtDay(p.ends_on, locale)} ·{' '}
+                      {p.room_name ? roomNames(p.room_name, lang).title : t('adm.promo.allRooms')}
+                    </span>
+                  </div>
+                  <div className="adm-row__meta">
+                    <Pill tone={tone}>{t(state)}</Pill>
+                  </div>
+                  <div className="adm-row__acts">
+                    <button type="button" className="adm-btn adm-btn--sm" onClick={() => toggle(p)}>
+                      {p.active ? t('adm.ann.switchOff') : t('adm.ann.switchOn')}
+                    </button>
+                    <button type="button" className="adm-btn adm-btn--sm adm-btn--ghost abk-del" onClick={() => remove(p)}>
+                      {t('adm.list.deleteBtn')}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
+      {promotions && <Pager {...paged.pager} />}
 
       {editing !== null && (
-        <form className="admin__form" onSubmit={save}>
-          <h2>{editing === 'new' ? 'New promotion' : 'Edit promotion'}</h2>
-          <div className="admin__form-grid">
-            <label>
-              <span>Name (guests see this)</span>
-              <input required maxLength={80} placeholder="e.g. Rainy season special" {...field('name')} />
+        <Drawer
+          title={editing === 'new' ? t('adm.promo.new') : t('adm.promo.edit')}
+          onClose={() => setEditing(null)}
+          dirty={JSON.stringify(form) !== JSON.stringify(base)}
+          onSubmit={save}
+          footer={(close) => (
+            <>
+              <button type="button" className="adm-btn" onClick={close}>
+                {t('adm.list.cancel')}
+              </button>
+              <button type="submit" className="adm-btn adm-btn--primary" disabled={saving}>
+                {saving ? t('adm.contact.saving') : t('adm.contact.save')}
+              </button>
+            </>
+          )}
+        >
+          <div className="adm-fields">
+            <label className="adm-field adm-field--wide">
+              <span>{t('adm.promo.name')}</span>
+              <input required maxLength={80} placeholder={t('adm.promo.namePh')} {...field('name')} />
             </label>
-            <label>
-              <span>Discount (% off the room rate)</span>
-              <input required type="number" min="1" max="100" step="0.5" {...field('percent')} />
+            <label className="adm-field">
+              <span>{t('adm.promo.percent')}</span>
+              <input required type="number" inputMode="decimal" min="1" max="100" step="0.5" {...field('percent')} />
             </label>
-            <label>
-              <span>First check-in date</span>
-              <input required type="date" {...field('starts_on')} />
-            </label>
-            <label>
-              <span>Last check-in date</span>
-              <input required type="date" min={form.starts_on || undefined} {...field('ends_on')} />
-            </label>
-            <label>
-              <span>Room</span>
+            <label className="adm-field">
+              <span>{t('adm.panel.room')}</span>
               <select {...field('room_id')}>
-                <option value="">All rooms</option>
+                <option value="">{t('adm.promo.allRooms')}</option>
                 {rooms.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.name}
+                    {roomNames(r.name, lang).title}
                   </option>
                 ))}
               </select>
             </label>
-            <label className="admin__check">
-              <input
-                type="checkbox"
-                checked={form.active}
-                onChange={(e) => setForm({ ...form, active: e.target.checked })}
-              />
-              <span>Switched on</span>
+            <label className="adm-field">
+              <span>{t('adm.promo.first')}</span>
+              <DateField required value={form.starts_on} onChange={(v) => setForm({ ...form, starts_on: v })} />
+            </label>
+            <label className="adm-field">
+              <span>{t('adm.promo.last')}</span>
+              <DateField required min={form.starts_on} value={form.ends_on} onChange={(v) => setForm({ ...form, ends_on: v })} />
+            </label>
+            <label className="adm-check adm-field--wide">
+              <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
+              <span>{t('adm.ann.on')}</span>
             </label>
           </div>
-          {formError && <p className="admin__error" role="alert">{formError}</p>}
-          <div className="admin__form-actions">
-            <button type="button" className="admin__btn" onClick={() => setEditing(null)}>
-              Cancel
-            </button>
-            <button type="submit" className="admin__btn admin__btn--primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {error && <p className="admin__error" role="alert">{error}</p>}
-      {!promotions && !error && <p className="admin__muted">Loading…</p>}
-      {promotions && (
-        <div className="admin__table-wrap">
-          <table className="admin__table">
-            <thead>
-              <tr>
-                <th>Promotion</th>
-                <th>Discount</th>
-                <th>Check-in dates</th>
-                <th>Room</th>
-                <th>Status</th>
-                <th aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody>
-              {promotions.map((p) => {
-                const state = promoState(p);
-                return (
-                  <tr key={p.id} className={editing === p.id ? 'is-editing' : ''}>
-                    <td><strong>{p.name}</strong></td>
-                    <td>{p.percent}% off</td>
-                    <td className="admin__nowrap">
-                      {fmtDay(p.starts_on)}
-                      <div className="admin__sub">→ {fmtDay(p.ends_on)}</div>
-                    </td>
-                    <td>{p.room_name ?? 'All rooms'}</td>
-                    <td>
-                      <span className={`admin__status admin__status--${state.tone}`}>{state.label}</span>
-                    </td>
-                    <td className="admin__actions">
-                      <button type="button" className="admin__btn" onClick={() => toggle(p)}>
-                        {p.active ? 'Switch off' : 'Switch on'}
-                      </button>
-                      <button type="button" className="admin__btn" onClick={() => startEdit(p)}>
-                        Edit
-                      </button>
-                      <button type="button" className="admin__btn admin__btn--danger" onClick={() => remove(p)}>
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {promotions.length === 0 && <p className="admin__empty">No promotions yet.</p>}
-        </div>
+          <ErrorNote>{formError}</ErrorNote>
+        </Drawer>
       )}
     </>
   );

@@ -2,27 +2,20 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
-import { FACEBOOK_URL } from '../lib/site';
-import FacebookIcon from './FacebookIcon';
 import './Navbar.css';
 
-// Past this scroll offset (and on every page other than Home, where there's
-// no hero photo to sit on) the full-width transparent bar condenses into a
-// floating, frosted capsule so it stays readable over any content.
 const FLOAT_SCROLL_THRESHOLD = 24;
 
-// Below this width the links move into the full-screen menu sheet.
+const PHOTO_TOP = ['/home', '/activities', '/about', '/stay'];
+
 const MOBILE_QUERY = '(max-width: 900px)';
 
-// `label` is a translation key (see i18n/strings.js).
 const PRIMARY_LINKS = [
   { to: '/home', label: 'nav.home' },
   { to: '/activities', label: 'nav.activities' },
   { to: '/about', label: 'nav.about' },
 ];
 
-// TH / EN toggle. Two buttons rather than a dropdown: both options are
-// always visible and one tap switches.
 function LangSwitch({ lang, setLang, label, className = '' }) {
   return (
     <div className={`navbar__lang ${className}`} role="group" aria-label={label}>
@@ -45,12 +38,25 @@ function LangSwitch({ lang, setLang, label, className = '' }) {
   );
 }
 
-// Site-wide navigation (see App.jsx): brand, page links with a sliding
-// "you are here" pill, and actions - account and the primary
-// "Book a stay" call to action. An admin browsing the public site gets a
-// link back to the admin dashboard (a separate page, see Admin.jsx) in place
-// of the guest-only items (Book a stay, My bookings). On small screens
-// everything except the brand and the CTA moves into a full-screen menu.
+const MenuIcon = ({ d }) => (
+  <svg className="navbar__menu-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <path d={d} />
+  </svg>
+);
+
+const Chevron = () => (
+  <svg className="navbar__chev" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+    <path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const PersonIcon = () => (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
+  </svg>
+);
+
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(window.scrollY > FLOAT_SCROLL_THRESHOLD);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -65,15 +71,13 @@ export default function Navbar() {
   const indicatorRef = useRef(null);
   const hasMeasuredRef = useRef(false);
 
-  const floating = scrolled || pathname !== '/home';
+  const floating = scrolled;
+  const band = !floating && !PHOTO_TOP.includes(pathname);
   const isAdmin = Boolean(user?.is_admin);
-  // A room account (the temporary login of a confirmed stay) only has its
-  // room dashboard: no booking button, no "My bookings".
   const isStay = Boolean(user?.is_stay);
   const memberLinks = isStay ? [{ to: '/stay', label: 'nav.myRoom' }, ...PRIMARY_LINKS.slice(1)] : PRIMARY_LINKS;
   const links = memberLinks.map((l) => ({ ...l, label: t(l.label) }));
 
-  // Tracks scroll position to switch between the over-hero and floating styles.
   useEffect(() => {
     function handleScroll() {
       setScrolled(window.scrollY > FLOAT_SCROLL_THRESHOLD);
@@ -82,14 +86,16 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Positions the sliding pill under the active page link. Re-measured on
-  // navigation and resize; hidden on pages that aren't in the main links.
-  // The very first placement skips the slide so the pill doesn't fly in from
-  // the left edge on page load.
   useLayoutEffect(() => {
     function measure() {
       const active = linksRef.current?.querySelector('a.active');
-      setIndicator(active ? { x: active.offsetLeft, w: active.offsetWidth } : null);
+      // With no active link, keep the pill where it was and only fade it out,
+      // instead of letting it slide to the left edge and shrink to a sliver.
+      setIndicator((prev) =>
+        active
+          ? { x: active.offsetLeft, w: active.offsetWidth, visible: true }
+          : prev && { ...prev, visible: false }
+      );
       if (active && !hasMeasuredRef.current && indicatorRef.current) {
         hasMeasuredRef.current = true;
         const el = indicatorRef.current;
@@ -102,7 +108,6 @@ export default function Navbar() {
     return () => window.removeEventListener('resize', measure);
   }, [pathname, lang]);
 
-  // Account dropdown: closes on outside click or Escape.
   useEffect(() => {
     if (!accountOpen) return;
     function handlePointer(e) {
@@ -119,8 +124,6 @@ export default function Navbar() {
     };
   }, [accountOpen]);
 
-  // Mobile menu: locks page scroll while open, closes on Escape or when the
-  // window grows past the mobile breakpoint.
   useEffect(() => {
     if (!menuOpen) return;
     const previousOverflow = document.body.style.overflow;
@@ -146,18 +149,15 @@ export default function Navbar() {
     setAccountOpen(false);
   }
 
-  // Clears the session and sends the user back to the public Home page.
   function handleLogout() {
     closeMenus();
     logout();
     navigate('/home');
   }
 
-  const initial = user?.email?.[0]?.toUpperCase() ?? '?';
-
   return (
     <header
-      className={`navbar${floating ? ' navbar--floating' : ''}${menuOpen ? ' navbar--menu-open' : ''}`}
+      className={`navbar${floating ? ' navbar--floating' : ''}${band ? ' navbar--band' : ''}${menuOpen ? ' navbar--menu-open' : ''}`}
     >
       <div className="navbar__inner">
         <Link to="/home" className="navbar__brand" onClick={closeMenus} aria-label="Baanrai Pachong, home">
@@ -180,7 +180,7 @@ export default function Navbar() {
             ref={indicatorRef}
             className="navbar__indicator"
             aria-hidden="true"
-            data-visible={Boolean(indicator)}
+            data-visible={Boolean(indicator?.visible)}
             style={indicator ? { '--x': `${indicator.x}px`, '--w': `${indicator.w}px` } : undefined}
           />
           {links.map((link) => (
@@ -201,35 +201,50 @@ export default function Navbar() {
                 aria-label={t('nav.account', { email: user.email })}
                 onClick={() => setAccountOpen((open) => !open)}
               >
-                <span className="navbar__avatar" aria-hidden="true">
-                  {initial}
-                </span>
+                <svg className="navbar__person" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" />
+                </svg>
+                <span>{t('nav.accountShort')}</span>
                 <svg className="navbar__chevron" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
                   <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
               {accountOpen && (
                 <div className="navbar__dropdown" id="navbar-account-menu">
-                  <p className="navbar__dropdown-email">
-                    {user.email}
-                    {!isStay && user.member_code && (
-                      <span>
-                        {t('member.code')} {user.member_code}
-                      </span>
-                    )}
-                  </p>
-                  {/* The admin dashboard is English-only, like this link to it. */}
+                  <div className="navbar__dropdown-who">
+                    <span>
+                      <b>{user.email}</b>
+                      {!isStay && user.member_code && (
+                        <small>
+                          {t('member.code')} {user.member_code}
+                        </small>
+                      )}
+                    </span>
+                  </div>
                   {isAdmin && (
                     <Link to="/admin" onClick={closeMenus}>
-                      Admin dashboard
+                      <MenuIcon d="M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z" />
+                      {t('nav.admin')}
+                      <Chevron />
                     </Link>
                   )}
                   {!isAdmin && !isStay && (
-                    <Link to="/booking" onClick={closeMenus}>
-                      {t('nav.myBookings')}
-                    </Link>
+                    <>
+                      <Link to="/booking" onClick={closeMenus}>
+                        <MenuIcon d="M4 7h16v13H4zM4 11h16M8 3v4M16 3v4" />
+                        {t('nav.myBookings')}
+                        <Chevron />
+                      </Link>
+                      <Link to="/stay" onClick={closeMenus}>
+                        <MenuIcon d="M3 18V8M3 14h18v4M21 18v-6a3 3 0 0 0-3-3h-7v5M7 11.5h.01" />
+                        {t('nav.myRoom')}
+                        <Chevron />
+                      </Link>
+                    </>
                   )}
                   <button type="button" className="navbar__dropdown-logout" onClick={handleLogout}>
+                    <MenuIcon d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" />
                     {t('nav.logout')}
                   </button>
                 </div>
@@ -243,7 +258,7 @@ export default function Navbar() {
 
           <LangSwitch lang={lang} setLang={setLang} label={t('nav.language')} className="navbar__desktop-only" />
 
-          {!isAdmin && !isStay && (
+          {!isAdmin && !isStay && pathname !== '/home' && !pathname.startsWith('/rooms/') && pathname !== '/book' && (
             <Link to="/book" className="navbar__cta" onClick={closeMenus}>
               {t('nav.book')}
             </Link>
@@ -264,50 +279,71 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu. `inert` keeps it out of the tab order while closed. */}
+      <div className="navbar__shade" aria-hidden="true" onClick={closeMenus} />
       <div id="navbar-sheet" className="navbar__sheet" inert={!menuOpen}>
         <nav className="navbar__sheet-links" aria-label="Main">
-          {links.map((link, i) => (
-            <NavLink key={link.to} to={link.to} end onClick={closeMenus} style={{ '--i': i }}>
+          {links.map((link) => (
+            <NavLink key={link.to} to={link.to} end onClick={closeMenus}>
               {link.label}
+              <Chevron />
             </NavLink>
           ))}
         </nav>
 
-        <div className="navbar__sheet-footer" style={{ '--i': links.length }}>
-          {user ? (
-            <>
-              <p className="navbar__sheet-email">
-                {t('nav.signedInAs', { email: user.email })}
-                {!isStay && user.member_code && ` · ${t('member.code')} ${user.member_code}`}
-              </p>
-              <div className="navbar__sheet-row">
-                {isAdmin && (
-                  <Link to="/admin" onClick={closeMenus}>
-                    Admin dashboard
-                  </Link>
-                )}
-                {!isAdmin && !isStay && (
-                  <Link to="/booking" onClick={closeMenus}>
-                    {t('nav.myBookings')}
-                  </Link>
-                )}
-                <button type="button" onClick={handleLogout}>
-                  {t('nav.logout')}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="navbar__sheet-row">
-              <Link to="/login" onClick={closeMenus}>
-                {t('nav.login')}
-              </Link>
-            </div>
+        <div className="navbar__sheet-more">
+          {user && (
+            <p className="navbar__sheet-email">
+              {user.email}
+              {!isStay && user.member_code && ` · ${t('member.code')} ${user.member_code}`}
+            </p>
           )}
-          <a href={FACEBOOK_URL} target="_blank" rel="noopener noreferrer" className="navbar__sheet-social">
-            <FacebookIcon size={18} /> {t('nav.messageFb')}
-          </a>
-          <LangSwitch lang={lang} setLang={setLang} label={t('nav.language')} className="navbar__sheet-lang" />
+          {!user && (
+            <Link to="/login" onClick={closeMenus}>
+              <span>
+                <PersonIcon />
+                {t('nav.login')}
+              </span>
+              <Chevron />
+            </Link>
+          )}
+          {isAdmin && (
+            <Link to="/admin" onClick={closeMenus}>
+              <span>
+                <PersonIcon />
+                Admin dashboard
+              </span>
+              <Chevron />
+            </Link>
+          )}
+          {user && !isAdmin && !isStay && (
+            <Link to="/booking" onClick={closeMenus}>
+              <span>
+                <PersonIcon />
+                {t('nav.myBookings')}
+              </span>
+              <Chevron />
+            </Link>
+          )}
+          <button type="button" lang={lang === 'th' ? 'en' : 'th'} onClick={() => setLang(lang === 'th' ? 'en' : 'th')}>
+            <span>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
+              </svg>
+              {lang === 'th' ? 'English' : 'ภาษาไทย'}
+            </span>
+            <small>{t('nav.language')}</small>
+          </button>
+          {user && (
+            <button type="button" onClick={handleLogout}>
+              <span>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10" />
+                </svg>
+                {t('nav.logout')}
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </header>

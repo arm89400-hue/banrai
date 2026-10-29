@@ -1,24 +1,32 @@
 import { randomInt } from 'node:crypto';
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { pool } from '../db/pool.js';
+import { isEmail } from '../lib/text.js';
 import { requireAuth, requireMember } from '../middleware/auth.js';
 import { logEvent } from '../lib/activityLog.js';
-import { ensureStayAccount } from '../lib/stayAccount.js';
-import { maxGuests, priceStay } from '../lib/pricing.js';
+import { MAX_PARTY, priceStay, splitGuests } from '../lib/pricing.js';
 import { bestPromotion, currentPromotions } from '../lib/promotions.js';
+import { MAX_UPLOAD_BYTES, imageExtension, saveUpload } from '../lib/photos.js';
+import { CHECKER_PROBLEMS, checkSlip, satang, slipokConfigured } from '../lib/slipok.js';
+import {
+  KINDS,
+  PAYMENT_COLUMNS,
+  PAYMENT_TEST_MODE,
+  confirms,
+  logPayment,
+  paymentOptions,
+  paymentScope,
+  recordSlip,
+  settlePayment,
+} from '../lib/payments.js';
 
 export const bookingRouter = Router();
 
-// Express 4 doesn't catch rejected promises from async handlers - this
-// forwards them to the app's error handler instead of crashing the process.
 const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
-// Extra requests a guest can tick when booking a room.
 const REQUEST_OPTIONS = ['bbq', 'extra_bed', 'pets'];
 const MAX_NIGHTS = 30;
 
-// Booking codes look like "BR-7K3Q9M": no 0/O/1/I so they're easy to read
-// out over the phone.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function newCode() {
   let code = 'BR-';
@@ -28,30 +36,21 @@ function newCode() {
 
 const digitsOnly = (value) => String(value ?? '').replace(/\D/g, '');
 
-// Until real QR payment (PromptPay + SlipOK) is wired up, guests get a
-// "PassPay" test button that marks their deposit as paid. On unless
-// PAYMENT_TEST_MODE=false - turn it off before taking real bookings.
-const PAYMENT_TEST_MODE = process.env.PAYMENT_TEST_MODE !== 'false';
+const SLIP_TRIES_PER_HOUR = 8;
+const SLIP_CLOCK_SLACK_MS = 10 * 60 * 1000;
 
-// Parses a bare "YYYY-MM-DD" calendar date as UTC midnight (the same
-// convention the room availability search uses), or null if it isn't one.
 function parseDay(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value ?? ''))) return null;
   const date = new Date(`${value}T00:00:00.000Z`);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-// Columns safe to return to the account that owns the booking. Includes
-// the room dashboard login (set once the booking is confirmed).
 const PUBLIC_COLUMNS = `
   b.id, b.code, b.status, b.room_id, b.activity_id, b.booked_for, b.booked_until,
   b.guests, b.extra_guests, b.pets, b.guest_name, b.guest_phone, b.requests, b.note, b.total, b.deposit,
-  b.discount, b.promo_name, b.stay_username, b.stay_password, b.created_at,
-  r.name AS room_name, a.name AS activity_name`;
+  b.discount, b.promo_name, b.group_code, b.stay_username, b.stay_password, b.created_at,
+  r.name AS room_name, a.name AS activity_name, ${PAYMENT_COLUMNS}`;
 
-// Lists the signed-in user's own bookings - rooms and activities both -
-// soonest first. Exactly one of activity_name/room_name is set per row;
-// booked_until is only set for room stays (see POST / below).
 bookingRouter.get(
   '/',
   requireAuth,
@@ -66,7 +65,6 @@ bookingRouter.get(
        ORDER BY b.booked_for`,
       [req.user.id]
     );
-    // Bookings of theirs the property deleted, with the reason given.
     const notices = await pool.query(
       `SELECT id, code, booked, to_char(check_in, 'YYYY-MM-DD') AS check_in,
               to_char(check_out, 'YYYY-MM-DD') AS check_out, reason, created_at
@@ -75,13 +73,33 @@ bookingRouter.get(
        ORDER BY id DESC`,
       [req.user.id]
     );
-    res.json({ bookings: rows, notices: notices.rows, test_pay: PAYMENT_TEST_MODE });
+    res.json({ bookings: rows, notices: notices.rows, ...paymentOptions() });
   })
 );
 
-// TEST ONLY ("PassPay"): marks the member's own pending room booking as
-// paid - the same as the admin confirming it - so the whole flow can be
-// tried before real payments exist. Disabled when PAYMENT_TEST_MODE=false.
+const kindOf = (req) => (KINDS.includes(req.query.kind) ? req.query.kind : 'deposit');
+
+function notPayable(res, error, kind) {
+  if (error === 'NOT_FOUND') return res.status(404).json({ error: 'Booking not found' });
+  return confirms(kind)
+    ? res.status(409).json({ error: 'This booking is not waiting for payment', reason: 'NOT_PENDING' })
+    : res.status(409).json({ error: 'Nothing is left to pay on this booking', reason: 'BALANCE_NOT_DUE' });
+}
+
+export async function paidResponse(bookingId) {
+  const { rows } = await pool.query(
+    `SELECT ${PUBLIC_COLUMNS}
+     FROM bookings b
+     LEFT JOIN activities a ON a.id = b.activity_id
+     LEFT JOIN rooms r ON r.id = b.room_id
+     WHERE b.id = $1
+        OR b.group_code = (SELECT t.group_code FROM bookings t WHERE t.id = $1)
+     ORDER BY b.id`,
+    [bookingId]
+  );
+  return { booking: rows.find((b) => b.id === Number(bookingId)), bookings: rows };
+}
+
 bookingRouter.post(
   '/:id/pass-pay',
   requireAuth,
@@ -89,34 +107,19 @@ bookingRouter.post(
   wrap(async (req, res) => {
     if (!PAYMENT_TEST_MODE) return res.status(403).json({ error: 'Test payments are turned off' });
     if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'Booking not found' });
+    const kind = kindOf(req);
 
     const client = await pool.connect();
-    let stay;
-    let booking;
+    let scope;
+    let stays;
     try {
       await client.query('BEGIN');
-      booking = (
-        await client.query(
-          `SELECT b.id, b.status, b.code, b.room_id, b.guest_name, b.deposit, r.name AS room_name,
-                  to_char(b.booked_for AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS check_in,
-                  to_char(b.booked_until AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS check_out
-           FROM bookings b
-           LEFT JOIN rooms r ON r.id = b.room_id
-           WHERE b.id = $1 AND b.user_id = $2
-           FOR UPDATE OF b`,
-          [req.params.id, req.user.id]
-        )
-      ).rows[0];
-      if (!booking?.room_id) {
+      scope = await paymentScope(client, req.params.id, { kind, userId: req.user.id, lock: true });
+      if (scope.error) {
         await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Booking not found' });
+        return notPayable(res, scope.error, kind);
       }
-      if (booking.status !== 'pending') {
-        await client.query('ROLLBACK');
-        return res.status(409).json({ error: 'This booking is not waiting for payment', reason: 'NOT_PENDING' });
-      }
-      await client.query("UPDATE bookings SET status = 'confirmed' WHERE id = $1", [booking.id]);
-      stay = await ensureStayAccount(client, booking.id);
+      stays = await settlePayment(client, scope.due.map((b) => b.id), kind, 'online');
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
@@ -125,35 +128,128 @@ bookingRouter.post(
       client.release();
     }
 
-    await logEvent('booking.confirmed', {
-      actor: req.user.email,
-      bookingId: booking.id,
-      details: {
-        code: stay?.stay_username ?? booking.code,
-        room: booking.room_name,
-        guest: booking.guest_name,
-        check_in: booking.check_in,
-        check_out: booking.check_out,
-        paid_with: 'PassPay (test payment)',
-        deposit: booking.deposit,
-        room_username: stay?.stay_username,
-        room_password: stay?.stay_password,
-      },
-    });
-
-    const { rows } = await pool.query(
-      `SELECT ${PUBLIC_COLUMNS}
-       FROM bookings b
-       LEFT JOIN activities a ON a.id = b.activity_id
-       LEFT JOIN rooms r ON r.id = b.room_id
-       WHERE b.id = $1`,
-      [booking.id]
-    );
-    res.json({ booking: rows[0] });
+    await logPayment(req.user.email, scope, kind, stays, { paidWith: 'PassPay (test payment)' });
+    res.json(await paidResponse(scope.target.id));
   })
 );
 
-// Dismisses one of the member's own "your booking was deleted" notices.
+const SLIP_MESSAGES = {
+  SLIP_UNREADABLE: 'Could not read a payment QR code on this slip',
+  SLIP_NOT_FOUND: 'The bank could not find this transfer',
+  SLIP_PENDING: 'The bank has not confirmed this transfer yet - try again in a few minutes',
+  SLIP_DUPLICATE: 'This slip has already been used',
+  SLIP_AMOUNT: 'The amount on the slip does not match the amount due',
+  SLIP_RECEIVER: 'The money was sent to a different account',
+  SLIP_OLD: 'This slip was made before the booking',
+  SLIP_SERVICE: 'The slip check service is not available right now',
+  SLIP_NOT_CONFIGURED: 'Slip checking is not set up yet',
+  SLIP_TOO_MANY: 'Too many slips for this booking - try again in an hour or call us',
+};
+
+bookingRouter.post(
+  '/:id/slip',
+  requireAuth,
+  requireMember,
+  express.raw({ type: () => true, limit: MAX_UPLOAD_BYTES }),
+  wrap(async (req, res) => {
+    const fail = (status, reason) => res.status(status).json({ error: SLIP_MESSAGES[reason] ?? reason, reason });
+    if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ error: 'Booking not found' });
+    const kind = kindOf(req);
+    const ext = imageExtension(req.body);
+    if (!ext) return fail(400, 'SLIP_UNREADABLE');
+
+    const scope = await paymentScope(pool, req.params.id, { kind, userId: req.user.id });
+    if (scope.error) return notPayable(res, scope.error, kind);
+    const { target } = scope;
+
+    const recent = (
+      await pool.query(
+        `SELECT count(*)::int AS n FROM slip_payments
+         WHERE booking_ids && $1::int[] AND created_at > now() - interval '1 hour'`,
+        [scope.due.map((b) => b.id)]
+      )
+    ).rows[0].n;
+    if (recent >= SLIP_TRIES_PER_HOUR) return fail(429, 'SLIP_TOO_MANY');
+
+    const slipFile = await saveUpload(req.body, ext, 'slip');
+
+    const toReview = async (reason, slip, raw) => {
+      await recordSlip(pool, { scope, kind, userId: req.user.id, status: 'review', reason, slip, slipFile, raw });
+      await logEvent('booking.slip_sent', {
+        actor: req.user.email,
+        bookingId: target.id,
+        details: {
+          code: scope.code,
+          payment: kind,
+          rooms: scope.due.map((b) => b.room_name).join(', '),
+          guest: target.guest_name,
+          amount: scope.amount,
+          slip: slipFile,
+          slipok: reason ?? undefined,
+        },
+      });
+      return res.status(202).json({ ...(await paidResponse(target.id)), review: true });
+    };
+
+    if (!slipokConfigured()) return toReview(null);
+
+    const result = await checkSlip({
+      image: req.body,
+      contentType: ext === 'jpg' ? 'image/jpeg' : `image/${ext}`,
+      amount: scope.amount,
+    });
+    const slip = result.ok ? result.slip : null;
+
+    let reason = result.ok ? null : result.reason;
+    if (slip) {
+      const madeAt = new Date(slip.transTimestamp);
+      if (satang(slip.amount) !== satang(scope.amount)) reason = 'SLIP_AMOUNT';
+      else if (!slip.transRef) reason = 'SLIP_NOT_FOUND';
+      else if (!Number.isNaN(madeAt.getTime()) && madeAt < new Date(target.created_at).getTime() - SLIP_CLOCK_SLACK_MS) {
+        reason = 'SLIP_OLD';
+      }
+    }
+    if (reason && CHECKER_PROBLEMS.has(reason)) return toReview(reason, slip, result.raw);
+    if (reason) {
+      await recordSlip(pool, { scope, kind, userId: req.user.id, status: 'rejected', reason, slip, slipFile, raw: result.raw });
+      return fail(422, reason);
+    }
+
+    const client = await pool.connect();
+    let current;
+    let stays;
+    try {
+      await client.query('BEGIN');
+      current = await paymentScope(client, target.id, { kind, userId: req.user.id, lock: true });
+      if (current.error || satang(current.amount) !== satang(scope.amount)) {
+        await client.query('ROLLBACK');
+        const notDue = confirms(kind) ? 'NOT_PENDING' : 'BALANCE_NOT_DUE';
+        const why = current.error ? notDue : 'SLIP_AMOUNT';
+        await recordSlip(pool, { scope, kind, userId: req.user.id, status: 'rejected', reason: why, slip, slipFile, raw: result.raw });
+        return why === 'SLIP_AMOUNT' ? fail(422, why) : notPayable(res, 'NOT_DUE', kind);
+      }
+      try {
+        await recordSlip(client, { scope: current, kind, userId: req.user.id, status: 'verified', slip, slipFile, raw: result.raw });
+      } catch (err) {
+        if (err.code !== '23505') throw err;
+        await client.query('ROLLBACK');
+        await recordSlip(pool, { scope, kind, userId: req.user.id, status: 'rejected', reason: 'SLIP_DUPLICATE', slip, slipFile, raw: result.raw });
+        return fail(422, 'SLIP_DUPLICATE');
+      }
+      stays = await settlePayment(client, current.due.map((b) => b.id), kind, 'online');
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    await logPayment(req.user.email, current, kind, stays, { paidWith: `Bank transfer slip (SlipOK) ${slip.transRef}`, slipFile });
+    res.json(await paidResponse(target.id));
+  })
+);
+
 bookingRouter.delete(
   '/notices/:id',
   requireAuth,
@@ -169,13 +265,6 @@ bookingRouter.delete(
   })
 );
 
-// Creates a room booking request for the signed-in account (logging in is
-// required to book). The guest gives a contact name and phone number and
-// gets back a booking code. The request starts as 'pending' (it holds the
-// room) until the property confirms it once the deposit is paid - which
-// also creates the room dashboard login - or cancels it. The price is always computed here
-// from the room's current rate, never taken from the client.
-// `reason` codes let the frontend show its own translated message.
 bookingRouter.post(
   '/request',
   requireAuth,
@@ -184,17 +273,21 @@ bookingRouter.post(
     const body = req.body ?? {};
     const fail = (status, error, reason) => res.status(status).json({ error, reason });
 
-    const roomId = Number.parseInt(body.room_id, 10);
+    const roomIds = [
+      ...new Set(
+        (Array.isArray(body.rooms) ? body.rooms : [body.room_id]).map((id) => Number.parseInt(id, 10))
+      ),
+    ];
     const checkIn = parseDay(body.check_in);
     const checkOut = parseDay(body.check_out);
-    if (!Number.isInteger(roomId) || !checkIn || !checkOut) {
-      return fail(400, 'room_id, check_in and check_out (YYYY-MM-DD) are required', 'MISSING_FIELDS');
+    if (roomIds.length === 0 || roomIds.some((id) => !Number.isInteger(id)) || !checkIn || !checkOut) {
+      return fail(400, 'rooms, check_in and check_out (YYYY-MM-DD) are required', 'MISSING_FIELDS');
     }
+    if (roomIds.length > 5) return fail(400, 'At most 5 rooms per booking', 'TOO_MANY_ROOMS');
 
     const nights = Math.round((checkOut - checkIn) / 86_400_000);
     if (nights < 1) return fail(400, 'check_out must be after check_in', 'BAD_DATES');
     if (nights > MAX_NIGHTS) return fail(400, `Stays are limited to ${MAX_NIGHTS} nights`, 'TOO_LONG');
-    // One day of slack so a guest in a timezone behind UTC can still book "today".
     if (checkIn.getTime() < Date.now() - 2 * 86_400_000) {
       return fail(400, 'check_in is in the past', 'BAD_DATES');
     }
@@ -208,13 +301,11 @@ bookingRouter.post(
     }
 
     const email = String(body.email ?? '').trim() || null;
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (email && !isEmail(email)) {
       return fail(400, 'Please enter a valid email', 'BAD_EMAIL');
     }
     const line = String(body.line ?? '').trim().slice(0, 50) || null;
     const note = String(body.note ?? '').trim().slice(0, 500) || null;
-    // Any number of pets may come (each is charged per night). The 'pets'
-    // request tag simply mirrors whether the count is above zero.
     const pets = body.pets == null || body.pets === '' ? 0 : Number.parseInt(body.pets, 10);
     if (!Number.isInteger(pets) || pets < 0 || pets > 99) {
       return fail(400, 'pets must be a whole number of 0 or more', 'BAD_PETS');
@@ -225,136 +316,106 @@ bookingRouter.post(
     if (pets > 0) requests.push('pets');
 
     const guests = Number.parseInt(body.guests, 10);
-    if (!Number.isInteger(guests) || guests < 1 || guests > 20) {
-      return fail(400, 'guests must be between 1 and 20', 'BAD_GUESTS');
+    if (!Number.isInteger(guests) || guests < 1 || guests > MAX_PARTY) {
+      return fail(400, `guests must be between 1 and ${MAX_PARTY}`, 'BAD_GUESTS');
     }
 
-    const room = (
-      await pool.query('SELECT id, price, capacity, max_extra_guests FROM rooms WHERE id = $1', [roomId])
-    ).rows[0];
-    if (!room) return fail(404, 'Room not found', 'ROOM_NOT_FOUND');
-    const limit = maxGuests(room);
-    if (limit && guests > limit) {
-      return fail(400, `This room sleeps up to ${limit} guests`, 'TOO_MANY_GUESTS');
+    const found = (
+      await pool.query('SELECT id, name, price, capacity, max_extra_guests FROM rooms WHERE id = ANY($1)', [roomIds])
+    ).rows;
+    const rooms = roomIds.map((id) => found.find((r) => r.id === id));
+    if (rooms.some((r) => !r)) return fail(404, 'Room not found', 'ROOM_NOT_FOUND');
+
+    const split = splitGuests(rooms, guests);
+    if (!split) {
+      return fail(400, 'The chosen rooms cannot sleep that many guests', 'TOO_MANY_GUESTS');
     }
 
-    // Room rate (covers room.capacity guests) + the per-night fee for each
-    // extra guest and each pet.
-    // A promotion covering the check-in day takes a percentage off the room rate.
-    const promo = bestPromotion(await currentPromotions(), roomId, body.check_in);
-    const { total, deposit, extraGuests, discount } = priceStay(room, nights, guests, pets, promo);
+    const promotions = await currentPromotions();
+    const plans = rooms.map((room, i) => {
+      const promo = bestPromotion(promotions, room.id, body.check_in);
+      const roomPets = i === 0 ? pets : 0;
+      return {
+        room,
+        guests: split[i],
+        pets: roomPets,
+        requests: i === 0 ? requests : [],
+        promoName: promo ? `${promo.name} (-${promo.percent}%)` : null,
+        ...priceStay(room, nights, split[i], roomPets, promo),
+      };
+    });
 
-    // Retry on the (very unlikely) chance the random code already exists.
     for (let attempt = 0; attempt < 5; attempt++) {
+      const client = await pool.connect();
       try {
-        const { rows } = await pool.query(
-          `INSERT INTO bookings
-             (user_id, room_id, booked_for, booked_until, status, code, guests,
-              guest_name, guest_phone, guest_email, guest_line, requests, note, total, deposit,
-              extra_guests, pets, discount, promo_name)
-           VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
-           RETURNING id`,
-          [
-            req.user.id, roomId, checkIn.toISOString(), checkOut.toISOString(), newCode(),
-            guests, name, phone, email, line, requests, note, total, deposit, extraGuests, pets,
-            discount, promo ? `${promo.name} (-${promo.percent}%)` : null,
-          ]
-        );
-        const booking = (
+        await client.query('BEGIN');
+        const codes = plans.map(() => newCode());
+        const groupCode = plans.length > 1 ? codes[0] : null;
+        const ids = [];
+        for (const [i, p] of plans.entries()) {
+          const { rows } = await client.query(
+            `INSERT INTO bookings
+               (user_id, room_id, booked_for, booked_until, status, code, guests,
+                guest_name, guest_phone, guest_email, guest_line, requests, note, total, deposit,
+                extra_guests, pets, discount, promo_name, group_code)
+             VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+             RETURNING id`,
+            [
+              req.user.id, p.room.id, checkIn.toISOString(), checkOut.toISOString(), codes[i],
+              p.guests, name, phone, email, line, p.requests, note, p.total, p.deposit,
+              p.extraGuests, p.pets, p.discount, p.promoName, groupCode,
+            ]
+          );
+          ids.push(rows[0].id);
+        }
+        await client.query('COMMIT');
+
+        const bookings = (
           await pool.query(
             `SELECT ${PUBLIC_COLUMNS}
              FROM bookings b
              LEFT JOIN activities a ON a.id = b.activity_id
              LEFT JOIN rooms r ON r.id = b.room_id
-             WHERE b.id = $1`,
-            [rows[0].id]
+             WHERE b.id = ANY($1)
+             ORDER BY array_position($1::int[], b.id)`,
+            [ids]
           )
-        ).rows[0];
-        await logEvent('booking.requested', {
-          actor: req.user.email,
-          bookingId: booking.id,
-          details: {
-            code: booking.code,
-            member_code: req.user.member_code,
-            room: booking.room_name,
-            guest: name,
-            phone,
-            check_in: body.check_in,
-            check_out: body.check_out,
-            guests,
-            extra_guests: extraGuests || undefined,
-            pets: pets || undefined,
-            promotion: promo ? `${promo.name} (-${promo.percent}%)` : undefined,
-            total,
-          },
-        });
-        return res.status(201).json({ booking, test_pay: PAYMENT_TEST_MODE });
-      } catch (err) {
-        // bookings_room_no_overlap: another active booking already covers
-        // some of these nights (including a request that landed a moment ago).
-        if (err.code === '23P01') {
-          return fail(409, 'Room is already booked for those dates', 'ROOM_TAKEN');
+        ).rows;
+        for (const [i, booking] of bookings.entries()) {
+          const p = plans[i];
+          await logEvent('booking.requested', {
+            actor: req.user.email,
+            bookingId: booking.id,
+            details: {
+              code: booking.code,
+              group: groupCode ?? undefined,
+              member_code: req.user.member_code,
+              room: booking.room_name,
+              guest: name,
+              phone,
+              check_in: body.check_in,
+              check_out: body.check_out,
+              guests: p.guests,
+              extra_guests: p.extraGuests || undefined,
+              pets: p.pets || undefined,
+              promotion: p.promoName ?? undefined,
+              total: p.total,
+            },
+          });
         }
-        // Unique violation on the booking code: generate another and retry.
+        return res.status(201).json({ booking: bookings[0], bookings, ...paymentOptions() });
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        if (err.code === '23P01') {
+          return fail(409, 'A room is already booked for those dates', 'ROOM_TAKEN');
+        }
         if (err.code === '23505') continue;
         throw err;
+      } finally {
+        client.release();
       }
     }
     throw new Error('Could not generate a unique booking code');
   })
 );
 
-// Creates a new booking for the signed-in user - either a room stay
-// (room_id + booked_for/booked_until check-in/check-out) or an activity
-// slot (activity_id + booked_for), never both, matching the
-// bookings_exactly_one_target check constraint in the database.
-bookingRouter.post(
-  '/',
-  requireAuth,
-  requireMember,
-  wrap(async (req, res) => {
-    const { activity_id, room_id, booked_for, booked_until } = req.body;
-
-    if (!booked_for || !(activity_id || room_id) || (activity_id && room_id)) {
-      return res
-        .status(400)
-        .json({ error: 'booked_for and exactly one of activity_id/room_id are required' });
-    }
-    if (activity_id && booked_until) {
-      return res.status(400).json({ error: 'booked_until only applies to room bookings' });
-    }
-    if (room_id) {
-      if (!booked_until) {
-        return res
-          .status(400)
-          .json({ error: 'booked_until (check-out) is required when booking a room' });
-      }
-      if (new Date(booked_until) <= new Date(booked_for)) {
-        return res.status(400).json({ error: 'booked_until must be after booked_for' });
-      }
-    }
-
-    try {
-      const { rows } = await pool.query(
-        `INSERT INTO bookings (user_id, activity_id, room_id, booked_for, booked_until)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING id, activity_id, room_id, booked_for, booked_until, status, created_at`,
-        [req.user.id, activity_id ?? null, room_id ?? null, booked_for, room_id ? booked_until : null]
-      );
-      res.status(201).json({ booking: rows[0] });
-    } catch (err) {
-      // Postgres foreign-key violation - the given activity_id/room_id
-      // doesn't exist.
-      if (err.code === '23503') {
-        return res.status(404).json({ error: 'Room or activity not found' });
-      }
-      // Postgres exclusion-constraint violation - bookings_room_no_overlap
-      // caught a scheduling clash with an existing room booking (including a
-      // race against a second request that landed first).
-      if (err.code === '23P01') {
-        return res.status(409).json({ error: 'Room is already booked for those dates' });
-      }
-      throw err;
-    }
-  })
-);

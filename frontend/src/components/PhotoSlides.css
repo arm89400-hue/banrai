@@ -1,0 +1,44 @@
+.photo-slides {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.photo-slides__slide {
+  position: absolute;
+  inset: 0;
+  background: center / cover no-repeat;
+  opacity: 0;
+  transition: opacity 1.4s ease, scale 0s 1.4s;
+}
+.photo-slides__slide.is-active {
+  opacity: 1;
+  scale: 1.1;
+  translate: var(--drift, 0 0);
+  transition: opacity 1.6s ease, scale 7.6s linear, translate 7.6s linear;
+}
+/* Each photo drifts its own way, like a slow camera, not one fixed zoom. */
+.photo-slides__slide:nth-child(4n + 1) {
+  transform-origin: 30% 60%;
+  --drift: -1.5% 0;
+}
+.photo-slides__slide:nth-child(4n + 2) {
+  transform-origin: 70% 40%;
+  --drift: 1.5% -1%;
+}
+.photo-slides__slide:nth-child(4n + 3) {
+  transform-origin: 50% 80%;
+  --drift: 0 1.2%;
+}
+.photo-slides__slide:nth-child(4n + 4) {
+  transform-origin: 80% 70%;
+  --drift: -1% -1%;
+}
+.photo-slides__slide {
+  transition: opacity 1.6s ease, scale 0s 1.6s, translate 0s 1.6s;
+}
+/* Paused: hold the picture still. */
+.is-still .photo-slides__slide.is-active {
+  scale: 1.04;
+  translate: none;
+  transition: opacity 1.6s ease;
+}

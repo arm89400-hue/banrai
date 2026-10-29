@@ -1,11 +1,7 @@
-// The property's own photos, resized into public/images/farm. Each `id` is
-// both the file name and the key of its caption in i18n/strings.js
-// (`photos`), so adding a photo means: drop the file in, list it here,
-// caption it there.
-const src = (id) => `/images/farm/${id}.jpg`;
-const photos = (ids) => ids.map((id) => ({ id, src: src(id) }));
+import { mediaUrl } from './api';
 
-// Home hero: cross-fades through these in order, then starts over.
+const src = (id) => `/images/farm/${id}.jpg`;
+
 export const HERO_SLIDES = [
   'home-background1',
   'home-background2',
@@ -17,50 +13,54 @@ export const HERO_SLIDES = [
   'home-swimmingpool2',
 ].map(src);
 
+// The home photos open on the time of day it is at the farm (Bangkok time):
+// sunrise and breakfast in the morning, the pool by day, the grill at night.
+const HERO_BY_TIME = {
+  morning: ['booking-sunrise', 'home-background1', 'home-coffe'],
+  day: ['home-outside7', 'home-swimmingpool2', 'home-background2'],
+  evening: ['home-bbq5', 'home-mainwall', 'home-outside6'],
+};
+
+export function partOfDay(date = new Date()) {
+  const hour = Number(
+    new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Bangkok' }).format(date)
+  );
+  return hour >= 5 && hour < 11 ? 'morning' : hour >= 11 && hour < 17 ? 'day' : 'evening';
+}
+
+export function heroSlidesNow(date = new Date()) {
+  const part = partOfDay(date);
+  const first = HERO_BY_TIME[part].map(src);
+  return [...first, ...HERO_SLIDES.filter((s) => !first.includes(s))];
+}
+
+export const LOGIN_SLIDES = [
+  '/images/rooms/room-1-1.jpg',
+  src('home-swimmingpool2'),
+  '/images/rooms/room-2-1.jpg',
+  src('home-outside6'),
+  '/images/rooms/room-4-1.jpg',
+  src('home-coffe'),
+];
+
 export const FARM_PHOTOS = { main: src('entrance'), inset: src('harvest') };
 
-export const SIGN_PHOTO = src('sign');
+export const listingPhotos = (item) =>
+  (item?.photos ?? []).map((p) => ({ id: `photo-${p.id}`, src: mediaUrl(p.file) }));
 
-// What grows in the orchard.
-export const FRUIT_PHOTOS = photos([
-  'fruit-avocado',
-  'fruit-durian',
-  'fruit-lychee',
-  'fruit-rambutan',
-  'fruit-mango',
-  'fruit-dragonfruit',
-  'fruit-custard-apple',
-  'fruit-sataw',
-  'fruit-blackberry',
-  'fruit-rose-apple',
-  'fruit-coconut',
-  'fruit-passionfruit',
-]);
+const ROOM_PHOTO_COUNTS = { 1: 3, 2: 3, 3: 2, 4: 4, 5: 3 };
 
-// Meals. Order matters: the mosaic in HomeSections.css gives the first and
-// last tiles double width.
-export const TABLE_PHOTOS = photos([
-  'table-breakfast',
-  'table-egg-pan',
-  'table-garden-breakfast',
-  'table-rice-soup',
-  'table-grill',
-  'table-moo-kata',
-]);
+export function roomPhotos(room) {
+  if (Array.isArray(room.photos)) return listingPhotos(room);
+  const count = ROOM_PHOTO_COUNTS[room.id] ?? 0;
+  const list = Array.from({ length: count }, (_, i) => ({
+    id: `room-${room.id}-${i + 1}`,
+    src: `/images/rooms/room-${room.id}-${i + 1}.jpg`,
+  }));
+  if (room.image_url) list.unshift({ id: `room-${room.id}-custom`, src: room.image_url });
+  return list;
+}
 
-// Around the property.
-export const AROUND_PHOTOS = photos([
-  'around-pool',
-  'around-firepit',
-  'around-orchard',
-  'around-kale',
-  'around-pavilion',
-  'around-balcony',
-  'around-eggs',
-  'around-pool-wide',
-  'around-lettuce',
-  'around-bamboo-wall',
-  'around-planting',
-  'around-coffee',
-  'around-sky',
-]);
+export function roomCover(room) {
+  return roomPhotos(room)[0]?.src ?? `/images/rooms/room-${room.id}.jpg`;
+}

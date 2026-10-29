@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
-import { FACEBOOK_URL, MAPS_URL, PHONES, THAI_NAME } from '../lib/site';
+import { THAI_NAME } from '../lib/site';
+import { lineUrl, useContact } from '../lib/contact';
 import FacebookIcon from './FacebookIcon';
 import './Footer.css';
 
@@ -14,16 +15,13 @@ function Icon({ children, size = 20 }) {
   );
 }
 
+const CHAT_PATH = 'M4 5h16v11H9l-5 4z';
 const PHONE_PATH = 'M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z';
 
-// Site-wide footer (see App.jsx), laid out like a travel site's in four
-// columns: brand (logo, tagline, Facebook / Maps), explore, your stay, and
-// contact (the phone lines as tiles), then a legal strip. It's the single place for contact details,
-// so they aren't repeated elsewhere on the page.
 export default function Footer() {
   const { user } = useAuth();
-  const { t } = useLang();
-  const year = new Date().getFullYear();
+  const { t, lang } = useLang();
+  const contact = useContact();
 
   return (
     <footer className="footer" id="contact">
@@ -38,19 +36,23 @@ export default function Footer() {
           </Link>
           <p className="footer__tagline">{t('footer.tagline')}</p>
           <div className="footer__social" aria-label={t('footer.findUs')}>
-            <a href={FACEBOOK_URL} target="_blank" rel="noopener noreferrer">
-              <span className="footer__social-icon footer__social-icon--fb"><FacebookIcon size={16} /></span>
-              Facebook
-            </a>
-            <a href={MAPS_URL} target="_blank" rel="noopener noreferrer">
-              <span className="footer__social-icon footer__social-icon--map">
-                <Icon size={16}>
-                  <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
-                  <circle cx="12" cy="9.5" r="2.5" />
-                </Icon>
-              </span>
-              Google Maps
-            </a>
+            {contact.facebook && (
+              <a href={contact.facebook} target="_blank" rel="noopener noreferrer">
+                <span className="footer__social-icon footer__social-icon--fb"><FacebookIcon size={16} /></span>
+                Facebook
+              </a>
+            )}
+            {contact.maps && (
+              <a href={contact.maps} target="_blank" rel="noopener noreferrer">
+                <span className="footer__social-icon footer__social-icon--map">
+                  <Icon size={16}>
+                    <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
+                    <circle cx="12" cy="9.5" r="2.5" />
+                  </Icon>
+                </span>
+                Google Maps
+              </a>
+            )}
           </div>
         </div>
 
@@ -76,21 +78,26 @@ export default function Footer() {
 
         <div className="footer__col footer__contact">
           <h2 className="footer__heading">{t('footer.contact')}</h2>
-          {PHONES.map((p) => (
+          {contact.phones.map((p) => (
             <a key={p.tel} className="footer__phone" href={`tel:${p.tel}`}>
-              <span className="footer__phone-icon">
-                <Icon size={18}><path d={PHONE_PATH} /></Icon>
-              </span>
+              <Icon size={16}><path d={PHONE_PATH} /></Icon>
               <span>
-                <span>{p.display}</span>
+                {p.display} <small>{p.name[lang]}</small>
               </span>
             </a>
           ))}
+          {contact.line && (
+            <a className="footer__phone" href={lineUrl(contact.line)} target="_blank" rel="noopener noreferrer">
+              <Icon size={16}><path d={CHAT_PATH} /></Icon>
+              <span>
+                LINE <small>{contact.line}</small>
+              </span>
+            </a>
+          )}
         </div>
       </div>
 
       <div className="footer__legal">
-        <p>{t('footer.copyright', { year })}</p>
         <p>
           <span lang="th">{THAI_NAME}</span> · {t('footer.address')}
         </p>

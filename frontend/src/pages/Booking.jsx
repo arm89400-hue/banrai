@@ -1,131 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { dayOf, formatDay, nightsBetween, roomNames } from '../lib/booking';
-import { CHECK_IN_TIME, CHECK_OUT_TIME, PHONES } from '../lib/site';
+import { formatBaht } from '../lib/money';
+import { formatDay, formatStay, roomNames, toISODate } from '../lib/booking';
+import { groupStays, mergeBookings, owes, payOptions, stayNeedsAction } from '../lib/payments';
+import { roomCover } from '../lib/photos';
+import { shift } from '../lib/motion';
+import { Loading, Sk, SkText } from '../components/Skeleton';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
-import { PriceRows, StatusBadge } from '../components/BookingBits';
-import PaymentPanel from '../components/PaymentPanel';
+import { StatusBadge } from '../components/BookingBits';
+import StayView from '../components/StayView';
+import Announcements from '../components/Announcements';
 import './Booking.css';
 
-// One booking, as the guest sees it. A pending room booking shows its
-// deposit payment; `onPaid` receives the booking once it's paid.
-function BookingCard({ booking, testPay, onPaid }) {
-  const { t, lang, locale } = useLang();
-
-  // Activity bookings (single point in time, no stay range).
-  if (!booking.room_id) {
-    return (
-      <article className="my-card">
-        <header>
-          <h3>
-            {t('booking.activity')} {booking.activity_name}
-          </h3>
-          <StatusBadge status={booking.status} />
-        </header>
-        <p className="my-card__meta">{new Date(booking.booked_for).toLocaleString(locale)}</p>
-      </article>
-    );
-  }
-
-  const checkIn = dayOf(booking.booked_for);
-  const checkOut = dayOf(booking.booked_until);
-  const names = roomNames(booking.room_name, lang);
-  const nights = nightsBetween(checkIn, checkOut);
-
-  return (
-    <article className="my-card">
-      <header>
-        <div>
-          <h3>{names.title}</h3>
-          {booking.code && <p className="my-card__code">{booking.code}</p>}
-        </div>
-        <StatusBadge status={booking.status} />
-      </header>
-
-      <dl className="my-card__list">
-        <div>
-          <dt>{t('sum.checkIn')}</dt>
-          <dd>
-            {formatDay(checkIn, locale)} · {CHECK_IN_TIME}
-          </dd>
-        </div>
-        <div>
-          <dt>{t('sum.checkOut')}</dt>
-          <dd>
-            {formatDay(checkOut, locale)} · {CHECK_OUT_TIME} ({t('flow.nights', { n: nights })})
-          </dd>
-        </div>
-        {booking.guests && (
-          <div>
-            <dt>{t('sum.guests')}</dt>
-            <dd>{t('sum.guestCount', { n: booking.guests })}</dd>
-          </div>
-        )}
-        {booking.requests?.length > 0 && (
-          <div>
-            <dt>{t('sum.requests')}</dt>
-            <dd>{booking.requests.map((r) => t(`req.${r}`)).join(', ')}</dd>
-          </div>
-        )}
-        {booking.note && (
-          <div>
-            <dt>{t('sum.note')}</dt>
-            <dd>{booking.note}</dd>
-          </div>
-        )}
-      </dl>
-
-      {booking.total != null && (
-        <PriceRows
-          total={booking.total}
-          deposit={booking.deposit}
-          extraGuests={booking.extra_guests}
-          pets={booking.pets}
-          discount={booking.discount}
-          promoName={booking.promo_name}
-        />
-      )}
-
-      {/* Confirmed: the generated login for this room's dashboard. */}
-      {booking.status === 'confirmed' && booking.stay_username && (
-        <div className="my-card__stay">
-          <p className="my-card__stay-title">{t('my.stayTitle')}</p>
-          <dl>
-            <div>
-              <dt>{t('my.stayUser')}</dt>
-              <dd>{booking.stay_username}</dd>
-            </div>
-            <div>
-              <dt>{t('my.stayPass')}</dt>
-              <dd>{booking.stay_password}</dd>
-            </div>
-          </dl>
-          <p>{t('my.stayHint', { date: formatDay(checkOut, locale), time: CHECK_OUT_TIME })}</p>
-        </div>
-      )}
-
-      {booking.status === 'pending' && <PaymentPanel booking={booking} testPay={testPay} onPaid={onPaid} />}
-
-      {booking.status === 'pending' && (
-        <div className="my-card__help">
-          <p>{t('my.pendingHelp')}</p>
-          <p>{t('my.stayPending')}</p>
-          <div>
-            {PHONES.map((p) => (
-              <a key={p.tel} className="bk-btn" href={`tel:${p.tel}`}>
-                {t('book.call', { name: p.name[lang] })} · {p.display}
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-    </article>
-  );
-}
-
-// Tells the member that the property deleted one of their bookings, and why.
 function DeletedNotice({ notice, onDismiss }) {
   const { t, lang, locale } = useLang();
   const what = [
@@ -142,7 +30,22 @@ function DeletedNotice({ notice, onDismiss }) {
   return (
     <div className="my-notice" role="alert">
       <div>
-        <p className="my-notice__title">{t('my.deletedTitle')}</p>
+        <p className="my-notice__title">
+          <svg
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7.5v5.5M12 16.5v.01" />
+          </svg>
+          {t('my.deletedTitle')}
+        </p>
         <p className="my-notice__what">{what}</p>
         <p>
           <strong>{t('my.deletedReason')}</strong> {notice.reason}
@@ -156,15 +59,22 @@ function DeletedNotice({ notice, onDismiss }) {
   );
 }
 
-// "My bookings": the signed-in member's bookings with their status and,
-// once a booking is confirmed, the login for that room's dashboard.
+function pickFocus(stays) {
+  const today = toISODate(new Date());
+  const upcoming = stays
+    .filter((s) => s.status !== 'cancelled' && s.checkOut >= today)
+    .sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+  return (upcoming.find(stayNeedsAction) ?? upcoming[0])?.key ?? null;
+}
+
 export default function Booking() {
   const { user } = useAuth();
-  const { t } = useLang();
+  const { t, lang, locale } = useLang();
   const [bookings, setBookings] = useState(null);
   const [notices, setNotices] = useState([]);
-  const [testPay, setTestPay] = useState(false);
+  const [pay, setPay] = useState(payOptions(null));
   const [error, setError] = useState(null);
+  const [focusKey, setFocusKey] = useState(null);
 
   const isMember = Boolean(user && !user.is_stay);
 
@@ -174,12 +84,11 @@ export default function Booking() {
       .then((data) => {
         setBookings(data.bookings);
         setNotices(data.notices ?? []);
-        setTestPay(Boolean(data.test_pay));
+        setPay(payOptions(data));
       })
       .catch((err) => setError(err.message));
   }, [isMember]);
 
-  // Removes a "your booking was deleted" notice once the member has read it.
   async function dismissNotice(id) {
     try {
       await api(`/api/bookings/notices/${id}`, { method: 'DELETE' });
@@ -190,21 +99,33 @@ export default function Booking() {
   }
 
   if (!user) return <Navigate to="/login?next=/booking" replace />;
-  // Room accounts only have their room dashboard.
   if (user.is_stay) return <Navigate to="/stay" replace />;
 
+  const stays = groupStays(bookings ?? []);
+  const focus = stays.find((s) => s.key === (focusKey ?? pickFocus(stays)));
+  const today = toISODate(new Date());
+  const others = stays
+    .filter((s) => s !== focus)
+    .sort((a, b) => {
+      const aLive = a.status !== 'cancelled' && a.checkOut >= today;
+      const bLive = b.status !== 'cancelled' && b.checkOut >= today;
+      if (aLive !== bLive) return aLive ? -1 : 1;
+      return aLive ? a.checkIn.localeCompare(b.checkIn) : b.checkIn.localeCompare(a.checkIn);
+    });
+  const activities = (bookings ?? []).filter((b) => !b.room_id);
+
+  function show(key) {
+    shift(() => setFocusKey(key), { cards: '.my-page > *' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   return (
-    <section className="bk-page my-bookings">
-      <header className="my-bookings__head">
-        <div>
-          <h1>{t('booking.title')}</h1>
-          <p className="my-bookings__member">
-            {t('member.code')} <strong>{user.member_code}</strong> · {user.email}
-          </p>
-        </div>
-        <Link className="bk-btn bk-btn--sun" to="/book">
-          {t('my.newBooking')}
-        </Link>
+    <section className="my-page">
+      <header className="my-page__head">
+        <h1>{t('booking.title')}</h1>
+        <p>
+          {t('member.code')} <strong>{user.member_code}</strong> · {user.email}
+        </p>
       </header>
 
       {error && (
@@ -213,25 +134,113 @@ export default function Booking() {
         </p>
       )}
 
-      {/* Bookings the property deleted, with the reason it gave. */}
       {notices.map((n) => (
         <DeletedNotice key={n.id} notice={n} onDismiss={() => dismissNotice(n.id)} />
       ))}
 
-      <div className="my-bookings__results">
-        {/* Newest stay first. */}
-        {[...(bookings ?? [])]
-          .sort((a, b) => new Date(b.booked_for) - new Date(a.booked_for))
-          .map((b) => (
-            <BookingCard
-              key={b.id}
-              booking={b}
-              testPay={testPay}
-              onPaid={(paid) => setBookings((list) => list.map((x) => (x.id === paid.id ? paid : x)))}
-            />
+      <Announcements source="/api/announcements/mine" className="page-news" />
+
+      {bookings === null && !error && (
+        <Loading label={t('loading')} className="my-sk">
+          <div className="my-sk__card">
+            <Sk className="my-sk__photo" h="auto" r="12px" />
+            <div className="my-sk__text">
+              <Sk w="55%" h="1.5em" />
+              <SkText lines={3} last="40%" />
+              <Sk w="160px" h="44px" r="999px" />
+            </div>
+          </div>
+          {[0, 1].map((i) => (
+            <div key={i} className="my-sk__row">
+              <Sk w="88px" h="60px" r="10px" />
+              <div className="my-sk__text">
+                <Sk w={`${50 - i * 10}%`} h="1.05em" />
+                <Sk w="70%" h="0.9em" />
+              </div>
+            </div>
           ))}
-        {bookings?.length === 0 && <p className="my-bookings__empty">{t('booking.empty')}</p>}
-      </div>
+        </Loading>
+      )}
+
+      {stays.some((s) => s.status === 'confirmed' && s.checkOut >= today) && (
+        <Link className="my-room-link" to="/stay">
+          <span>✓ {t('stay.openHint')}</span>
+          <b>{t('stay.open')} →</b>
+        </Link>
+      )}
+
+      {focus && (
+        <StayView stay={focus} pay={pay} onPaid={(updated) => setBookings((list) => mergeBookings(list, updated))} />
+      )}
+
+      {others.length > 0 && (
+        <section className="my-others">
+          <h2>{focus ? t('my.others') : t('my.all')}</h2>
+          <ul>
+            {others.map((stay) => {
+              const restDue = stay.bookings.find((b) => owes(b, 'balance'));
+              const paidFull = stay.status === 'confirmed' && !restDue;
+              const names = stay.bookings
+                .filter((b) => b.status !== 'cancelled' || stay.status === 'cancelled')
+                .map((b) => roomNames(b.room_name, lang).title)
+                .join(' + ');
+              return (
+                <li key={stay.key} className={stay.status === 'cancelled' ? 'is-cancelled' : ''}>
+                  <img src={roomCover({ id: stay.lead.room_id })} alt="" loading="lazy" />
+                  <div className="my-others__txt">
+                    <b>
+                      {names} · {stay.key}
+                    </b>
+                    <p>
+                      {formatStay(stay.checkIn, stay.checkOut, locale, t('date.wd'))} ·{' '}
+                      {t('sum.guestCount', { n: stay.guests })}
+                      {restDue && ` · ${t('my.restDue', { amount: formatBaht(Number(restDue.balance_due)) })}`}
+                    </p>
+                  </div>
+                  {paidFull ? (
+                    <span className="my-pill">{t('my.paidFull')}</span>
+                  ) : (
+                    <StatusBadge status={stay.status} />
+                  )}
+                  <button
+                    type="button"
+                    className={`bk-btn${stayNeedsAction(stay) && stay.status !== 'cancelled' ? ' bk-btn--primary' : ''}`}
+                    onClick={() => show(stay.key)}
+                  >
+                    {stay.status === 'pending' ? t('my.payDeposit') : restDue ? t('my.payRest') : t('my.view')}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {activities.length > 0 && (
+        <section className="my-others">
+          <h2>{t('my.activities')}</h2>
+          <ul>
+            {activities.map((b) => (
+              <li key={b.id}>
+                <div className="my-others__txt">
+                  <b>{b.activity_name}</b>
+                  <p>{new Date(b.booked_for).toLocaleString(locale)}</p>
+                </div>
+                <StatusBadge status={b.status} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {bookings?.length === 0 && (
+        <div className="my-empty">
+          <p>{t('booking.empty')}</p>
+          <Link className="bk-btn bk-btn--sun" to="/book">
+            {t('my.newBooking')}
+          </Link>
+        </div>
+      )}
     </section>
   );
 }

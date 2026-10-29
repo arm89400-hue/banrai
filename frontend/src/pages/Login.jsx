@@ -1,23 +1,33 @@
 import { useEffect, useRef, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { formatStay, isISODate, roomNames } from '../lib/booking';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../i18n/lang';
 import PasswordInput from '../components/PasswordInput';
+import PhotoSlides from '../components/PhotoSlides';
+import VerifyCode from '../components/VerifyCode';
+import { LOGIN_SLIDES, roomCover } from '../lib/photos';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-// Where to land after signing in: admins go to their dashboard, room
-// accounts to their room dashboard, and everyone else back to where they
-// were heading (`next`, e.g. the booking they were in the middle of) or to
-// their bookings.
-function homeFor(user, next) {
+export function homeFor(user, next) {
   if (user?.is_admin) return '/admin';
   if (user?.is_stay) return '/stay';
-  return next || '/booking';
+  return next || '/stay';
 }
 
-// Server `reason` codes -> translated messages.
+// "Forgot password?" carries over an email the guest already typed.
+function forgotLink(email) {
+  const typed = email.trim();
+  return typed.includes('@') ? '/forgot-password?email=' + encodeURIComponent(typed) : '/forgot-password';
+}
+
+const SUBMIT_KEYS = {
+  book: { login: 'login.loginAndBook', register: 'login.signupAndBook' },
+  plain: { login: 'login.submit', register: 'login.signup' },
+};
+
 const ERROR_KEYS = {
   BAD_CREDENTIALS: 'login.errBad',
   ACCOUNT_EXPIRED: 'login.errExpired',
@@ -25,34 +35,34 @@ const ERROR_KEYS = {
   BAD_EMAIL: 'login.errBadEmail',
 };
 
-// Combined login/register page, plus "Login with Google". Members sign in
-// with their email; a room account signs in with the username generated
-// for its booking. Redirects away if already signed in.
+// Only a page on this site may follow login (not //other-site.com).
+function pageAfterLogin(raw) {
+  return raw?.startsWith('/') && !raw.startsWith('//') ? raw : null;
+}
+
 export default function Login() {
-  const [mode, setMode] = useState('login');
+  const [params] = useSearchParams();
+  const next = pageAfterLogin(params.get('next'));
+  const booking = Boolean(next?.startsWith('/book'));
+  const [mode, setMode] = useState(booking ? 'register' : 'login');
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [verifyEmail, setVerifyEmail] = useState(null);
   const { user, login } = useAuth();
   const { lang, t } = useLang();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
   const googleButtonRef = useRef(null);
+  // The Google button only counts once Google has drawn it; until then the
+  // "or" line would sit above nothing.
+  const [googleShown, setGoogleShown] = useState(!GOOGLE_CLIENT_ID);
 
-  // Only same-site paths are accepted as a return target.
-  const rawNext = params.get('next');
-  const next = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
   const expired = params.get('expired') === '1';
+  const sessionEnded = params.get('session') === '1';
 
-  // Renders Google's real "Sign in with Google" button once the GIS script
-  // and a Client ID are both available, and wires its callback to our
-  // backend. No-ops entirely (and the placeholder button renders instead -
-  // see below) when VITE_GOOGLE_CLIENT_ID isn't configured.
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || user) return;
 
-    // Exchanges the Google ID token for our own JWT via the backend, then
-    // logs the user in the same way the email/password form does.
     async function handleCredential(response) {
       setError(null);
       try {
@@ -67,55 +77,70 @@ export default function Login() {
       }
     }
 
-    // The Google script loads with async/defer, so it may not be on
-    // window yet when this effect first runs - poll briefly until it is.
     let cancelled = false;
     const interval = setInterval(() => {
-      if (cancelled || !window.google?.accounts?.id || !googleButtonRef.current) return;
+      if (cancelled || !drawGoogleButton(googleButtonRef.current, lang, handleCredential)) return;
       clearInterval(interval);
-
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleCredential,
-      });
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
-        theme: 'outline',
-        size: 'large',
-        width: 320,
-        locale: lang,
-      });
+      setGoogleShown(true);
     }, 100);
 
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+    // Drawn again when the guest comes back from the code screen.
+  }, [user, verifyEmail]);
 
   if (user) {
     return <Navigate to={homeFor(user, next)} replace />;
   }
 
-  // Stand-in for the real Google button when no Client ID is configured -
-  // looks the same but just explains it isn't wired up yet.
   function handleGoogleClickPlaceholder() {
     setError(t('login.googleSoon'));
   }
 
-  // Handles both modes: in "register" mode it creates the account first,
-  // then either way logs in and redirects (see homeFor above).
+  function finish(data) {
+    login(data.token, data.user);
+    navigate(homeFor(data.user, next));
+  }
+
+  // Email sign-ups (new, or older ones not yet confirmed) get a code first.
+  async function signIn(body) {
+    try {
+      finish(await api('/api/auth/login', { method: 'POST', body }));
+    } catch (err) {
+      if (err.reason !== 'EMAIL_UNVERIFIED') throw err;
+      setVerifyEmail(form.email.trim());
+    }
+  }
+
+  async function signUp(body) {
+    try {
+      const data = await api('/api/auth/register', { method: 'POST', body });
+      if (data.verify) setVerifyEmail(form.email.trim());
+      else await signIn(body);
+    } catch (err) {
+      // Returning guests often pick "new customer". If the email is
+      // already theirs, just try signing in with what they typed.
+      if (err.reason !== 'EMAIL_TAKEN') throw err;
+      try {
+        await signIn(body);
+      } catch {
+        setMode('login');
+        setForm((f) => ({ ...f, password: '' }));
+        setError(t('login.errEmailTakenTryOld'));
+      }
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
+    const body = JSON.stringify({ ...form, lang });
     try {
-      if (mode === 'register') {
-        await api('/api/auth/register', { method: 'POST', body: JSON.stringify(form) });
-      }
-      const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify(form) });
-      login(data.token, data.user);
-      navigate(homeFor(data.user, next));
+      if (mode === 'register') await signUp(body);
+      else await signIn(body);
     } catch (err) {
       setError(t(ERROR_KEYS[err.reason] ?? 'login.errGeneric'));
     } finally {
@@ -123,14 +148,43 @@ export default function Login() {
     }
   }
 
+  if (verifyEmail) {
+    return (
+      <AuthFrame booking={booking} next={next}>
+        <VerifyCode
+          email={verifyEmail}
+          onVerified={finish}
+          onBack={() => {
+            setVerifyEmail(null);
+            setForm((f) => ({ ...f, password: '' }));
+          }}
+        />
+      </AuthFrame>
+    );
+  }
+
   return (
-    <section className="page auth-page">
-      <h1>{mode === 'login' ? t('login.title') : t('login.createTitle')}</h1>
-      {next?.startsWith('/book') && <p className="auth-page__lead">{t('login.toBook')}</p>}
+    <AuthFrame booking={booking} next={next}>
+      {booking ? (
+        <>
+          <h1>{t('login.bookTitle')}</h1>
+          <div className="auth-tabs">
+            <button type="button" aria-pressed={mode === 'register'} onClick={() => setMode('register')}>
+              {t('login.tabNew')}
+            </button>
+            <button type="button" aria-pressed={mode === 'login'} onClick={() => setMode('login')}>
+              {t('login.tabHave')}
+            </button>
+          </div>
+        </>
+      ) : (
+        <h1>{mode === 'login' ? t('login.title') : t('login.createTitle')}</h1>
+      )}
       {expired && !error && <p role="alert">{t('login.errExpired')}</p>}
+      {sessionEnded && !error && <p role="alert">{t('login.sessionEnded')}</p>}
 
       {GOOGLE_CLIENT_ID ? (
-        <div ref={googleButtonRef} className="google-button" />
+        <div ref={googleButtonRef} className="google-button" hidden={!googleShown} />
       ) : (
         <button
           type="button"
@@ -159,40 +213,126 @@ export default function Login() {
         </button>
       )}
 
-      <div className="auth-divider">
-        <span>{t('login.or')}</span>
-      </div>
+      {googleShown && (
+        <div className="auth-divider">
+          <span>{t('login.or')}</span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
-        <input
-          // Text, not email: a room account's username isn't an email address.
-          type={mode === 'register' ? 'email' : 'text'}
-          autoComplete="username"
-          placeholder={mode === 'register' ? t('login.email') : t('login.idPlaceholder')}
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-          required
-        />
-        <PasswordInput
-          label={t('login.holdToShow')}
-          autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-          placeholder={t('login.password')}
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-          required
-        />
+        <label className="auth-field">
+          <span>{mode === 'register' ? t('login.email') : t('login.idPlaceholder')}</span>
+          <input
+            type={mode === 'register' ? 'email' : 'text'}
+            autoComplete="username"
+            placeholder={mode === 'register' ? 'name@email.com' : undefined}
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            required
+          />
+        </label>
+        <label className="auth-field">
+          <span>{mode === 'register' ? t('login.newPassword') : t('login.password')}</span>
+          <PasswordInput
+            label={t('login.holdToShow')}
+            autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            required
+          />
+        </label>
+        {mode === 'login' && (
+          <Link
+            to={forgotLink(form.email)}
+            className="auth-forgot"
+          >
+            {t('login.forgot')}
+          </Link>
+        )}
         <button type="submit" disabled={submitting}>
-          {mode === 'login' ? t('login.submit') : t('login.signup')}
+          {t(SUBMIT_KEYS[booking ? 'book' : 'plain'][mode])}
         </button>
         {error && <p role="alert">{error}</p>}
       </form>
-      <button
-        type="button"
-        className="link-button"
-        onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-      >
-        {mode === 'login' ? t('login.needAccount') : t('login.haveAccount')}
-      </button>
+      {!booking && (
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+        >
+          {mode === 'login' ? t('login.needAccount') : t('login.haveAccount')}
+        </button>
+      )}
+    </AuthFrame>
+  );
+}
+
+// Draws Google's sign-in button once its script has loaded and the spot for
+// it is on the page; says whether it could.
+function drawGoogleButton(el, lang, onCredential) {
+  const id = window.google?.accounts?.id;
+  if (!id || !el) return false;
+  id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onCredential });
+  id.renderButton(el, {
+    theme: 'outline',
+    size: 'large',
+    width: Math.min(320, el.offsetWidth || 320),
+    locale: lang,
+  });
+  return true;
+}
+
+// Photo background, the booking being made (if any) and the white card.
+function AuthFrame({ booking, next, children }) {
+  return (
+    <section className="auth-screen">
+      <PhotoSlides photos={LOGIN_SLIDES} />
+      <div className="page auth-page">
+        {booking && <BookingInProgress next={next} />}
+        <div className="auth-card">
+          <img className="auth-logo" src="/images/logo.png" alt="Baanrai 344" />
+          {children}
+        </div>
+      </div>
     </section>
+  );
+}
+
+function BookingInProgress({ next }) {
+  const { lang, locale, t } = useLang();
+  const [rooms, setRooms] = useState([]);
+  useEffect(() => {
+    api('/api/rooms')
+      .then((data) => setRooms(data.rooms))
+      .catch(() => {});
+  }, []);
+
+  const query = new URLSearchParams(next.split('?')[1] ?? '');
+  const checkIn = query.get('in');
+  const checkOut = query.get('out');
+  const chosen = (query.get('rooms') ?? '')
+    .split(',')
+    .map((id) => rooms.find((r) => r.id === Number(id)))
+    .filter(Boolean);
+  const back = new URLSearchParams(query);
+  back.set('step', '1');
+
+  return (
+    <div className="auth-booking">
+      <Link to={`/book?${back}`} className="auth-booking__back">
+        ‹ {t('login.backToBooking')}
+      </Link>
+      {chosen.length > 0 && isISODate(checkIn) && isISODate(checkOut) && (
+        <div className="auth-booking__stay">
+          <img src={roomCover(chosen[0])} alt="" />
+          <span>
+            <strong>{chosen.map((r) => roomNames(r.name, lang).title).join(' + ')}</strong>
+            <small>
+              {formatStay(checkIn, checkOut, locale, t('date.wd'))} · {t('sum.guestCount', { n: query.get('guests') ?? 2 })}
+            </small>
+          </span>
+        </div>
+      )}
+    </div>
   );
 }

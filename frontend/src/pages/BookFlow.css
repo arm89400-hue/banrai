@@ -1,122 +1,548 @@
-/* Step-by-step booking (/book). Shared pieces live in BookingBits.css. */
+.flow-page {
+  min-height: 80vh;
+  padding: 92px max(20px, calc((100% - 1110px) / 2)) 96px;
+  background: var(--bg);
+  color: var(--text);
+}
 
-/* ---- Progress ---- */
+.flow-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-bottom: 28px;
+}
+.flow-top__back {
+  padding: 6px 0;
+  border: none;
+  background: none;
+  color: var(--brand);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.flow-top__back:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
 .flow-steps {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin: 0 0 28px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
-.flow-steps__item button {
-  display: block;
-  width: 100%;
+.flow-steps li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.flow-steps li + li::before {
+  content: '';
+  width: 36px;
+  height: 2px;
+  background: var(--border);
+}
+.flow-steps li.is-done + li::before {
+  background: var(--brand);
+}
+.flow-steps button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 0;
   border: none;
   background: none;
-  text-align: left;
   color: var(--text-muted);
-  font-family: var(--sans);
+  font: inherit;
+  font-size: 16px;
 }
-.flow-steps__item button:disabled {
+.flow-steps button:disabled {
   cursor: default;
 }
-.flow-steps__bar {
-  display: block;
-  height: 5px;
-  border-radius: 5px;
-  background: var(--bg-alt);
-  overflow: hidden;
-}
-.flow-steps__bar::after {
-  content: '';
-  display: block;
-  width: 0;
-  height: 100%;
-  background: var(--brand);
-  transition: width 0.45s var(--ease-out);
-}
-.flow-steps__item--done .flow-steps__bar::after,
-.flow-steps__item--current .flow-steps__bar::after {
-  width: 100%;
-}
-.flow-steps__item--current .flow-steps__bar::after {
-  background: hsl(44, 92%, 58%);
-}
-.flow-steps__label {
-  display: block;
-  margin-top: 8px;
-  font-size: 13px;
-}
-.flow-steps__item--current .flow-steps__label {
+.flow-steps i {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--white);
+  box-shadow: 0 0 0 1.5px var(--border);
+  font-style: normal;
+  font-size: 14px;
   font-weight: 700;
-  color: var(--text-h);
 }
-.flow-steps__item--done button:hover .flow-steps__label {
+.flow-steps .is-now button {
+  color: var(--text-h);
+  font-weight: 600;
+}
+.flow-steps .is-now i,
+.flow-steps .is-done i {
+  background: var(--brand);
+  box-shadow: none;
+  color: var(--white);
+}
+.flow-steps .is-done button:not(:disabled):hover {
   color: var(--brand);
 }
 
-/* ---- Layout: step content + summary ---- */
 .flow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: 56px;
   align-items: start;
 }
-.flow__main,
-.flow__side {
-  padding: 28px 30px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  box-shadow: var(--shadow);
-}
 .flow__main {
-  animation: fade-up var(--dur) var(--ease-out) both;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  min-width: 0;
 }
-.flow__main h1 {
-  font-size: 26px;
-  margin-bottom: 6px;
+.flow__title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.25;
 }
 .flow__hint {
-  margin-bottom: 20px;
+  margin: 0;
   color: var(--text-muted);
 }
-.flow__calendar {
-  max-width: 400px;
+.flow-none {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: 0 0 0 1px var(--border);
 }
-.flow__guests {
-  display: flex;
-  flex-direction: column;
+.flow-none p {
+  margin: 0;
+  color: var(--text-muted);
+}
+.flow-none b {
+  color: var(--text-h);
+}
+.flow-nearby {
+  display: grid;
   gap: 8px;
-  margin-top: 24px;
 }
-.flow__price-note {
-  margin-top: 18px;
+.flow-nearby button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: inset 0 0 0 1.5px var(--brand);
+  color: var(--brand-dark);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-fast);
+}
+.flow-nearby button:hover {
+  background: var(--brand-soft);
+}
+.flow-nearby span {
+  color: var(--text-muted);
   font-size: 14px;
+  font-weight: 400;
+}
+
+.flow-taken {
+  margin: 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.flow-taken button {
+  padding: 4px 0;
+  border: none;
+  background: none;
+  color: var(--brand);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.flow-short {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: hsl(38, 45%, 90%);
+  color: hsl(35, 70%, 26%);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.flow__label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+}
+.flow__label h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+.flow__label span {
+  font-size: 15px;
   color: var(--text-muted);
 }
-.flow__nav {
+.flow-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px 20px;
+}
+.flow-tile {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.flow-tile img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  margin-bottom: 6px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+.flow-tile__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.flow-tile__row strong {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 600;
+}
+.flow-tile__row b {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.flow-tile__facts {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+.flow-tile__pick {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1.5px var(--brand);
+  color: var(--brand);
+  font-style: normal;
+  font-size: 15px;
+  font-weight: 600;
+  transition: background-color var(--dur-fast), color var(--dur-fast);
+}
+.flow-tile:hover .flow-tile__pick {
+  background: var(--brand-soft);
+}
+.flow-tile.is-on .flow-tile__pick {
+  background: var(--brand);
+  color: var(--white);
+}
+.flow-tile .promo-tag {
+  justify-self: start;
+}
+
+.flow-stay {
+  position: sticky;
+  top: 96px;
+  display: grid;
+  gap: 12px;
+  padding: 22px;
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.flow-stay h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.flow-stay__rows {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+}
+.flow-stay__rows div {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 28px;
+}
+.flow-stay__rows dt {
+  color: var(--text-muted);
+}
+.flow-stay__rows dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.flow-stay__total {
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 18px;
+  font-weight: 700;
+}
+.flow-stay__total dt,
+.flow-stay__dep dt {
+  color: var(--text-h) !important;
+}
+.flow-stay__dep {
+  margin: 0 -10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: hsl(38, 45%, 91%);
+  font-weight: 700;
+}
+.flow-stay__go,
+.flow-bar__go {
+  min-height: 52px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 999px;
+  background: var(--straw);
+  color: hsl(150, 38%, 13%);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--dur-fast);
+}
+.flow-stay__go:hover:not(:disabled),
+.flow-bar__go:hover:not(:disabled) {
+  background: hsl(38, 48%, 58%);
+}
+.flow-stay__go:disabled {
+  background: hsl(40, 20%, 94%);
+  color: var(--text-muted);
+  cursor: default;
+}
+.flow-stay__go.is-hint,
+.flow-bar__go.is-hint {
+  display: grid;
+  place-items: center;
+  margin: 0;
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--border);
+  color: var(--text-muted);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  cursor: default;
 }
 
-.flow__side {
-  position: sticky;
-  top: 100px;
-  background: var(--bg);
-  box-shadow: none;
+.flow-none__hen {
+  margin-bottom: 8px;
 }
-.flow__side h2 {
-  font-size: 19px;
-  margin-bottom: 16px;
+
+/* The accept box shakes once when send is pressed before ticking it */
+.flow__accept.is-nudged {
+  animation: flow-nudge 0.45s ease;
+  border-radius: 10px;
+  box-shadow: 0 0 0 2px var(--straw);
 }
-.flow__side-empty {
-  font-size: 14px;
+@keyframes flow-nudge {
+  20% { translate: -6px 0; }
+  40% { translate: 5px 0; }
+  60% { translate: -3px 0; }
+  80% { translate: 2px 0; }
+}
+.flow__accept-say {
+  margin: 6px 0 0;
+  color: hsl(30, 60%, 32%);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.flow-stay__note {
+  margin: 0;
+  font-size: 13px;
   color: var(--text-muted);
+  text-align: center;
+}
+
+.flow-bar {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .flow {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .flow-stay {
+    position: static;
+  }
+}
+
+@media (max-width: 760px) {
+  /* Shorter photos so more than one room fits on a phone screen. */
+  .flow-tile img,
+  .flow-tiles .flow-tile__sk-photo {
+    aspect-ratio: 16 / 10;
+  }
+  body.has-bottom-bar {
+    padding-bottom: 88px;
+  }
+  .flow-page {
+    padding: 80px 16px 120px;
+  }
+  .flow-top {
+    gap: 10px 14px;
+    margin-bottom: 20px;
+  }
+  .flow-steps li:not(.is-now) button {
+    font-size: 0;
+  }
+  .flow-steps i {
+    font-size: 14px;
+  }
+  .flow-steps li + li::before {
+    width: 16px;
+  }
+  .flow__title {
+    font-size: 26px;
+  }
+  /* Rooms as rows on a phone: all five fit on about one screen. */
+  .flow-tiles {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .flow-tile {
+    grid-template-columns: 112px minmax(0, 1fr);
+    grid-template-areas:
+      'photo row'
+      'photo facts'
+      'photo promo';
+    align-items: center;
+    gap: 2px 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .flow-tile img {
+    grid-area: photo;
+    align-self: center;
+    width: 112px;
+    height: 84px;
+    margin: 0;
+    aspect-ratio: auto;
+    border-radius: 10px;
+  }
+  .flow-tile__row {
+    grid-area: row;
+  }
+  .flow-tile__row strong {
+    font-size: 19px;
+  }
+  .flow-tile__row b {
+    font-size: 17px;
+  }
+  .flow-tile__facts {
+    grid-area: facts;
+    font-size: 14px;
+  }
+  .flow-tile__pick {
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+  .flow-tile .promo-tag {
+    grid-area: promo;
+  }
+  .flow-tile--sk {
+    display: grid;
+  }
+
+  
+  
+  .flow-stay__go {
+    display: none;
+  }
+  .flow-stay {
+    display: none;
+  }
+
+  .flow-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+    background: var(--white);
+    box-shadow: 0 -6px 18px -14px rgba(30, 40, 30, 0.35);
+  }
+  .flow-bar__info {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    line-height: 1.3;
+  }
+  .flow-bar__info small {
+    overflow: hidden;
+    font-size: 13px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .flow-bar__info b {
+    font-size: 19px;
+    font-variant-numeric: tabular-nums;
+  }
+  .flow-bar__go {
+    flex: none;
+    min-height: 52px;
+    max-width: 62%;
+    padding: 0 18px;
+    font-size: 16px;
+    line-height: 1.2;
+  }
+  .flow-bar__go:disabled {
+    background: var(--brand-soft);
+    color: var(--brand-dark);
+    box-shadow: inset 0 0 0 2px var(--brand);
+    cursor: default;
+  }
+  .flow-bar__go.is-hint {
+    min-height: 44px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
 }
 
 .flow-list {
@@ -140,98 +566,78 @@
   overflow-wrap: anywhere;
 }
 
-/* ---- Step 2: rooms ---- */
-.flow-rooms {
-  display: grid;
-  gap: 12px;
-}
-.flow-room {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) auto;
-  gap: 16px;
-  align-items: center;
-  padding: 12px;
-  border: 1.5px solid var(--border);
+.flow-review {
+  margin: 0;
+  padding: 4px 18px;
   border-radius: 16px;
   background: var(--white);
-  font-family: var(--sans);
-  text-align: left;
-  color: var(--text);
-  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+  box-shadow: 0 0 0 1px var(--border);
 }
-.flow-room:hover:not(:disabled) {
-  border-color: var(--brand);
-}
-.flow-room.is-selected {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--brand-soft);
-}
-.flow-room:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.flow-room__thumb {
-  width: 96px;
-  height: 72px;
-  border-radius: 10px;
-  overflow: hidden;
-  background: linear-gradient(135deg, var(--bg-alt), var(--brand-soft));
-}
-.flow-room__thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.flow-room__text {
+.flow-review h2 {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.flow-room__text strong {
-  font-family: var(--serif);
-  font-size: 19px;
-  color: var(--text-h);
-}
-.flow-room__text em {
-  margin-top: 4px;
-  padding: 1px 10px;
-  border-radius: 999px;
-  font-style: normal;
-  font-size: 12px;
-  font-weight: 700;
-}
-.flow-room__text em.is-free {
-  background: var(--brand-soft);
-  color: var(--brand);
-}
-.flow-room__text em.is-full {
-  background: hsl(0, 30%, 93%);
-  color: var(--error);
-}
-.flow-room__price {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  font-size: 12px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-.flow-room__price strong {
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 0 6px;
   font-size: 17px;
+  font-weight: 600;
+}
+.flow-review h2 button {
+  min-height: 32px;
+  padding: 0 4px;
+  border: none;
+  background: none;
   color: var(--brand);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.flow-review .flow-list {
+  margin: 0 0 12px;
+}
+.flow-review__money {
+  display: grid;
+  padding: 0 18px;
+  overflow: hidden;
+}
+.flow-review__money > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.flow-review__money dd {
+  margin: 0;
+  font-size: 18px;
+}
+.flow-review__dep {
+  margin: 0 -18px;
+  padding: 12px 18px !important;
+  background: hsl(38, 45%, 91%);
+  color: hsl(35, 70%, 24%);
 }
 
-/* ---- Step 3: details ---- */
+#flow-details {
+  display: grid;
+  gap: 18px;
+}
+#flow-details .flow__requests {
+  margin: 4px 0 0;
+}
 .flow__fields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
-  margin-top: 18px;
 }
 .flow__requests {
+  /* A fieldset is as wide as its longest line unless told otherwise. */
+  min-width: 0;
   display: grid;
   gap: 8px;
   margin: 22px 0 18px;
@@ -264,7 +670,6 @@
   flex: none;
   accent-color: var(--brand);
 }
-/* Pets: a row like the checkboxes, with a counter instead of a tick. */
 .flow__pets {
   display: flex;
   align-items: center;
@@ -298,27 +703,12 @@
   color: var(--text-muted);
   white-space: nowrap;
 }
+/* The pet rule is a sentence, not a tag: let it wrap. */
+.flow__requests .flow__pets small {
+  margin-left: 0;
+  white-space: normal;
+}
 
-/* ---- Step 4: review ---- */
-.flow-deposit {
-  margin: 20px 0 18px;
-  padding: 18px 20px;
-  border-radius: 16px;
-  background: hsl(44, 92%, 93%);
-  color: hsl(36, 60%, 22%);
-  font-size: 14px;
-  line-height: 1.6;
-}
-.flow-deposit__title {
-  font-weight: 700;
-}
-.flow-deposit__amount {
-  font-family: var(--serif);
-  font-size: 34px;
-  font-weight: 600;
-  line-height: 1.2;
-  margin-bottom: 6px;
-}
 .flow__accept {
   display: flex;
   gap: 10px;
@@ -330,127 +720,17 @@
   margin-top: 3px;
 }
 
-/* ---- Finished ---- */
-.flow-done {
-  max-width: 540px;
-  margin: 0 auto;
-  padding: 40px 32px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  box-shadow: var(--shadow);
-  text-align: center;
-  animation: fade-up var(--dur-slow) var(--ease-out) both;
-}
-.flow-done__icon {
-  display: grid;
-  place-items: center;
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 16px;
-  border-radius: 50%;
-  background: var(--success);
-  color: var(--white);
-  font-size: 30px;
-  animation: flow-pop 0.5s var(--ease-out) both;
-}
-.flow-done h1 {
-  font-size: 28px;
-}
-.flow-done__lead {
-  margin-top: 6px;
-  color: var(--text-muted);
-}
-.flow-done__code {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  margin: 24px 0 8px;
-  padding: 18px;
-  border: 1.5px dashed var(--brand);
-  border-radius: 16px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.flow-done__code strong {
-  font-size: 30px;
-  letter-spacing: 0.06em;
-  color: var(--brand-dark);
-}
-.flow-done__hint {
-  margin: 14px 0;
-  font-size: 14px;
-  color: var(--text-muted);
-}
-.flow-done .pay-panel {
-  margin-top: 18px;
-}
-/* Room login shown once the deposit is paid. */
-.flow-done__stay {
-  margin-top: 18px;
-  padding: 16px 18px 4px;
-  border-radius: 16px;
-  background: var(--brand-soft);
-  text-align: left;
-}
-.flow-done__stay-title {
-  margin-bottom: 8px;
-  font-weight: 700;
-  color: var(--brand-dark);
-}
-.flow-done__summary {
-  margin-top: 22px;
-  text-align: left;
-}
-.flow-done .price-rows {
-  text-align: left;
-}
-.flow-done__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 22px;
-}
-
-@keyframes flow-pop {
-  from {
-    transform: scale(0.4);
-    opacity: 0;
-  }
-}
-
 @media (max-width: 900px) {
-  .flow {
-    grid-template-columns: 1fr;
-  }
-  .flow__side {
-    position: static;
-  }
-  .flow__main,
-  .flow__side {
-    padding: 22px 18px;
-  }
   .flow__fields {
-    grid-template-columns: 1fr;
-  }
-  /* Only the current step's name fits on a phone. */
-  .flow-steps__item:not(.flow-steps__item--current) .flow-steps__label {
-    display: none;
-  }
-  .flow-room {
-    grid-template-columns: 72px minmax(0, 1fr);
-  }
-  .flow-room__thumb {
-    width: 72px;
-    height: 56px;
-  }
-  .flow-room__price {
-    grid-column: 2;
-    align-items: flex-start;
+    grid-template-columns: minmax(0, 1fr);
   }
   .flow__requests label {
     flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow__accept.is-nudged {
+    animation: none;
   }
 }

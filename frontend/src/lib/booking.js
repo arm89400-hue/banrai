@@ -1,15 +1,7 @@
-// Helpers shared by the booking flow, room pages and booking status page.
-// Stay dates are bare "YYYY-MM-DD" strings everywhere on the frontend; the
-// backend stores them as UTC midnight.
-
-// Extra requests offered as checkboxes. Pets are asked for as a count
-// instead (they're charged per pet), and saved as the 'pets' request.
 export const REQUEST_OPTIONS = ['bbq', 'extra_bed'];
 export const MAX_PETS = 99;
-export const MAX_GUESTS = 10;
+export const MAX_GUESTS = 14;
 
-// Local calendar date -> "YYYY-MM-DD" (not toISOString(), which converts
-// to UTC and could shift the day).
 export function toISODate(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -34,7 +26,6 @@ export function nightsBetween(checkIn, checkOut) {
   return Math.max(0, Math.round((utc(checkOut) - utc(checkIn)) / 86_400_000));
 }
 
-// "3 ต.ค. 2569" / "Oct 3, 2026"
 export function formatDay(iso, locale) {
   return utc(iso).toLocaleDateString(locale, {
     day: 'numeric',
@@ -44,11 +35,8 @@ export function formatDay(iso, locale) {
   });
 }
 
-// A booking's booked_for/booked_until timestamps -> bare dates.
 export const dayOf = (timestamp) => String(timestamp).slice(0, 10);
 
-// Turns [{check_in, check_out}] ranges into a Set of the nights they cover
-// (a "night" is the date you go to sleep; check-out day itself is free).
 export function bookedNightSet(ranges) {
   const nights = new Set();
   for (const { check_in, check_out } of ranges ?? []) {
@@ -57,7 +45,6 @@ export function bookedNightSet(ranges) {
   return nights;
 }
 
-// True if no night in [checkIn, checkOut) is already booked.
 export function rangeIsFree(bookedNights, checkIn, checkOut) {
   for (let day = checkIn; day < checkOut; day = addDays(day, 1)) {
     if (bookedNights.has(day)) return false;
@@ -65,25 +52,59 @@ export function rangeIsFree(bookedNights, checkIn, checkOut) {
   return true;
 }
 
-// Room names are stored as "English name · Thai name". Returns the current
-// language's name as the title and the other as a subtitle.
+export function nearbyFreeStays(rooms, booked, checkIn, nights, guests, today) {
+  const span = 14;
+  const limit = 3;
+  const found = [];
+  for (let step = 1; step <= span && found.length < limit; step++) {
+    for (const shift of [-step, step]) {
+      const start = addDays(checkIn, shift);
+      if (start < today || found.length >= limit) continue;
+      const end = addDays(start, nights);
+      const free = rooms.filter((r) => rangeIsFree(booked.get(r.id) ?? new Set(), start, end));
+      if (free.length && free.reduce((sum, r) => sum + roomMaxGuests(r), 0) >= guests) {
+        found.push({ checkIn: start, checkOut: end, rooms: free });
+      }
+    }
+  }
+  return found;
+}
+
+export function nextFreeStart(bookedNights, checkIn, nights, span = 60) {
+  for (let shift = 1; shift <= span; shift++) {
+    const start = addDays(checkIn, shift);
+    if (rangeIsFree(bookedNights, start, addDays(start, nights))) return start;
+  }
+  return null;
+}
+
 export function roomNames(name, lang) {
   const [en, th] = String(name ?? '').split(' · ');
   return lang === 'th' && th ? { title: th, subtitle: en } : { title: en, subtitle: th };
 }
 
-// Most guests a room can take: the guests its price covers (capacity) plus
-// the extra guests it allows. Falls back to MAX_GUESTS if no count is set.
 export function roomMaxGuests(room) {
   if (!room?.capacity) return MAX_GUESTS;
   return room.capacity + (room.max_extra_guests ?? 0);
 }
 
-// Price breakdown for a stay, as shown to the guest. The backend computes
-// the real total the same way (backend/src/lib/pricing.js): the room rate
-// covers room.capacity guests; each guest beyond that pays `fee` per night,
-// and each pet pays `petFee` per night. A promotion (see promoFor below)
-// takes its percentage off the room rate only.
+export function splitGuests(rooms, guests) {
+  if (rooms.length === 0 || rooms.length > guests) return null;
+  const counts = rooms.map(() => 1);
+  let left = guests - rooms.length;
+  rooms.forEach((room, i) => {
+    const take = Math.min(left, (room.capacity ?? MAX_GUESTS) - counts[i]);
+    counts[i] += take;
+    left -= take;
+  });
+  rooms.forEach((room, i) => {
+    const take = Math.min(left, room.capacity ? room.max_extra_guests ?? 0 : 0);
+    counts[i] += take;
+    left -= take;
+  });
+  return left === 0 ? counts : null;
+}
+
 export function priceStay(room, nights, guests, fee, pets = 0, petFee = 0, promo = null) {
   const extraGuests = room.capacity ? Math.max(0, guests - room.capacity) : 0;
   const base = Number(room.price) * nights;
@@ -93,9 +114,6 @@ export function priceStay(room, nights, guests, fee, pets = 0, petFee = 0, promo
   return { base, extraGuests, extraTotal, petTotal, discount, total: base - discount + extraTotal + petTotal };
 }
 
-// The promotion a stay gets: the biggest discount among those covering its
-// check-in day and its room, or null. Mirrors bestPromotion in
-// backend/src/lib/promotions.js, which decides the real price.
 export function promoFor(promotions, roomId, checkIn) {
   let best = null;
   for (const p of promotions ?? []) {
@@ -106,7 +124,21 @@ export function promoFor(promotions, roomId, checkIn) {
   return best;
 }
 
-// Promotions a room has now or coming up (whatever dates the guest picks).
 export function promosForRoom(promotions, roomId) {
   return (promotions ?? []).filter((p) => p.room_id == null || p.room_id === roomId);
+}
+
+export function formatDayShort(iso, locale, wd) {
+  const d = new Date(`${iso}T00:00:00`);
+  return `${wd[d.getDay()]} ${d.toLocaleDateString(locale, { day: 'numeric', month: 'short' })}`;
+}
+
+export function formatStay(checkIn, checkOut, locale, wd) {
+  if (!checkOut) return `${formatDayShort(checkIn, locale, wd)} – ?`;
+  if (checkIn.slice(0, 7) !== checkOut.slice(0, 7)) {
+    const day = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+    return `${day(checkIn)} – ${day(checkOut)}`;
+  }
+  const d = (iso) => new Date(`${iso}T00:00:00`);
+  return `${wd[d(checkIn).getDay()]} ${d(checkIn).getDate()} – ${formatDayShort(checkOut, locale, wd)}`;
 }

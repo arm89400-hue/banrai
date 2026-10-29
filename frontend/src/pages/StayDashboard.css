@@ -1,225 +1,657 @@
-/* Room dashboard (/stay), for the temporary account of a confirmed stay.
-   Shared pieces live in BookingBits.css. */
-.stay__head {
-  margin-bottom: 26px;
-  animation: fade-up var(--dur-slow) var(--ease-out) both;
-}
-.stay__eyebrow {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--brand);
-}
-html:lang(th) .stay__eyebrow {
-  letter-spacing: 0.02em;
-}
-.stay__head h1 {
-  font-size: 32px;
-  margin-top: 4px;
-}
-/* When the login stops working: the one thing this guest must know. */
-.stay__expiry {
-  display: inline-block;
-  margin-top: 12px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: hsl(44, 92%, 90%);
-  color: hsl(36, 70%, 25%);
-  font-size: 14px;
-  font-weight: 600;
+/* Stay page: the stay on the left, money and "how do I get help" on the
+   right (sticky), farm things across the bottom. The right column turns
+   into the chat when the guest opens it. */
+
+.bk-page.stay {
+  padding-top: 24px;
 }
 
-.stay__grid {
+.stay-dash {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-areas:
+    'main side'
+    'farm farm';
+  gap: 28px 32px;
   align-items: start;
 }
-
-.stay-card {
-  padding: 24px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  box-shadow: var(--shadow);
-  animation: fade-up var(--dur-slow) var(--ease-out) both;
-}
-.stay-card h2 {
-  margin-bottom: 14px;
-  font-size: 20px;
-}
-
-/* The stay itself: full width, photo beside the details. */
-.stay-room {
-  grid-column: 1 / -1;
+.stay-main {
+  grid-area: main;
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
-  padding: 0;
-  overflow: hidden;
+  gap: 24px;
+  min-width: 0;
 }
-/* The photo fills whatever height the details need, rather than its own
-   (tall) height stretching the card. */
-.stay-room__photo {
-  position: relative;
-  min-height: 280px;
-  background: linear-gradient(135deg, var(--bg-alt), var(--brand-soft));
+.stay-side {
+  grid-area: side;
+  min-width: 0;
 }
-.stay-room__photo img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.stay-room__body {
-  display: grid;
-  align-content: start;
-  gap: 18px;
-  padding: 26px 28px;
-}
-.stay-room__title {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-}
-.stay-room__title h2 {
-  margin: 0;
-  font-size: 28px;
-}
-.stay-room__title p {
-  font-weight: 600;
-  color: var(--brand);
+.stay-tile--farm {
+  grid-area: farm;
 }
 
-.stay-times {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  border-radius: 14px;
-  background: var(--brand-dark);
-  color: var(--white);
-}
-.stay-times > div {
+.stay-tile {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 14px 16px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-}
-.stay-times > div + div {
-  border-left: 1px solid rgba(255, 255, 255, 0.15);
-}
-.stay-times strong {
-  font-family: var(--serif);
-  font-size: 20px;
-  color: var(--white);
-}
-
-.stay-list {
-  display: grid;
   gap: 8px;
-  margin: 0;
-  font-size: 15px;
+  min-width: 0;
 }
-.stay-list > div {
+.stay-tile h2,
+.stay-side h2 {
   display: flex;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-h);
 }
-.stay-list dt {
+.stay-ic {
   flex: none;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.stay-tile small,
+.stay-side small {
+  font-size: 14px;
   color: var(--text-muted);
 }
-.stay-list dd {
+
+/* The stay itself: the one white card on the left */
+.stay-tile--when {
+  box-sizing: border-box;
+  gap: 16px;
+  padding: 22px 24px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--white);
+}
+.stay-tile--when h2 {
   margin: 0;
+}
+.stay__expiry {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.stay-line {
+  display: grid;
+  grid-template-columns: auto minmax(60px, 1fr) auto;
+  gap: 20px;
+  align-items: center;
+}
+.stay-line > div:not(.stay-line__mid) {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.stay-line > div:last-child {
   text-align: right;
 }
-
-.stay-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.stay-line b {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
 }
-.stay-chips li {
-  padding: 6px 13px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg);
-  font-size: 14px;
-}
-
-.stay-rules {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 15px;
-}
-.stay-rules li {
+/* A line from check-in to check-out; during the stay the part already lived
+   is solid and a "today" tag sits where the guest is. */
+.stay-line__mid {
   position: relative;
-  padding-left: 20px;
+  height: 2px;
+  margin: 0 5px;
+  background: hsl(150 35% 30% / 0.25);
 }
-.stay-rules li::before {
+.stay-line__mid::before {
   content: '';
   position: absolute;
-  left: 0;
-  top: 0.6em;
-  width: 7px;
-  height: 7px;
+  inset: 0 auto 0 0;
+  width: calc(var(--at, 0) * 100%);
+  background: var(--brand);
+}
+.stay-line__mid > i {
+  position: absolute;
+  top: -4px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--brand);
 }
+.stay-line__mid > i:first-child {
+  left: -5px;
+}
+.stay-line__mid > i:nth-child(2) {
+  right: -5px;
+}
+.stay-line__today {
+  position: absolute;
+  bottom: 12px;
+  left: calc(var(--at, 0) * 100%);
+  translate: -50% 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.stay-line__today::after {
+  content: '';
+  position: absolute;
+  bottom: -13px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border: 3px solid var(--brand);
+  border-radius: 50%;
+  background: var(--white);
+}
 
-.stay-activities {
+.stay-rooms {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   margin: 0;
-  padding: 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--border);
   list-style: none;
 }
-.stay-activities li {
+.stay-rooms li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.stay-rooms img {
+  width: 72px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--bg-alt);
+}
+.stay-rooms span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+.stay-rooms b {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+/* Good to know: a plain list, one line each */
+.stay-tile--know {
+  padding: 0 4px;
+}
+.stay-know {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0 0 0 20px;
+  font-family: var(--looped);
+  font-size: 16px;
+  line-height: 1.55;
+}
+.stay-know li::marker {
+  color: var(--brand);
+}
+
+/* Right column: money on top, then ways to reach the farm */
+.stay-side__card {
+  box-sizing: border-box;
+  display: grid;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+}
+.stay-money-box,
+.stay-help {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+}
+.stay-help {
+  gap: 8px;
+  border-top: 1px solid var(--border);
+}
+.stay-money {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+.stay-money-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin: 0;
+}
+.stay-paid-tag {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.stay-paid {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 0;
+  font-size: 15px;
+}
+.stay-paid > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.stay-paid dt {
+  color: var(--text-muted);
+}
+.stay-paid dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.stay-tile__btn {
+  min-height: 44px;
+  margin-top: 6px;
+  font-size: 15px;
+}
+.stay-side .stay-tile__farm {
+  font-family: var(--looped);
+}
+
+.stay-go {
+  box-sizing: border-box;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform var(--dur-1) var(--ease-standard), border-color var(--dur-2) var(--ease-standard),
+    background-color var(--dur-2) var(--ease-standard);
+}
+.stay-go:hover {
+  border-color: var(--brand);
+}
+.stay-go:active {
+  transform: scale(0.98);
+}
+.stay-go > span:not(.stay-badge) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+.stay-go small {
+  font-size: 14px;
+  font-weight: 400;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.stay-go .stay-ic {
+  width: 22px;
+  height: 22px;
+  color: var(--brand);
+}
+.stay-go--main {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: var(--white);
+}
+.stay-go--main .stay-ic,
+.stay-go--main small {
+  color: hsl(0 0% 100% / 0.85);
+}
+.stay-go--main:hover {
+  background: var(--brand-hover);
+}
+
+/* Chat: takes the place of the side card while open */
+.stay-chat {
+  display: none;
+  flex-direction: column;
+  height: min(620px, calc(100svh - 128px));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+}
+.stay-dash.is-chat-open .stay-side__card {
+  display: none;
+}
+.stay-dash.is-chat-open .stay-chat {
+  display: flex;
+  animation: stay-chat-in var(--dur-4) var(--ease-standard) backwards;
+}
+@keyframes stay-chat-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+.stay-chat > header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
-  font-size: 15px;
+  gap: 12px;
+  padding: 16px 12px 12px 20px;
+  border-bottom: 1px solid var(--border);
 }
-.stay-activities span {
-  display: flex;
-  flex-direction: column;
+.stay-chat > header h2 {
+  margin: 0;
 }
-.stay-activities small {
-  font-size: 13px;
+.stay-chat > header p {
+  margin: 2px 0 0;
+  font-size: 14px;
   color: var(--text-muted);
 }
-.stay-activities b {
-  color: var(--brand);
-  white-space: nowrap;
+.stay-chat .chat-thread {
+  font-family: var(--looped);
+}
+.stay-chat__close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.stay-chat__close:hover {
+  background: var(--bg-alt);
+  color: var(--text-h);
+}
+.stay-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--error);
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
 }
 
-.stay-contact > div {
+/* Farm row */
+.stay-tile--farm {
+  gap: 12px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.stay__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.stay__row h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.stay__row > a {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--brand);
+}
+.stay-fruit {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  align-items: center;
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 15px;
+}
+.stay-fruit span {
+  color: var(--text-muted);
+}
+.stay-fruit b {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+.stay-fruit img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+.stay-acts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.stay-acts a {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: inherit;
+  font-size: 16px;
+  text-decoration: none;
+}
+.stay-acts img {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 10px;
+  background: var(--bg-alt);
+  transition: scale var(--dur-3) var(--ease-standard);
+}
+.stay-acts a:hover img {
+  scale: 1.02;
+}
+.stay-acts a:hover b {
+  color: var(--brand);
+}
+.stay-acts b {
+  margin-top: 4px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+.stay-acts__price {
+  font-size: 15px;
+  color: var(--text-muted);
 }
 
-@media (max-width: 800px) {
-  .stay__grid {
-    grid-template-columns: 1fr;
+.stay-tabs {
+  display: none;
+}
+
+@media (max-width: 1000px) {
+  .stay-dash {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 24px;
   }
-  .stay-room {
-    grid-template-columns: 1fr;
+  .stay-line b {
+    font-size: 20px;
   }
-  .stay-room__photo {
-    min-height: 220px;
+  .stay-acts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .stay__head h1 {
-    font-size: 26px;
+}
+
+@media (max-width: 640px) {
+  .bk-page.stay {
+    padding-top: 12px;
+    padding-bottom: 24px;
+    min-height: 0;
+  }
+  .stay-tabs {
+    position: sticky;
+    top: 72px;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    margin-bottom: 14px;
+    padding: 4px;
+    border-radius: 12px;
+    background: var(--bg-alt);
+  }
+  .stay-tabs button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    border: 0;
+    border-radius: 9px;
+    background: none;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .stay-tabs button.is-on {
+    background: var(--brand);
+    color: var(--white);
+  }
+  .stay-tabs .stay-ic {
+    width: 18px;
+    height: 18px;
+  }
+  .stay-tabs .stay-badge {
+    margin-left: 2px;
+  }
+
+  /* One column; the tabs pick which pieces show. */
+  .stay-dash {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .stay-main,
+  .stay-side {
+    display: contents;
+  }
+  .stay-tile--when { order: 1; }
+  .stay-side__card { order: 2; }
+  .stay-tile--know { order: 3; }
+  .stay-dash[data-tab='stay'] [data-for]:not([data-for='stay']),
+  .stay-dash[data-tab='chat'] [data-for]:not([data-for='chat']),
+  .stay-dash[data-tab='farm'] [data-for]:not([data-for='farm']) {
+    display: none;
+  }
+  .stay-dash[data-tab='chat'] .stay-chat {
+    display: flex;
+    height: calc(100svh - 170px);
+    min-height: 380px;
+    animation: none;
+  }
+  .stay-dash.is-chat-open .stay-side__card {
+    display: grid;
+  }
+  .stay-chat__close {
+    display: none;
+  }
+
+  .stay-tile--when {
+    gap: 14px;
+    padding: 16px;
+  }
+  .stay-line {
+    gap: 12px;
+  }
+  .stay-line b {
+    font-size: 18px;
+  }
+  .stay-line small,
+  .stay-line > div:not(.stay-line__mid) {
+    font-size: 13px;
+  }
+  .stay-line__today {
+    font-size: 12px;
+    padding: 1px 8px;
+  }
+  .stay-rooms img {
+    width: 56px;
+  }
+  .stay-money-box,
+  .stay-help {
+    padding: 16px;
+  }
+  .stay-money {
+    font-size: 28px;
+  }
+  .stay-help {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .stay-help h2 {
+    grid-column: 1 / -1;
+  }
+  .stay-go {
+    gap: 10px;
+    min-height: 56px;
+    padding: 8px 12px;
+    font-size: 15px;
+  }
+  .stay-go small {
+    font-size: 13px;
+  }
+  .stay-go--chat small {
+    display: none;
+  }
+  .stay-know {
+    font-size: 15px;
+  }
+  .stay__row h2 {
+    font-size: 18px;
+  }
+  .stay-acts {
+    gap: 12px;
+  }
+  .stay-acts a {
+    font-size: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stay-dash.is-chat-open .stay-chat {
+    animation: none;
   }
 }

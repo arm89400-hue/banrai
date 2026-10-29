@@ -2,7 +2,12 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
-// Shared PostgreSQL connection pool used by every route in the app.
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  // Fail fast when the database is unreachable instead of waiting forever.
+  connectionTimeoutMillis: 5000,
 });
+
+// A dropped database connection must not crash the app: log it, and the next
+// query opens a new connection once the database is back.
+pool.on('error', (err) => console.error('database connection lost:', err.message));

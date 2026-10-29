@@ -1,210 +1,103 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { shift } from '../lib/motion';
 import { useLang } from '../i18n/lang';
+import { formatDayShort, formatStay, nightsBetween } from '../lib/booking';
+import { CHECK_IN_TIME, CHECK_OUT_TIME } from '../lib/site';
+import InlineCalendar from './InlineCalendar';
 import './DateRangePicker.css';
 
-
-// Formats a Date as a local "YYYY-MM-DD" string (the format checkIn/checkOut
-// are stored/passed around in) - deliberately not toISOString(), which
-// would convert to UTC and could shift the date by a day.
-function toISODate(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-// Parses a "YYYY-MM-DD" string back into a local-midnight Date.
-function fromISODate(iso) {
-  return new Date(`${iso}T00:00:00`);
-}
-
-// Returns a copy of the given date with the time zeroed out, so two dates
-// can be compared/matched by day alone.
-function startOfDay(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-// Builds the array of calendar cells for a given month: null placeholders
-// for the leading offset (so the 1st lines up under the right weekday) and
-// trailing padding, then one Date per real day in between.
-function buildMonthGrid(viewMonth) {
-  const year = viewMonth.getFullYear();
-  const month = viewMonth.getMonth();
-  const firstOfMonth = new Date(year, month, 1);
-  const offset = (firstOfMonth.getDay() + 6) % 7; // Monday-first offset
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  const cells = [];
-  for (let i = 0; i < offset; i++) cells.push(null);
-  for (let day = 1; day <= daysInMonth; day++) cells.push(new Date(year, month, day));
-  // Always pad to a fixed 6 rows (42 cells) so the grid height - and the
-  // Confirm button's position below it - stays constant across months,
-  // instead of shifting depending on how many week-rows each month needs.
-  while (cells.length < 42) cells.push(null);
-  return cells;
-}
-
-// Formats an ISO date string for display in the trigger field, e.g.
-// "Aug 12" / "12 ส.ค.".
-function formatShort(iso, locale) {
-  return fromISODate(iso).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
-}
-
-// Check-in/check-out range picker used in the Home page search bar. Renders
-// a text trigger that opens a centered modal calendar (via a portal - see
-// createPortal below) for picking a start and end date, with the selected
-// range and in-between days highlighted.
-export default function DateRangePicker({ checkIn, checkOut, onChange }) {
-  const [open, setOpen] = useState(false);
+export default function DateRangePicker({ checkIn, checkOut, onChange, bookedNights, className = '' }) {
   const { t, locale } = useLang();
-  const [viewMonth, setViewMonth] = useState(() => {
-    const base = checkIn ? fromISODate(checkIn) : new Date();
-    return new Date(base.getFullYear(), base.getMonth(), 1);
-  });
-  const rootRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState('in');
+  const nights = checkIn && checkOut ? nightsBetween(checkIn, checkOut) : 0;
 
   useEffect(() => {
-    if (!open) return;
-    // Click-outside-to-close is handled by the backdrop's own onClick (the
-    // popup stops propagation) - a DOM-containment check here would be
-    // wrong now that the popup is portaled to document.body, outside
-    // rootRef's actual DOM subtree.
-    function handleKey(e) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    document.addEventListener('keydown', handleKey);
+    if (!open) return undefined;
+    const onKey = (e) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('keydown', onKey);
+    document.body.classList.add('sheet-open');
     return () => {
-      document.removeEventListener('keydown', handleKey);
+      document.removeEventListener('keydown', onKey);
+      document.body.classList.remove('sheet-open');
     };
   }, [open]);
 
-  const today = startOfDay(new Date());
-  const checkInDate = checkIn ? startOfDay(fromISODate(checkIn)) : null;
-  const checkOutDate = checkOut ? startOfDay(fromISODate(checkOut)) : null;
-
-  // Advances the selection state on each day click: picks a fresh check-in
-  // if none is set (or the range was already complete), restarts from an
-  // earlier date if clicked before the current check-in, otherwise
-  // completes the range by setting check-out.
-  function handleDayClick(date) {
-    if (date < today) return;
-
-    if (!checkInDate || checkOutDate) {
-      onChange({ checkIn: toISODate(date), checkOut: '' });
-    } else if (date.getTime() === checkInDate.getTime()) {
-      // ignore re-clicking the same day
-    } else if (date < checkInDate) {
-      onChange({ checkIn: toISODate(date), checkOut: '' });
-    } else {
-      onChange({ checkIn: toISODate(checkInDate), checkOut: toISODate(date) });
-    }
+  function show(e) {
+    const field = e?.currentTarget;
+    shift(
+      () => {
+        setMode(checkIn && !checkOut ? 'out' : 'in');
+        setOpen(true);
+      },
+      { from: field, to: '.date-sheet__panel' }
+    );
   }
 
-  // Moves the visible calendar forward/back by delta months (-1 or 1).
-  function shiftMonth(delta) {
-    setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+  function pick(dates) {
+    onChange(dates);
+    setMode(dates.checkIn && !dates.checkOut ? 'out' : 'in');
   }
 
-  const cells = buildMonthGrid(viewMonth);
-  const label = checkIn
-    ? `${formatShort(checkIn, locale)} – ${checkOut ? formatShort(checkOut, locale) : t('date.selectOut')}`
-    : t('date.select');
+  const tab = (which, label, value) => (
+    <button
+      type="button"
+      className={`date-sheet__tab${mode === which ? ' is-on' : ''}`}
+      aria-pressed={mode === which}
+      onClick={() => setMode(which === 'out' && !checkIn ? 'in' : which)}
+    >
+      <small>{label}</small>
+      <b className={value ? '' : 'is-empty'}>
+        {value ? formatDayShort(value, locale, t('date.wd')) : t('date.pick')}
+      </b>
+    </button>
+  );
 
   return (
-    <div className="date-range-picker" ref={rootRef}>
-      <label>
-        <span>{t('date.label')}</span>
-        <button
-          type="button"
-          className="date-range-picker__trigger"
-          onClick={() => setOpen((o) => !o)}
-        >
-          {label}
-        </button>
-      </label>
+    <>
+      <button type="button" className={`dates-field ${className}`} onClick={show} aria-haspopup="dialog">
+        <svg className="dates-field__icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
+          <path d="M3.5 10h17M8 3v4M16 3v4" />
+          <path d="M8 14h2M14 14h2M8 17h2" strokeWidth="2.4" />
+        </svg>
+        <span className="dates-field__txt">
+          <small>{nights ? `${t('date.label')} · ${t('flow.nights', { n: nights })}` : t('date.label')}</small>
+          <b className={checkIn ? '' : 'is-empty'}>{checkIn ? formatStay(checkIn, checkOut, locale, t('date.wd')) : t('date.select')}</b>
+        </span>
+      </button>
 
       {open &&
         createPortal(
-        <div className="date-range-picker__backdrop" onClick={() => setOpen(false)}>
-          <div className="date-range-picker__popup" onClick={(e) => e.stopPropagation()}>
-            <div className="date-range-picker__header">
-              <button type="button" onClick={() => shiftMonth(-1)} aria-label={t('date.prev')}>
-                &#8249;
-              </button>
-              <span>{viewMonth.toLocaleDateString(locale, { month: 'long', year: 'numeric' })}</span>
-              <button type="button" onClick={() => shiftMonth(1)} aria-label={t('date.next')}>
-                &#8250;
-              </button>
-            </div>
-
-            <div className="date-range-picker__weekdays">
-              {t('date.weekdays').map((d) => (
-                <span key={d}>{d}</span>
-              ))}
-            </div>
-
-            <div className="date-range-picker__grid">
-              {cells.map((date, i) => {
-                if (!date) {
-                  return (
-                    <span
-                      key={i}
-                      className="date-range-picker__cell date-range-picker__cell--empty"
-                    />
-                  );
-                }
-
-                const isPast = date < today;
-                const isCheckIn = checkInDate && date.getTime() === checkInDate.getTime();
-                const isCheckOut = checkOutDate && date.getTime() === checkOutDate.getTime();
-                const inRange =
-                  checkInDate && checkOutDate && date > checkInDate && date < checkOutDate;
-
-                const classes = ['date-range-picker__cell'];
-                if (isPast) classes.push('date-range-picker__cell--disabled');
-                if (isCheckIn || isCheckOut) classes.push('date-range-picker__cell--selected');
-                if (inRange) classes.push('date-range-picker__cell--in-range');
-
-                return (
-                  <button
-                    type="button"
-                    key={i}
-                    className={classes.join(' ')}
-                    disabled={isPast}
-                    onClick={() => handleDayClick(date)}
-                  >
-                    {date.getDate()}
+          <div /* NOSONAR - Escape closes it (keydown listener above) */ className="date-sheet" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
+            <div className="date-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="date-sheet-title">
+              <span className="date-sheet__grip" aria-hidden="true" />
+              <div className="date-sheet__top">
+                <h2 id="date-sheet-title">{t('date.sheetTitle')}</h2>
+                <button type="button" className="date-sheet__close" onClick={() => setOpen(false)} aria-label={t('date.close')}>
+                  ×
+                </button>
+              </div>
+              <div className="date-sheet__tabs">
+                {tab('in', `${t('date.inTab')} ${CHECK_IN_TIME}`, checkIn)}
+                {tab('out', `${t('date.outTab')} ${CHECK_OUT_TIME}`, checkOut)}
+              </div>
+              <InlineCalendar checkIn={checkIn} checkOut={checkOut} onChange={pick} bookedNights={bookedNights} mode={mode} />
+              <div className="date-sheet__foot">
+                {checkIn && (
+                  <button type="button" className="date-sheet__clear" onClick={() => pick({ checkIn: '', checkOut: '' })}>
+                    {t('date.clear')}
                   </button>
-                );
-              })}
+                )}
+                <button type="button" className="date-sheet__done" disabled={!nights} onClick={() => setOpen(false)}>
+                  {nights ? t('date.use', { n: nights }) : checkIn ? t('date.selectOut') : t('date.pickIn')}
+                </button>
+              </div>
             </div>
-
-            <div className="date-range-picker__legend">
-              <span>
-                <i className="date-range-picker__swatch date-range-picker__swatch--range" />
-                {t('date.inRange')}
-              </span>
-              <span>
-                <i className="date-range-picker__swatch date-range-picker__swatch--selected" />
-                {t('date.selected')}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              className="date-range-picker__confirm"
-              disabled={!checkIn || !checkOut}
-              onClick={() => setOpen(false)}
-            >
-              {t('date.confirm')}
-            </button>
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }

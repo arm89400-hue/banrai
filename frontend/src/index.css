@@ -1,3 +1,22 @@
+@font-face {
+  font-family: 'Baanrai Digits';
+  src: local('Segoe UI'), local('Roboto'), local('Helvetica Neue'), local('Arial');
+  font-weight: 400 500;
+  unicode-range: U+0030-0039, U+0E3F;
+}
+@font-face {
+  font-family: 'Baanrai Digits';
+  src: local('Segoe UI Semibold'), local('Roboto Medium'), local('Helvetica Neue Medium'), local('Arial Bold');
+  font-weight: 600;
+  unicode-range: U+0030-0039, U+0E3F;
+}
+@font-face {
+  font-family: 'Baanrai Digits';
+  src: local('Segoe UI Bold'), local('Roboto Bold'), local('Helvetica Neue Bold'), local('Arial Bold');
+  font-weight: 700 900;
+  unicode-range: U+0030-0039, U+0E3F;
+}
+
 :root {
   --text: hsl(120, 10%, 15%);
   --text-h: hsl(120, 10%, 15%);
@@ -15,15 +34,29 @@
   --brand-soft: hsl(150, 30%, 93%);
   --success: hsl(145, 55%, 36%);
 
-  /* Motion: short durations + one shared easing keep every animation on
-     the site feeling like part of the same system. */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --dur-fast: 0.18s;
   --dur: 0.35s;
   --dur-slow: 0.7s;
 
+  --dur-1: 80ms;
+  --dur-2: 150ms;
+  --dur-3: 240ms;
+  --dur-4: 400ms;
+  --dur-5: 700ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  --straw: hsl(38, 48%, 64%);
+  --on-straw: var(--brand-dark);
+
+  --looped: 'IBM Plex Sans Thai Looped', 'IBM Plex Sans Thai', 'Noto Sans Thai', sans-serif;
+
   --sans: -apple-system, 'Segoe UI', Roboto, 'Noto Sans Thai', Helvetica, Arial, sans-serif;
-  --serif: Georgia, 'Noto Serif Thai', 'Times New Roman', serif;
+  --serif: 'Baanrai Digits', Georgia, 'Noto Serif Thai', 'Times New Roman', serif;
+  --body: 'Plus Jakarta Sans', 'IBM Plex Sans Thai Looped', 'IBM Plex Sans Thai', -apple-system, 'Segoe UI', sans-serif;
+  --head: 'Plus Jakarta Sans', 'Anuphan', 'IBM Plex Sans Thai', -apple-system, 'Segoe UI', sans-serif;
+  --plex: var(--body);
 
   font: 18px/145% var(--sans);
   color-scheme: light;
@@ -39,15 +72,49 @@
   }
 }
 
-/* Always reserve the scrollbar's space, so pages that grow or shrink past
-   the window height (e.g. while data loads) don't shift sideways when the
-   scrollbar appears or disappears. */
+main {
+  --sans: var(--body);
+  --serif: var(--head);
+  font-family: var(--body);
+}
+
 html {
   scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(150, 22%, 62%) var(--bg);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+  background: hsl(150, 22%, 62%);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand);
+}
+
+::selection {
+  background: hsl(150, 35%, 84%);
+  color: hsl(150, 35%, 14%);
+}
+input,
+textarea {
+  caret-color: var(--brand);
 }
 
 body {
   margin: 0;
+}
+
+:where(section[id], footer[id]) {
+  scroll-margin-top: 90px;
 }
 
 #root {
@@ -83,43 +150,56 @@ img {
   display: block;
 }
 
-/* Thai: wide letter-spacing (used on small uppercase labels) splits Thai
-   vowel and tone marks from their consonants, so tighten it. */
 html:lang(th) .info-eyebrow,
 html:lang(th) .know__label,
 html:lang(th) .footer__col h2,
-html:lang(th) .admin__eyebrow,
-html:lang(th) .hero__content h1:first-child:not(:only-of-type) {
+html:lang(th) .admin__eyebrow {
   letter-spacing: 0.02em;
 }
 
-/* Visible keyboard focus everywhere, without showing rings on mouse clicks. */
 :focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 3px;
 }
 
-/* Shared entrance animation. Uses `translate` (not `transform`) so it
-   stacks with any positioning transform on the element. */
-@keyframes fade-up {
-  from {
-    opacity: 0;
-    translate: 0 24px;
+/* Bigger touch areas for small controls without changing how they look: an
+   invisible margin around each catches near-misses (many guests are older
+   and on phones). Elements here must not use ::after for anything else. */
+:is(.flow-steps button, .flow-top__back, .home-link, .room-page__back, .link-button, .stay-login__copy, .stay-search__guests button, .bk-counter button, .room-book__step button) {
+  position: relative;
+}
+:is(.flow-steps button, .flow-top__back, .home-link, .room-page__back, .link-button, .stay-login__copy, .stay-search__guests button, .bk-counter button, .room-book__step button, .password-input__eye)::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+/* Press feedback: anything you can tap gives a little the moment your finger
+   lands, before any network call, so nobody taps twice wondering. Big cards
+   give less than buttons. Rules on a component's own :active still win. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(button, [role='button'], input[type='submit'], .bk-btn):where(:not(:disabled, [aria-disabled='true'])):active {
+    scale: 0.97;
   }
-  to {
-    opacity: 1;
-    translate: 0 0;
+  :where(.room-card, .flow-tile):active {
+    scale: 0.985;
+  }
+  /* Wide rows and menu items would shrink too far; they darken instead. */
+  :where(.adm-row, .adm-nav__item, .achat__item):active {
+    scale: none;
   }
 }
 
-/* Respect the OS "reduce motion" setting: keep state changes, drop movement. */
+/* Reduced motion: nothing moves or changes size, but colour and fade changes
+   stay (W3C 2.3.3 allows them), so buttons still answer a tap. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-property: color, background-color, border-color, outline-color, opacity, box-shadow, visibility !important;
+    transition-duration: var(--dur-2) !important;
     scroll-behavior: auto !important;
   }
 }
