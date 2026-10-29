@@ -110,6 +110,15 @@ jobs:
             echo "::notice::Deploy skipped: set secrets VPS_HOST, VPS_USER, VPS_SSH_KEY and variable VPS_APP_DIR. Images are already on GHCR."
           fi
 
+      - name: Get the compose file and server scripts
+        if: steps.ready.outputs.ok == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          sparse-checkout: |
+            docker-compose.yml
+            deploy
+
       - name: SSH key
         if: steps.ready.outputs.ok == 'true'
         env:
