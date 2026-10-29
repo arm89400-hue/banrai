@@ -121,8 +121,17 @@ jobs:
           # A key copied on Windows may carry \r line endings; ssh needs plain \n.
           printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null
-          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # Checks that print only non-secret facts about the key.
+          first=$(head -n 1 ~/.ssh/deploy_key)
+          lines=$(wc -l < ~/.ssh/deploy_key)
+          if ! err=$(ssh-keygen -y -P '' -f ~/.ssh/deploy_key 2>&1 >/dev/null); then
+            echo "::error::VPS_SSH_KEY is not a usable private key (first line: '$first', $lines lines): $err. Copy the whole file again: Get-Content \$HOME\\.ssh\\baanrai_deploy -Raw | Set-Clipboard"
+            exit 1
+          fi
+          if ! ssh-keyscan -T 15 -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || ! [ -s ~/.ssh/known_hosts ]; then
+            echo "::error::Cannot reach SSH on VPS_HOST port $PORT from GitHub (check VPS_HOST and the VPS firewall)"
+            exit 1
+          fi
 
       - name: Copy the compose file and server scripts to the VPS
         if: steps.ready.outputs.ok == 'true'
