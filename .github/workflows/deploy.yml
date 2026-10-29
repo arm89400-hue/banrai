@@ -110,54 +110,67 @@ jobs:
             echo "::notice::Deploy skipped: set secrets VPS_HOST, VPS_USER, VPS_SSH_KEY and variable VPS_APP_DIR. Images are already on GHCR."
           fi
 
+      - name: SSH key and known host
+        if: steps.ready.outputs.ok == 'true'
+        env:
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+          HOST: ${{ secrets.VPS_HOST }}
+          PORT: ${{ secrets.VPS_PORT || 22 }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          # A key copied on Windows may carry \r line endings; ssh needs plain \n.
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
       - name: Copy the compose file and server scripts to the VPS
         if: steps.ready.outputs.ok == 'true'
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          source: docker-compose.yml,deploy/make-env.sh,deploy/nginx-baanrai.conf
-          target: ${{ vars.VPS_APP_DIR }}
-          overwrite: true
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+          PORT: ${{ secrets.VPS_PORT || 22 }}
+          APP_DIR: ${{ vars.VPS_APP_DIR }}
+        run: |
+          SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes"
+          $SSH "$USER@$HOST" "mkdir -p '$APP_DIR/deploy'"
+          scp -i ~/.ssh/deploy_key -P "$PORT" -o BatchMode=yes docker-compose.yml "$USER@$HOST:$APP_DIR/"
+          scp -i ~/.ssh/deploy_key -P "$PORT" -o BatchMode=yes deploy/make-env.sh deploy/nginx-baanrai.conf "$USER@$HOST:$APP_DIR/deploy/"
 
       - name: Pull and start the new images on the VPS
         if: steps.ready.outputs.ok == 'true'
-        uses: appleboy/ssh-action@v1.2.0
         env:
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+          PORT: ${{ secrets.VPS_PORT || 22 }}
           APP_DIR: ${{ vars.VPS_APP_DIR }}
           REGISTRY: ${{ env.REGISTRY }}
           TAG: ${{ needs.images.outputs.tag }}
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          envs: APP_DIR,REGISTRY,TAG
-          command_timeout: 15m
-          script: |
-            set -e
-            cd "$APP_DIR"
-            # First deploy: create .env (reuses the DB password in deploy/.env.prod,
-            # or makes a random one). Never overwrites an existing .env.
-            [ -f .env ] || sh deploy/make-env.sh
-            [ -f backend/.env ] || { echo "backend/.env missing in $APP_DIR"; exit 1; }
-            export APP_IMAGE="$REGISTRY/banrai-backend:$TAG"
-            export MIGRATOR_IMAGE="$REGISTRY/banrai-migrator:$TAG"
-            export WEB_IMAGE="$REGISTRY/banrai-frontend:$TAG"
-            # Only the "baanrai" project is touched; other sites keep running.
-            docker compose -f docker-compose.yml pull
-            docker compose -f docker-compose.yml up -d
-            API_PORT=$(sed -n 's/^API_PORT=//p' .env); API_PORT=${API_PORT:-8345}
-            for i in $(seq 1 30); do
-              if curl -fsS "http://127.0.0.1:$API_PORT/health"; then echo; echo "healthy: $TAG"; exit 0; fi
-              sleep 3
-            done
-            echo "health check failed"
-            docker compose -f docker-compose.yml ps -a
-            docker compose -f docker-compose.yml logs --tail 60 migrate backend
-            exit 1
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ServerAliveInterval=30 "$USER@$HOST" \
+            "APP_DIR='$APP_DIR' REGISTRY='$REGISTRY' TAG='$TAG' bash -s" <<'REMOTE'
+          set -e
+          cd "$APP_DIR"
+          # First deploy: create .env (reuses the DB password in deploy/.env.prod,
+          # or makes a random one). Never overwrites an existing .env.
+          [ -f .env ] || sh deploy/make-env.sh
+          [ -f backend/.env ] || { echo "backend/.env missing in $APP_DIR"; exit 1; }
+          export APP_IMAGE="$REGISTRY/banrai-backend:$TAG"
+          export MIGRATOR_IMAGE="$REGISTRY/banrai-migrator:$TAG"
+          export WEB_IMAGE="$REGISTRY/banrai-frontend:$TAG"
+          # Only the "baanrai" project is touched; other sites keep running.
+          for i in 1 2 3; do docker compose -f docker-compose.yml pull && break; echo "pull failed, retrying"; sleep 10; done
+          docker compose -f docker-compose.yml up -d
+          API_PORT=$(sed -n 's/^API_PORT=//p' .env); API_PORT=${API_PORT:-8345}
+          for i in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:$API_PORT/health"; then echo; echo "healthy: $TAG"; exit 0; fi
+            sleep 3
+          done
+          echo "health check failed"
+          docker compose -f docker-compose.yml ps -a
+          docker compose -f docker-compose.yml logs --tail 60 migrate backend
+          exit 1
+          REMOTE
 
       - name: Check the public site
         if: steps.ready.outputs.ok == 'true' && vars.SITE_URL != ''
