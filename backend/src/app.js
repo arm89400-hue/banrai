@@ -10,6 +10,7 @@ import { stayRouter } from './routes/stay.js';
 import { chatRouter } from './routes/chat.js';
 import { promotionRouter } from './routes/promotion.js';
 import { UPLOAD_DIR } from './lib/photos.js';
+import { pool } from './db/pool.js';
 import { adminAnnouncementRouter, announcementRouter } from './routes/announcement.js';
 import { adminSettingsRouter, settingsRouter } from './routes/settings.js';
 
@@ -25,7 +26,16 @@ const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
 app.use(cors({ origin: corsOrigins }));
 app.use(express.json());
 
-app.get('/health', (_req, res) => res.json({ ok: true }));
+// Health check for Docker and the deploy job: 200 only when the database
+// answers, 503 (and the app keeps running) when it does not.
+app.get('/health', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ ok: true });
+  } catch {
+    res.status(503).json({ ok: false, error: 'database unavailable' });
+  }
+});
 
 app.use('/uploads', express.static(UPLOAD_DIR, { immutable: true, maxAge: '365d', index: false }));
 

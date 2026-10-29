@@ -19,22 +19,33 @@ Frontend runs on http://localhost:5173, backend on http://localhost:4000.
 
 ## Docker
 
-Runs the whole stack - Postgres, the API, and the frontend behind nginx - in containers, no local Node or Postgres install needed.
+The same `docker-compose.yml` runs on your computer and on the server.
+Start order: `db` (healthy) -> `migrate` (applies `db/migrations`, exits 0) -> `backend` -> `frontend`.
 
-1. Make sure `backend/.env` exists (copy from `backend/.env.example` if not; `DATABASE_URL` is overridden by compose, but `JWT_SECRET` etc. are read from this file).
-2. `npm run docker:up` (or `docker compose up --build`).
+On your computer (also reads `docker-compose.override.yml`, which builds the images,
+adds sample data and opens the database on localhost:5433):
+
+1. `cp .env.example .env` and set `DB_PASSWORD`; make sure `backend/.env` exists (copy from `backend/.env.example`).
+2. `docker compose up --build -d`
 
 | Service | URL | Notes |
 |---|---|---|
-| Frontend | http://localhost:5173 | nginx serving the production build |
-| Backend | http://localhost:4000 | `/health` for a liveness check |
-| Postgres | localhost:5433 | user/pass `postgres`/`postgres`, db `test_y4` (5433, not 5432, to avoid clashing with a native Postgres install) |
+| Website | http://localhost:8344 | nginx (non-root) serving the build; `/api` is passed to the backend |
+| Backend | http://localhost:8345 | `/health`: 200 when the database answers, 503 when it does not |
+| Postgres | localhost:5433 | local only (not opened on the server) |
 
-`db/schema.sql` and `db/seed.sql` are auto-run against the Postgres container the first time its data volume is created, so it comes up already seeded. To reset it, stop the stack and drop the volume: `docker compose down -v`.
+Stop with `docker compose down` (keep the data; `down -v` deletes the database).
+Without Docker, apply database changes with `npm run migrate -w backend`.
 
-The frontend build bakes `VITE_API_URL` in at build time (Vite env vars aren't read at container runtime) - it defaults to `http://localhost:4000` since that's what your browser resolves regardless of the containers' internal network. If you publish the backend on a different host/port, rebuild with `docker compose build --build-arg VITE_API_URL=https://your-api-host frontend`.
+## Deploy (CI/CD)
 
-This is a production-style build (compiled frontend assets, no hot reload) - keep using `npm run dev` for day-to-day development.
+- `.github/workflows/ci.yml` (**CI**): lint, backend + frontend tests, and a full `docker compose` run
+  (health 200 / 503 with the database stopped / 200, non-root containers, no `.env` in images).
+- `.github/workflows/deploy.yml` (**Deploy**): after CI passes on `main`, pushes the images to GHCR
+  (`latest` and `sha-xxxxxxx`) and, when the VPS secrets are set, runs `docker compose pull && up -d`
+  on the server and checks `/health`.
+- Server setup: `sh deploy/make-env.sh` writes `.env` with a random password; host nginx config is
+  `deploy/nginx-baanrai.conf`.
 
 ## Payment
 

@@ -1,0 +1,123 @@
+# CI: checks every pull request and every push to main.
+#   lint   -> oxlint on the frontend
+#   test   -> backend tests (real Postgres), frontend tests, frontend build
+#   docker -> builds all images and runs the whole stack with docker compose,
+#             then checks it the way DEPLOY_GUIDE.md asks
+# When CI passes on main, the "Deploy" workflow starts.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint -w frontend
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Throwaway database that exists only inside this CI run.
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5433/baanrai_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Backend tests
+        working-directory: backend
+        run: npx vitest run
+      - name: Frontend tests
+        working-directory: frontend
+        run: npx vitest run
+      - name: Frontend build
+        working-directory: frontend
+        run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Settings for this test run only (random, thrown away)
+        run: |
+          printf 'DB_PASSWORD=%s\n' "$(openssl rand -hex 16)" > .env
+          sed "s/^JWT_SECRET=.*/JWT_SECRET=$(openssl rand -hex 32)/" backend/.env.example > backend/.env
+
+      - name: Build images and start the stack
+        run: docker compose up --build -d
+
+      - name: Migrator finished with exit code 0
+        run: |
+          docker compose logs migrate
+          code=$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -a -q migrate)")
+          test "$code" = 0
+
+      - name: Health 200, then 503 with the database stopped, then 200 again
+        run: |
+          check() { curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8345/health; }
+          wait_for() { for i in $(seq 1 30); do [ "$(check)" = "$1" ] && return 0; sleep 2; done; return 1; }
+          wait_for 200 && echo "db up: 200"
+          curl -fsS -o /dev/null http://127.0.0.1:8344/ && echo "website: 200"
+          curl -fsS -o /dev/null http://127.0.0.1:8344/api/rooms && echo "website -> api: 200"
+          docker compose stop db
+          wait_for 503 && echo "db down: 503"
+          test "$(docker inspect -f '{{.State.Running}}' baanrai-backend)" = true && echo "backend still running"
+          docker compose start db
+          wait_for 200 && echo "db back: 200"
+
+      - name: Containers run as non-root users
+        run: |
+          for s in backend frontend; do
+            uid=$(docker compose exec -T "$s" id -u)
+            echo "$s runs as uid $uid"
+            test "$uid" != 0
+          done
+
+      - name: No .env files inside the images
+        run: |
+          for s in backend frontend; do
+            found=$(docker compose exec -T "$s" sh -c 'find /app /usr/share/nginx -name ".env*" 2>/dev/null' || true)
+            echo "$s: ${found:-no .env files}"
+            test -z "$found"
+          done
+
+      - name: Logs if something failed
+        if: failure()
+        run: docker compose logs --tail 80
+
+      - name: Stop (volumes are kept; never "down -v")
+        if: always()
+        run: docker compose down

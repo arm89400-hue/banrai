@@ -10,6 +10,15 @@ describe('the app', () => {
     expect(res.headers['x-powered-by']).toBeUndefined();
   });
 
+  it('answers 503 from the health check while the database is down', async () => {
+    vi.spyOn(pool, 'query').mockRejectedValueOnce(new Error('db down'));
+    const res = await api().get('/health');
+    expect(res.status).toBe(503);
+    expect(res.body.ok).toBe(false);
+    const back = await api().get('/health');
+    expect(back.status).toBe(200);
+  });
+
   it('allows the local site by CORS and no other site', async () => {
     const local = await api().get('/health').set('Origin', 'http://localhost:5173');
     expect(local.headers['access-control-allow-origin']).toBe('http://localhost:5173');

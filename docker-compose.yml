@@ -1,47 +1,81 @@
+# One file for your computer and the server.
+#   Server:   docker compose -f docker-compose.yml pull && docker compose -f docker-compose.yml up -d
+#   Computer: docker compose up --build -d   (also reads docker-compose.override.yml)
+# Settings come from .env next to this file (see .env.example, or run
+# deploy/make-env.sh on the server). App secrets come from backend/.env.
+#
+# Start order: db (healthy) -> migrate (runs, exits 0) -> backend -> frontend.
+# The project name and volume names match the old deploy, so the existing
+# database and uploaded photos are kept.
+name: baanrai
+
 services:
   db:
     image: postgres:16-alpine
+    container_name: baanrai-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-      POSTGRES_DB: test_y4
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      POSTGRES_DB: ${DB_NAME:-baanrai}
     volumes:
       - db-data:/var/lib/postgresql/data
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
-    ports:
-      - "5433:5432"
+    # No ports: only the other containers can reach the database.
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 5s
       timeout: 5s
       retries: 10
 
+  migrate:
+    image: ${MIGRATOR_IMAGE:-ghcr.io/arm89400-hue/banrai-migrator:latest}
+    restart: 'no'
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/${DB_NAME:-baanrai}
+      MIGRATE_SEED: ${MIGRATE_SEED:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Photos uploaded by the old (root) container: hand them to the app's
+  # non-root user once, then exit.
+  uploads-owner:
+    image: busybox:1.36
+    restart: 'no'
+    user: root
+    command: ['chown', '-R', '1000:1000', '/app/uploads']
+    volumes:
+      - uploads:/app/uploads
+
   backend:
-    build: ./backend
+    image: ${APP_IMAGE:-ghcr.io/arm89400-hue/banrai-backend:latest}
+    container_name: baanrai-backend
     restart: unless-stopped
     env_file:
-      - ./backend/.env
+      - backend/.env
     environment:
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-postgres}@db:5432/test_y4
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/${DB_NAME:-baanrai}
+      UPLOAD_DIR: /app/uploads
+      PORT: 4000
+      HOST: 0.0.0.0
     ports:
-      - "4001:4000"
+      - '127.0.0.1:${API_PORT:-8345}:4000'
     volumes:
       - uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      uploads-owner:
+        condition: service_completed_successfully
 
   frontend:
-    build:
-      context: ./frontend
-      args:
-        VITE_API_URL: http://localhost:4001
-        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    image: ${WEB_IMAGE:-ghcr.io/arm89400-hue/banrai-frontend:latest}
+    container_name: baanrai-frontend
     restart: unless-stopped
     ports:
-      - "5173:80"
+      - '127.0.0.1:${APP_PORT:-8344}:8080'
     depends_on:
       - backend
 

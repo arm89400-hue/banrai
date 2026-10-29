@@ -1,94 +1,153 @@
-# CI: every push and pull request runs the tests and the frontend build.
-# CD: on a push to site-polish, and only if CI passed, logs in to the server
-# over SSH and rebuilds the site with Docker.
+# Deploy: runs after CI passes on main (or by hand: Actions > Deploy > Run workflow).
+#   1. build the three images and push them to GHCR (ghcr.io), tagged
+#      "latest" and "sha-xxxxxxx", using the built-in GITHUB_TOKEN
+#   2. SSH to the VPS: git pull, docker compose pull + up -d with the exact
+#      images just built, then check /health
+# Step 2 is skipped (not failed) until the VPS settings below exist.
 #
-# Secrets live in GitHub (Settings > Secrets and variables > Actions), never in
-# the repository:
-#   SSH_HOST         server address
-#   SSH_USER         SSH user on the server
-#   SSH_PRIVATE_KEY  private key whose public half is in that user's ~/.ssh/authorized_keys
-#   SSH_PORT         optional, defaults to 22
-#   DEPLOY_PATH      folder of this project on the server (the git clone)
-# The app's own settings (backend/.env, deploy/.env.prod) stay on the server only.
-
-name: CI and Deploy
+# Repository Secrets (Settings > Secrets and variables > Actions > Secrets):
+#   VPS_HOST, VPS_USER, VPS_SSH_KEY (private key), VPS_PORT (optional, 22)
+# Repository Variables (same page > Variables):
+#   VPS_APP_DIR            the app folder on the VPS (the git clone)
+#   VITE_GOOGLE_CLIENT_ID  public Google client ID baked into the website
+#   SITE_URL               optional, e.g. https://book.baanraihomestay.tech
+name: Deploy
 
 on:
-  push:
-    branches: [main, site-polish]
-  pull_request:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
 
 jobs:
-  test:
-    name: CI (tests + build)
+  images:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5433:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      # Throwaway database that exists only inside this CI run.
-      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5433/baanrai_test
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Backend tests
-        working-directory: backend
-        run: npx vitest run
-      - name: Frontend tests
-        working-directory: frontend
-        run: npx vitest run
-      - name: Frontend build
-        working-directory: frontend
-        run: npm run build
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-  deploy:
-    name: Deploy to server
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/site-polish'
-    concurrency:
-      group: deploy
-      cancel-in-progress: false
+      - id: tag
+        run: echo "tag=sha-$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          target: app
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/banrai-backend:latest
+            ${{ env.REGISTRY }}/banrai-backend:${{ steps.tag.outputs.tag }}
+
+      - name: Migrator image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          target: migrator
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/banrai-migrator:latest
+            ${{ env.REGISTRY }}/banrai-migrator:${{ steps.tag.outputs.tag }}
+
+      - name: Website image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          build-args: |
+            VITE_API_URL=
+            VITE_GOOGLE_CLIENT_ID=${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          tags: |
+            ${{ env.REGISTRY }}/banrai-frontend:latest
+            ${{ env.REGISTRY }}/banrai-frontend:${{ steps.tag.outputs.tag }}
+
+  vps:
+    needs: images
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Pull and rebuild on the server
+      - name: Is the VPS set up in GitHub?
+        id: ready
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          USER: ${{ secrets.VPS_USER }}
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+          DIR: ${{ vars.VPS_APP_DIR }}
+        run: |
+          if [ -n "$HOST" ] && [ -n "$USER" ] && [ -n "$KEY" ] && [ -n "$DIR" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Deploy skipped: set secrets VPS_HOST, VPS_USER, VPS_SSH_KEY and variable VPS_APP_DIR. Images are already on GHCR."
+          fi
+
+      - name: Pull and start the new images on the VPS
+        if: steps.ready.outputs.ok == 'true'
         uses: appleboy/ssh-action@v1.2.0
         env:
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          BRANCH: ${{ github.ref_name }}
+          APP_DIR: ${{ vars.VPS_APP_DIR }}
+          REGISTRY: ${{ env.REGISTRY }}
+          TAG: ${{ needs.images.outputs.tag }}
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          envs: DEPLOY_PATH,BRANCH
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          envs: APP_DIR,REGISTRY,TAG
+          command_timeout: 15m
           script: |
             set -e
-            cd "$DEPLOY_PATH"
-            test -f backend/.env && test -f deploy/.env.prod
-            git fetch origin "$BRANCH"
-            git checkout "$BRANCH"
-            git pull --ff-only origin "$BRANCH"
-            # Only the "baanrai" compose project is touched; other sites on the
-            # server keep running as they are.
-            docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod up -d --build
-            docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod ps
+            cd "$APP_DIR"
+            git fetch origin main
+            git checkout main
+            git pull --ff-only origin main
+            [ -f .env ] || { echo ".env missing: run  sh deploy/make-env.sh  once in $APP_DIR"; exit 1; }
+            [ -f backend/.env ] || { echo "backend/.env missing"; exit 1; }
+            export APP_IMAGE="$REGISTRY/banrai-backend:$TAG"
+            export MIGRATOR_IMAGE="$REGISTRY/banrai-migrator:$TAG"
+            export WEB_IMAGE="$REGISTRY/banrai-frontend:$TAG"
+            # -f: only this file, never docker-compose.override.yml (dev only).
+            # Only the "baanrai" project is touched; other sites keep running.
+            docker compose -f docker-compose.yml pull
+            docker compose -f docker-compose.yml up -d
+            API_PORT=$(sed -n 's/^API_PORT=//p' .env); API_PORT=${API_PORT:-8345}
+            for i in $(seq 1 30); do
+              if curl -fsS "http://127.0.0.1:$API_PORT/health"; then echo; echo "healthy: $TAG"; exit 0; fi
+              sleep 3
+            done
+            echo "health check failed"
+            docker compose -f docker-compose.yml ps -a
+            docker compose -f docker-compose.yml logs --tail 60 migrate backend
+            exit 1
+
+      - name: Check the public site
+        if: steps.ready.outputs.ok == 'true' && vars.SITE_URL != ''
+        run: curl -fsS --retry 5 --retry-delay 3 "${{ vars.SITE_URL }}/health"
