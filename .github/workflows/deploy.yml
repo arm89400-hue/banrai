@@ -110,7 +110,7 @@ jobs:
             echo "::notice::Deploy skipped: set secrets VPS_HOST, VPS_USER, VPS_SSH_KEY and variable VPS_APP_DIR. Images are already on GHCR."
           fi
 
-      - name: SSH key and known host
+      - name: SSH key
         if: steps.ready.outputs.ok == 'true'
         env:
           KEY: ${{ secrets.VPS_SSH_KEY }}
@@ -128,10 +128,6 @@ jobs:
             echo "::error::VPS_SSH_KEY is not a usable private key (first line: '$first', $lines lines): $err. Copy the whole file again: Get-Content \$HOME\\.ssh\\baanrai_deploy -Raw | Set-Clipboard"
             exit 1
           fi
-          if ! ssh-keyscan -T 15 -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || ! [ -s ~/.ssh/known_hosts ]; then
-            echo "::error::Cannot reach SSH on VPS_HOST port $PORT from GitHub (check VPS_HOST and the VPS firewall)"
-            exit 1
-          fi
 
       - name: Copy the compose file and server scripts to the VPS
         if: steps.ready.outputs.ok == 'true'
@@ -141,14 +137,21 @@ jobs:
           PORT: ${{ secrets.VPS_PORT || 22 }}
           APP_DIR: ${{ vars.VPS_APP_DIR }}
         run: |
-          SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes"
-          if ! out=$($SSH "$USER@$HOST" "mkdir -p '$APP_DIR/deploy'" 2>&1); then
-            fp=$(ssh-keygen -lf ~/.ssh/deploy_key | awk '{print $2, $3}')
-            echo "::error::SSH login failed: $(echo "$out" | tail -n 2 | tr '\n' ' ') (key fingerprint $fp, user length ${#USER})"
-            exit 1
+          # Plain ssh only (no scp/sftp): each file is streamed into place.
+          ssh_run() { ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "$USER@$HOST" "$@"; }
+          send() {
+            if ! out=$(ssh_run "cat > '$APP_DIR/$1'" < "$1" 2>&1); then
+              echo "::error::Copy of $1 failed: $(echo "$out" | tail -n 2 | tr '\n' ' ')"; exit 1
+            fi
+          }
+          if ! out=$(ssh_run "mkdir -p '$APP_DIR/deploy'" 2>&1); then
+            fp=$(ssh-keygen -lf ~/.ssh/deploy_key | awk '{print $2}')
+            echo "::error::SSH login failed: $(echo "$out" | tail -n 2 | tr '\n' ' ') (key $fp)"; exit 1
           fi
-          scp -i ~/.ssh/deploy_key -P "$PORT" -o BatchMode=yes docker-compose.yml "$USER@$HOST:$APP_DIR/"
-          scp -i ~/.ssh/deploy_key -P "$PORT" -o BatchMode=yes deploy/make-env.sh deploy/nginx-baanrai.conf "$USER@$HOST:$APP_DIR/deploy/"
+          send docker-compose.yml
+          send deploy/make-env.sh
+          send deploy/nginx-baanrai.conf
+          echo "copied to $APP_DIR"
 
       - name: Pull and start the new images on the VPS
         if: steps.ready.outputs.ok == 'true'
@@ -160,7 +163,7 @@ jobs:
           REGISTRY: ${{ env.REGISTRY }}
           TAG: ${{ needs.images.outputs.tag }}
         run: |
-          ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ServerAliveInterval=30 "$USER@$HOST" \
+          ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 "$USER@$HOST" \
             "APP_DIR='$APP_DIR' REGISTRY='$REGISTRY' TAG='$TAG' bash -s" <<'REMOTE'
           set -e
           cd "$APP_DIR"
