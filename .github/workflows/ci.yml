@@ -29,6 +29,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # package-lock.json was made on Windows and lacks oxlint's Linux binary.
+      - name: oxlint binary for Linux
+        run: npm install --no-save --no-audit --no-fund "@oxlint/binding-linux-x64-gnu@$(node -p "require('./frontend/node_modules/oxlint/package.json').version")" -w frontend
       - run: npm run lint -w frontend
 
   test:
